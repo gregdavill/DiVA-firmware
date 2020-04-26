@@ -28,11 +28,14 @@ void terminal_write(char c){
 		}
 
 		vga[x*2 + y*240*2] = c; 
-		vga[x*2 + y*240*2 + 1] = 0x02; 
+		vga[x*2 + y*240*2 + 1] = 14; 
 		x += 1;
 	}
 }
 
+
+
+uint8_t buffer[64];
 
 
 int main(int i, char **c)
@@ -44,24 +47,29 @@ int main(int i, char **c)
 	rgb_div_m_write(60000*5);
     rgb_config_write(2);
 
+
 	printf("\n\n");
-	printf("\e[1m   _____         _____             ____ ___  ___  ___ \e[0m\n");
-	printf("\e[1m  / __(_)______ / ___/__ ___ _    |_  // _ \\/ _ \\/ _ \\\e[0m\n");
-	printf("\e[1m / _// / __/ -_) /__/ _ `/  ' \\  _/_ </ // / // / // /\e[0m\n");
-	printf("\e[1m/_/ /_/_/  \\__/\\___/\\_,_/_/_/_/ /____/\\___/\\___/\\___/ \e[0m\n");
-	printf("\e[96;1m    FireFlight Dual Sensor Thermal Imager! \e[0m\n");
-	
-	printf("\n (c) Copyright 2019-2020 FireFlight Technologies \n");
-	printf(" BIOS built: "__DATE__ " " __TIME__ " \n");
+	printf("  ______    ___   __   __   _______ \n");
+	printf(" |      |  |___| |  | |  | |   _   |\n");
+	printf(" |  _    |  ___  |  |_|  | |  |_|  |\n");
+	printf(" | | |   | |   | |       | |       |\n");
+	printf(" | |_|   | |   | |       | |       |\n");
+	printf(" |       | |   |  |     |  |   _   |\n");
+	printf(" |______|  |___|   |___|   |__| |__|\n");
 
-	printf("\n");
-	printf(" Migen git sha1: "MIGEN_GIT_SHA1"\n");
-	printf(" LiteX git sha1: "LITEX_GIT_SHA1"\n");
+	printf("- Digital Video Interface for Boson -\n");
+	
+	printf("\n (c) Copyright 2019-2020 GetLabs \n");
+	printf(" fw built: "__DATE__ " " __TIME__ " \n\n");
+
+	printf("   Firmware git sha1: "DIVA_GIT_SHA1"\n");
+	printf("      Migen git sha1: "MIGEN_GIT_SHA1"\n");
+	printf("      LiteX git sha1: "LITEX_GIT_SHA1"\n");
 	printf("\n");
 	
 
-	printf("--=============== \e[1mSoC\e[0m ==================--\n");
-	printf("\e[1mCPU\e[0m:        ");
+	printf("--=============== SoC ==================--\n");
+	printf("CPU:        ");
 #ifdef __lm32__
 	printf("LM32");
 #elif __or1k__
@@ -80,34 +88,36 @@ int main(int i, char **c)
 	printf("Unknown");
 #endif
 	printf(" @ %dMHz\n", CONFIG_CLOCK_FREQUENCY/1000000);
-	printf("\e[1mROM\e[0m:        %dKB\n", ROM_SIZE/1024);
-	printf("\e[1mSRAM\e[0m:       %dKB\n", SRAM_SIZE/1024);
+	printf("ROM:        %dKB\n", ROM_SIZE/1024);
+	printf("SRAM:       %dKB\n", SRAM_SIZE/1024);
 #ifdef CONFIG_L2_SIZE
-	printf("\e[1mL2\e[0m:        %dKB\n", CONFIG_L2_SIZE/1024);
+	printf("L2:        %dKB\n", CONFIG_L2_SIZE/1024);
 #endif
 #ifdef MAIN_RAM_SIZE
-	printf("\e[1mMAIN-RAM\e[0m:   %dKB\n", MAIN_RAM_SIZE/1024);
+	printf("MAIN-RAM:   %dKB\n", MAIN_RAM_SIZE/1024);
 #endif
 
-//	printf("\e[1mHYPERRAM0\e[0m:  %dKB\n", HYPERRAM0_SIZE/1024);
+#ifdef HYPERRAM_BASE
+	printf("HYPERRAM:   %dKB\n", HYPERRAM0_SIZE/1024);
+#endif
 //	printf("\e[1mHYPERRAM1\e[0m:  %dKB\n", HYPERRAM1_SIZE/1024);
 	printf("\n");
 
 
-    printf("--========== \e[1mInitialization\e[0m ============--\n");
-//	hyperram_init();
+    printf("--========== Initialization ============--\n");
+#ifdef HYPERRAM_BASE
+	hyperram_init();
+	#endif
 
 //	memtest((unsigned int*)HYPERRAM0_BASE);
 //	memtest((unsigned int*)HYPERRAM1_BASE);
 	printf("\n");
 
-
-
-	printf("> ");
-	msleep(10);
-
-    while (1) {
-
-    }
+    printf("--============= \e[1mConsole\e[0m ================--\n");
+    while(1) {
+		putsnonl("\e[92;1mFireCam\e[0m> ");
+		readstr(buffer, 64);
+		do_command(buffer);
+	}
 	return 0;
 }

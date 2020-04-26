@@ -3,7 +3,7 @@ include $(SOC_DIRECTORY)/software/common.mak
 
 CFLAGS += -fpack-struct -O3
 
-OBJECTS=isr.o main.o time.o
+OBJECTS=isr.o main.o time.o hyperram.o console.o
 
 all: DiVA-fw.bin size
 

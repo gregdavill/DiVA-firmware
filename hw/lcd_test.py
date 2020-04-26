@@ -2,6 +2,7 @@
 import sys
 import argparse
 import optparse
+import subprocess
 
 from migen import *
 import orangecrab
@@ -132,6 +133,17 @@ class DiVA_SoC(SoCCore):
             hdmi.g.eq(terminal.green),
             hdmi.b.eq(terminal.blue),
         ]
+
+        # Add git version into firmware 
+        def get_git_revision():
+            try:
+                r = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"],
+                        stderr=subprocess.DEVNULL)[:-1].decode("utf-8")
+            except:
+                r = "--------"
+            return r
+        self.add_constant("DIVA_GIT_SHA1", get_git_revision())
+
 
     def PackageFirmware(self, builder):  
         self.finalize()

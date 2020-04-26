@@ -40,8 +40,9 @@ void hyperram_init(){
 	int i = 0;
 	for(i = 0; i < 256; i++){
 		int pass = 0;
-		pass += basic_memtest(HYPERRAM0_BASE);
-		pass += basic_memtest(HYPERRAM1_BASE);
+#ifdef HYPERRAM_BASE
+		pass += basic_memtest(HYPERRAM_BASE);
+#endif
 
 		// Shift our PLL up
 		crg_phase_sel_write(0);
@@ -148,8 +149,11 @@ static int memtest_bus(volatile unsigned int *array)
 	return errors;
 }
 
-
-#define MEMTEST_DATA_SIZE HYPERRAM0_SIZE
+#ifdef HYPERRAM_SIZE
+#define MEMTEST_DATA_SIZE HYPERRAM_SIZE
+#else
+#define MEMTEST_DATA_SIZE (1024*8)
+#endif
 
 #ifndef MEMTEST_DATA_SIZE
 #define MEMTEST_DATA_SIZE (2*1024*1024)
