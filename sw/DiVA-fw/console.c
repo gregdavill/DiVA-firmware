@@ -166,16 +166,6 @@ void do_command(char *c)
 #ifdef CSR_CTRL_BASE
 	else if(strcmp(token, "reboot") == 0) reboot();
 #endif
-	else if(strcmp(token, "transmit") == 0) {
-		transmit(1, 9001);
-		transmit(2, 9002);
-	}
-    else if(strcmp(token, "eth_reg") == 0) ethphy_reg_dump();
-	else if(strcmp(token, "loop") == 0) loop();
-	else if(strcmp(token, "f_time") == 0) f_time();
-
-//	else if(strcmp(token, "help") == 0) help();
-
 	else if(strcmp(token, "") != 0)
 		printf("Command not found\n");
 }

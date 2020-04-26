@@ -1,14 +1,9 @@
 include ../include/generated/variables.mak
 include $(SOC_DIRECTORY)/software/common.mak
 
-# Permit TFTP_SERVER_PORT override from shell environment / command line
-ifdef TFTP_SERVER_PORT
-CFLAGS += -DTFTP_SERVER_PORT=$(TFTP_SERVER_PORT)
-endif
-
 CFLAGS += -fpack-struct -O3
 
-OBJECTS=isr.o main.o
+OBJECTS=isr.o main.o time.o
 
 all: DiVA-fw.bin size
 

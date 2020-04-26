@@ -7,10 +7,15 @@ from litex.build.lattice import LatticePlatform
 # IOs ----------------------------------------------------------------------------------------------
 
 _io = [
-    ("clk48", 0, Pins("M1"), IOStandard("LVCMOS18")),
+    ("clk48", 0, Pins("M1"),  IOStandard("LVCMOS18")),
     ("rst_n", 0, Pins("V17"), IOStandard("LVCMOS33")),
 
-    ("led", 0, Pins("J17"), IOStandard("LVCMOS33")),
+
+    ("rgb_led", 0,
+        Subsignal("r", Pins("L16"), IOStandard("LVCMOS33")),
+        Subsignal("g", Pins("J16"), IOStandard("LVCMOS33")),
+        Subsignal("b", Pins("J17"), IOStandard("LVCMOS33")),
+    ),
 
     ("hdmi", 0,
         Subsignal("p", Pins("J18 H17 K17 F17"), IOStandard("LVCMOS33"), Misc("SLEWRATE=SLOW")),
@@ -27,7 +32,7 @@ _io = [
     ),
     ("spiflash4x", 0,
         Subsignal("cs_n", Pins("U17"), IOStandard("LVCMOS33")),
-        #Subsignal("clk",  Pins("R17"), IOStandard("LVCMOS33")),
+        #Subsignal("clk",  Pins("U16"), IOStandard("LVCMOS33")),
         Subsignal("dq",   Pins("U18 T18 R18 N18"), IOStandard("LVCMOS33")),
     ),
 

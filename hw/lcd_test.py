@@ -28,6 +28,7 @@ from litex.soc.integration.builder import *
 
 
 from litex.soc.cores.gpio import GPIOOut
+from rgb_led import RGB
 #from hyperRAM.hyperbus_fast import HyperRAM
 #from dma.dma import StreamWriter, StreamReader, dummySink, dummySource
 
@@ -78,7 +79,8 @@ class _CRG(Module, AutoCSR):
 
 class DiVA_SoC(SoCCore):
     csr_map = {
-        "crg"        :  21, 
+        "rgb"        :  10, 
+        "crg"        :  11, 
     }
     csr_map.update(SoCCore.csr_map)
 
@@ -108,6 +110,8 @@ class DiVA_SoC(SoCCore):
 
         # crg
         self.submodules.crg = _CRG(platform, sys_clk_freq)
+
+        self.submodules.rgb = RGB(platform.request("rgb_led"))
         
         ## HDMI output 
         hdmi_pins = platform.request('hdmi')
@@ -116,7 +120,7 @@ class DiVA_SoC(SoCCore):
         ## Create VGA terminal
         #mem_map["terminal"] = 0x30000000
         self.submodules.terminal = terminal = ClockDomainsRenamer({'vga':'sys'})(Terminal())
-        #self.add_wb_slave(mem_decoder(0x30000000), self.terminal.bus)
+        self.register_mem("terminal", self.mem_map["terminal"], terminal.bus, size=0x100000)
         #self.add_memory_region("terminal", 0x30000000, 0x100000)
 
         ## Connect VGA pins

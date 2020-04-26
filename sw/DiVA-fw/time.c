@@ -1,6 +1,8 @@
 #include <generated/csr.h>
 #include <time.h>
 
+void msleep(int);
+
 void msleep(int ms)
 {
         timer0_en_write(0);
