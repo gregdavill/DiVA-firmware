@@ -35,6 +35,8 @@ from litex.soc.interconnect import wishbone
 from litex.soc.cores.gpio import GPIOOut
 from rgb_led import RGB
 from hyperram import HyperRAM
+
+from serv import serv
 #from hyperRAM.hyperbus_fast import HyperRAM
 #from dma.dma import StreamWriter, StreamReader, dummySink, dummySource
 
@@ -101,18 +103,45 @@ class DiVA_SoC(SoCCore):
     interrupt_map.update(SoCCore.interrupt_map)
 
 
+
+    def add_cpu(self, name, variant, reset_address=None):
+
+        from litex.soc.integration.soc import SoCIORegion    
+        # Add CPU
+        self.submodules.cpu = serv(self.platform)
+        self.cpu.add_sources(self.platform)
+
+        # Update SoC with CPU constraints
+        for n, (origin, size) in enumerate(self.cpu.io_regions.items()):
+            self.bus.add_region("io{}".format(n), SoCIORegion(origin=origin, size=size, cached=False))
+        self.mem_map.update(self.cpu.mem_map) # FIXME
+        self.csr.update_alignment(self.cpu.data_width)
+        # Add Bus Masters/CSR/IRQs
+        reset_address = self.mem_map["rom"]
+        self.cpu.set_reset_address(reset_address)
+        for n, cpu_bus in enumerate(self.cpu.buses):
+            self.bus.add_master(name="cpu_bus{}".format(n), master=cpu_bus)
+        self.csr.add("cpu", use_loc_if_exists=True)
+        for name, loc in self.cpu.interrupts.items():
+            self.irq.add(name, loc)
+        if hasattr(self, "ctrl"):
+            self.comb += self.cpu.reset.eq(self.ctrl.reset)
+        self.add_config("CPU_RESET_ADDR", reset_address)
+        # Add constants
+        self.add_config("CPU_TYPE",    str(name))
+        self.add_config("CPU_VARIANT", str(variant.split('+')[0]))
+
     def __init__(self):
 
         self.platform = platform = orangecrab.Platform()
         
         sys_clk_freq = int(75e6)
         SoCCore.__init__(self, platform, clk_freq=sys_clk_freq,
-                          cpu_type='vexriscv', cpu_variant='lite', with_uart=True, uart_name='crossover',
+                          cpu_type='serv', cpu_variant=None, with_uart=True, uart_name='crossover',
                           csr_data_width=32,
                           ident="HyperRAM Test SoC", ident_version=True, wishbone_timeout_cycles=128,
                           integrated_rom_size=16*1024)
-
-
+    
         # crg
         self.submodules.crg = _CRG(platform, sys_clk_freq)
 

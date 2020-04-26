@@ -102,7 +102,7 @@ int main(int i, char **c)
 
     printf("--============= \e[1mConsole\e[0m ================--\n");
     while(1) {
-		putsnonl("\e[92;1mFireCam\e[0m> ");
+		putsnonl("DiVA> ");
 		readstr(buffer, 64);
 		do_command(buffer);
 	}

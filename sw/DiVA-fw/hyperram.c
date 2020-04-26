@@ -38,7 +38,9 @@ void hyperram_init(){
 
 	int window = 0;
 	int i = 0;
-	for(i = 0; i < 1024; i++){
+	printf("|");
+	for(i = 0; i < 512; i++){
+
 		int pass = basic_memtest(HYPERRAM_BASE);
 
 		// Shift our PLL up
@@ -47,7 +49,7 @@ void hyperram_init(){
 		crg_phase_step_write(0);
 		crg_phase_step_write(1);
 
-	    printf("%c", pass + '0');
+	    printf("%c", pass > 0 ? '0' : '-');
 
 		if(pass == 1){
 			window++;
@@ -61,6 +63,7 @@ void hyperram_init(){
 		}
 
 	}
+	printf("|\n");
 	printf("Window: %u, steps:%u\n", window, i);
 
 	for(i = 0; i < window/2; i++){
@@ -155,7 +158,7 @@ static int memtest_bus(volatile unsigned int *array)
 #ifndef MEMTEST_DATA_SIZE
 #define MEMTEST_DATA_SIZE (2*1024*1024)
 #endif
-#define MEMTEST_DATA_RANDOM 1
+#define MEMTEST_DATA_RANDOM 0
 
 //#define MEMTEST_DATA_DEBUG
 
