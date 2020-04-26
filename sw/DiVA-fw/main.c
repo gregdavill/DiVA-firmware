@@ -71,7 +71,7 @@ int main(int i, char **c)
 	printf("--=============== SoC ==================--\n");
 	printf("CPU:        ");
 #ifdef __vexriscv__
-	printf("VexRiscv");
+	printf("SERV");
 #else
 	printf("Unknown");
 #endif
