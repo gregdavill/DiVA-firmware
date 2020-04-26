@@ -1,0 +1,3 @@
+[submodule "hw/deps/serv"]
+	path = hw/deps/serv
+	url = https://github.com/olofk/serv.git
