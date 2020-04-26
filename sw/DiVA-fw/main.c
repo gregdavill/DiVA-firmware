@@ -70,20 +70,8 @@ int main(int i, char **c)
 
 	printf("--=============== SoC ==================--\n");
 	printf("CPU:        ");
-#ifdef __lm32__
-	printf("LM32");
-#elif __or1k__
-	printf("MOR1KX");
-#elif __picorv32__
-	printf("PicoRV32");
-#elif __vexriscv__
+#ifdef __vexriscv__
 	printf("VexRiscv");
-#elif __minerva__
-	printf("Minerva");
-#elif __rocket__
-	printf("RocketRV64[imac]");
-#elif __blackparrot__
-		printf("BlackParrotRV64[ia]");
 #else
 	printf("Unknown");
 #endif
@@ -98,7 +86,7 @@ int main(int i, char **c)
 #endif
 
 #ifdef HYPERRAM_BASE
-	printf("HYPERRAM:   %dKB\n", HYPERRAM0_SIZE/1024);
+	printf("HYPERRAM:   %dKB\n", HYPERRAM_SIZE/1024);
 #endif
 //	printf("\e[1mHYPERRAM1\e[0m:  %dKB\n", HYPERRAM1_SIZE/1024);
 	printf("\n");
@@ -107,10 +95,9 @@ int main(int i, char **c)
     printf("--========== Initialization ============--\n");
 #ifdef HYPERRAM_BASE
 	hyperram_init();
-	#endif
+#endif
 
-//	memtest((unsigned int*)HYPERRAM0_BASE);
-//	memtest((unsigned int*)HYPERRAM1_BASE);
+	memtest((unsigned int*)HYPERRAM_BASE);
 	printf("\n");
 
     printf("--============= \e[1mConsole\e[0m ================--\n");

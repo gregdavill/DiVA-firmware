@@ -8,6 +8,8 @@ from migen import *
 import orangecrab
 
 
+from math import log2, ceil
+
 import os
 import shutil
 from hdmi import HDMI
@@ -28,8 +30,11 @@ from litex.soc.integration.soc import SoCRegion
 from litex.soc.integration.builder import *
 
 
+from litex.soc.interconnect import wishbone
+
 from litex.soc.cores.gpio import GPIOOut
 from rgb_led import RGB
+from hyperram import HyperRAM
 #from hyperRAM.hyperbus_fast import HyperRAM
 #from dma.dma import StreamWriter, StreamReader, dummySink, dummySource
 
@@ -86,8 +91,7 @@ class DiVA_SoC(SoCCore):
     csr_map.update(SoCCore.csr_map)
 
     mem_map = {
-        "hyperram0" : 0x10000000,
-        "hyperram1" : 0x11000000,
+        "hyperram"  : 0x10000000,
         "terminal"  : 0x30000000,
     }
     mem_map.update(SoCCore.mem_map)
@@ -114,6 +118,11 @@ class DiVA_SoC(SoCCore):
 
         self.submodules.rgb = RGB(platform.request("rgb_led"))
         
+        # HyperRAM
+        self.submodules.hyperram = HyperRAM(platform.request("hyperRAM"))
+        self.add_wb_slave(self.mem_map["hyperram"], self.hyperram.bus)
+        self.add_memory_region("hyperram", self.mem_map["hyperram"], 0x800000)
+
         ## HDMI output 
         hdmi_pins = platform.request('hdmi')
         self.submodules.hdmi = hdmi =  HDMI(platform, hdmi_pins)

@@ -38,11 +38,8 @@ void hyperram_init(){
 
 	int window = 0;
 	int i = 0;
-	for(i = 0; i < 256; i++){
-		int pass = 0;
-#ifdef HYPERRAM_BASE
-		pass += basic_memtest(HYPERRAM_BASE);
-#endif
+	for(i = 0; i < 1024; i++){
+		int pass = basic_memtest(HYPERRAM_BASE);
 
 		// Shift our PLL up
 		crg_phase_sel_write(0);
@@ -50,13 +47,13 @@ void hyperram_init(){
 		crg_phase_step_write(0);
 		crg_phase_step_write(1);
 
-		//printf("%c", pass + '0');
+	    printf("%c", pass + '0');
 
-		if(pass == 2){
+		if(pass == 1){
 			window++;
 		}
-		else if(pass != 2){
-			if(window > 4){
+		else if(pass != 1){
+			if(window > 8){
 				break;
 			}else {
 				window = 0;

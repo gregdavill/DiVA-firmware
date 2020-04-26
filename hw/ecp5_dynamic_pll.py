@@ -173,6 +173,6 @@ class ECP5PLL(Module):
             self.params["p_CLKO{}_ENABLE".format(n_to_l[n])] = "ENABLED"
             self.params["p_CLKO{}_DIV".format(n_to_l[n])]    = div
             self.params["p_CLKO{}_FPHASE".format(n_to_l[n])] = 1
-            self.params["p_CLKO{}_CPHASE".format(n_to_l[n])] = cphase
+            self.params["p_CLKO{}_CPHASE".format(n_to_l[n])] = 1
             self.params["o_CLKO{}".format(n_to_l[n])]        = clk
         self.specials += Instance("EHXPLLL", **self.params)
