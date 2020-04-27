@@ -40,15 +40,15 @@ class StreamableHyperRAM(Module, AutoCSR):
         self.submodules.arbiter = Arbiter([reader.bus, writer.bus], hyperram.bus)
         #self.submodules.p2p = InterconnectPointToPoint(reader.bus, hyperram.bus)   
 
-        
+        self.clear = CSR(1)
 
         self.submodules.source = CSRSource()
         self.submodules.sink = CSRSink()
         
 
 
-        self.submodules.sink_fifo = sink_fifo = SyncFIFO([("data", 32)], 8, buffered=True)
-        self.submodules.source_fifo = source_fifo = SyncFIFO([("data", 32)], 8, buffered=True)
+        self.submodules.sink_fifo = sink_fifo = ResetInserter()(SyncFIFO([("data", 32)], 8, buffered=True))
+        self.submodules.source_fifo = source_fifo = ResetInserter()(SyncFIFO([("data", 32)], 8, buffered=True))
 
         self.comb += [
             self.source.source.connect(source_fifo.sink),
@@ -57,6 +57,9 @@ class StreamableHyperRAM(Module, AutoCSR):
 
             writer.source.connect(sink_fifo.sink),
             sink_fifo.source.connect(self.sink.sink),
+
+            sink_fifo.reset.eq(self.clear.re),
+            source_fifo.reset.eq(self.clear.re),
         ]
 
     
@@ -80,18 +83,18 @@ class TestWriter(unittest.TestCase):
         def write(dut):
             source = dut.source
             dut = dut.reader
-            yield from dut._burst_size.write(2)
-            yield from dut._start_address.write(0)
-            yield from dut._transfer_size.write(4)
-            yield from dut._enable.write(1)
-            yield
-            yield from write_stream(source.source,0xAA55BEEF)
-            for i in range(32):
-                yield from write_stream(source.source, 1 << i)
-            yield
+
+            for j in range(2):
+                yield from dut._burst_size.write(1)
+                yield from dut._start_address.write(0)
+                yield from dut._transfer_size.write(90)
+                yield from dut._enable.write(1)
+                yield
+                yield from write_stream(source.source,0xAA55BEEF)
+                yield
 
         def logger(dut):
-            for i in range(32):
+            for i in range(128):
                 yield
                     
         hyperram_pads = Record([

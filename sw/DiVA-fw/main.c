@@ -41,28 +41,29 @@ uint8_t buffer[64];
 uint32_t test_write(uint32_t a){
 	uint32_t b = 0;
 
-	test_reader_transfer_size_write(4);
-	test_reader_burst_size_write(90);
+	test_clear_write(1);
+
+
+	test_reader_transfer_size_write(1);
+	test_reader_burst_size_write(1);
 	test_reader_start_address_write(0x0);
 
-	test_writer_transfer_size_write(4);
-	test_writer_burst_size_write(90);
+	test_writer_transfer_size_write(1);
+	test_writer_burst_size_write(1);
 	test_writer_start_address_write(0x0);
 
-	printf("\n  reader.busy = %d\n", test_reader_busy_read());
-	test_reader_enable_write(0);
 
+
+
+	test_reader_enable_write(1);
 	test_source_data_write(a);
-	for(int i = 0; i < 32; i++)
-	test_source_data_write('A');
+
+
 
 	test_writer_enable_write(1);
+	//while(test_writer_busy_read() == 1);
 
-while(test_sink_ready_read()){
-	printf("\n sink.data = %08X\n", test_sink_data_read());
-}
-
-	
+	return test_sink_data_read();	
 }
 
 
@@ -114,28 +115,18 @@ int main(int i, char **c)
 	printf("MAIN-RAM:   %dKB\n", MAIN_RAM_SIZE/1024);
 #endif
 
-#ifdef HYPERRAM_BASE
-	printf("HYPERRAM:   %dKB\n", HYPERRAM_SIZE/1024);
-#endif
-//	printf("\e[1mHYPERRAM1\e[0m:  %dKB\n", HYPERRAM1_SIZE/1024);
+	printf("HYPERRAM:   %dKB\n", (0x800000)/1024);
 	printf("\n");
 
 
     printf("--========== Initialization ============--\n");
-#ifdef HYPERRAM_BASE
 	hyperram_init();
 
-	memtest((unsigned int*)HYPERRAM_BASE);
-#endif
+//	memtest((unsigned int*)HYPERRAM_BASE);
 	printf("\n");
 
 
-	for(int i = 0; i < 6; i++){
-		crg_phase_sel_write(0);
-		crg_phase_dir_write(1);
-		crg_phase_step_write(0);
-		crg_phase_step_write(1);
-	}
+
 	
 	test_write(0xDEADBEEF);
     printf("--============= \e[1mConsole\e[0m ================--\n");
