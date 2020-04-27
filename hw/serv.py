@@ -123,10 +123,6 @@ class serv(CPU, AutoCSR):
         self.cpu_params = dict(
                 i_clk=ClockSignal(),
                 i_i_rst=ResetSignal() | self.reset,
-
-                #i_externalInterruptArray = self.interrupt,
-                #i_timerInterrupt         = 0,
-                #i_softwareInterrupt      = 0,
                 i_i_timer_irq     = 0,
 
                 o_o_ibus_adr      = i_addr,
@@ -162,15 +158,12 @@ class serv(CPU, AutoCSR):
 
     @staticmethod
     def add_sources(platform, variant="standard"):
-        vdir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "deps/serv/rtl")
-        sources = ["ser_shift.v" ,"serv_alu.v" ,"serv_bufreg.v" ,"serv_csr.v" ,
-            "serv_ctrl.v" ,"serv_decode.v" ,"serv_mem_if.v" ,"serv_params.vh" ,"serv_rf_if.v" ,
-            "serv_rf_ram_if.v" ,"serv_rf_ram.v" ,"serv_rf_top.v" ,"serv_state.v" ,"serv_top.v" ,"shift_reg.v"]
-        for s in sources:
-            platform.add_source(os.path.join(vdir, s))
+        vdir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "deps","serv","rtl")
+        platform.add_source_dir(vdir)
+        platform.add_verilog_include_path(vdir)
 
 
     def do_finalize(self):
         assert hasattr(self, "reset_address")
-        self.cpu_params.update(p_RF_WIDTH=32)
+        #self.cpu_params.update(p_RF_WIDTH=32)
         self.specials += Instance("serv_rf_top", **self.cpu_params)

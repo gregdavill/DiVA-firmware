@@ -94,10 +94,10 @@ int main(int i, char **c)
 
     printf("--========== Initialization ============--\n");
 #ifdef HYPERRAM_BASE
-	hyperram_init();
+	//hyperram_init();
 #endif
 
-	memtest((unsigned int*)HYPERRAM_BASE);
+	//memtest((unsigned int*)HYPERRAM_BASE);
 	printf("\n");
 
     printf("--============= \e[1mConsole\e[0m ================--\n");

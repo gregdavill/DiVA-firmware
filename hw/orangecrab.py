@@ -18,17 +18,17 @@ _io = [
     ),
 
     ("hdmi", 0,
-        Subsignal("p", Pins("J18 H17 K17 F17"), IOStandard("LVCMOS33"), Misc("SLEWRATE=SLOW")),
-        Subsignal("n", Pins("K18 G18 L18 F16"), IOStandard("LVCMOS33"), Misc("SLEWRATE=SLOW")),
+        Subsignal("p", Pins("J18 G18 K17 F17"), IOStandard("LVCMOS33D"), Misc("SLEWRATE=SLOW")),
+        #Subsignal("n", Pins("K18 H17 L18 F16"), IOStandard("LVCMOS33"), Misc("SLEWRATE=SLOW")),
     ),
 
     ("hyperRAM", 0,
         Subsignal("rst_n",     Pins("F4"),       IOStandard("LVCMOS18"),Misc("SLEWRATE=FAST")),    
-        Subsignal("clk_p",     Pins("G4"),     IOStandard("LVCMOS18"),Misc("SLEWRATE=FAST")),
-        Subsignal("clk_n",     Pins("H4"),     IOStandard("LVCMOS18"),Misc("SLEWRATE=FAST")),
+        Subsignal("clk_p",     Pins("G4"),       IOStandard("LVCMOS18"),Misc("SLEWRATE=FAST")),
+        Subsignal("clk_n",     Pins("H4"),       IOStandard("LVCMOS18"),Misc("SLEWRATE=FAST")),
         Subsignal("cs_n",      Pins("F3"),       IOStandard("LVCMOS18"),Misc("SLEWRATE=FAST")),
         Subsignal("dq",        Pins("K4 L4 J3 K3 L1 M3 N4 N3"),     IOStandard("LVCMOS18"),Misc("SLEWRATE=FAST")),
-        Subsignal("rwds",       Pins("H3"),     IOStandard("LVCMOS18"),Misc("SLEWRATE=FAST")),
+        Subsignal("rwds",       Pins("H3"),      IOStandard("LVCMOS18"),Misc("SLEWRATE=FAST")),
     ),
 
     ("spiflash", 0,

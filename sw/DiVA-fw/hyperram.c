@@ -14,6 +14,8 @@
 #include <generated/mem.h>
 #include <generated/git.h>
 
+#ifdef HYPERRAM_BASE
+
 /* 
 	Test memory location by writing a value and attempting read-back.
 	Try twice to avoid situation where memory is read-only and set from a previous test.
@@ -302,3 +304,5 @@ int memtest(volatile unsigned int *array)
 		return 1;
 	}
 }
+
+#endif

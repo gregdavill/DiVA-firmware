@@ -36,6 +36,8 @@ from litex.soc.cores.gpio import GPIOOut
 from rgb_led import RGB
 from hyperram import HyperRAM
 
+from wishbone_stream import StreamReader, StreamWriter
+
 from serv import serv
 #from hyperRAM.hyperbus_fast import HyperRAM
 #from dma.dma import StreamWriter, StreamReader, dummySink, dummySource
@@ -46,9 +48,10 @@ from litex.soc.interconnect.csr import *
 
 class _CRG(Module, AutoCSR):
     def __init__(self, platform, sys_clk_freq):
-        self.clock_domains.cd_sys_shift = ClockDomain()
         self.clock_domains.cd_sys = ClockDomain()
         self.clock_domains.cd_shift = ClockDomain()
+        self.clock_domains.cd_ram = ClockDomain()
+        self.clock_domains.cd_ram_shift = ClockDomain()
         
         pixel_clock = 75e6
 
@@ -60,12 +63,17 @@ class _CRG(Module, AutoCSR):
         self.submodules.pll = pll = ECP5PLL()
         pll.register_clkin(clk48, 48e6)
         pll.create_clkout(self.cd_sys, pixel_clock, margin=0)
-        pll.create_clkout(self.cd_sys_shift, sys_clk_freq, phase=1, margin=0)
         pll.create_clkout(self.cd_shift, pixel_clock * 5, margin=0)
+
+
+        self.submodules.ram_pll = ram_pll = ECP5PLL()
+        ram_pll.register_clkin(clk48, 48e6)
+        ram_pll.create_clkout(self.cd_ram, 165e6, margin=0)
+        ram_pll.create_clkout(self.cd_ram_shift, 165e6, phase=1, margin=0)
 
         self.specials += [
             AsyncResetSynchronizer(self.cd_sys, ~pll.locked),
-            AsyncResetSynchronizer(self.cd_sys_shift, ~pll.locked),
+            #AsyncResetSynchronizer(self.cd_sys_shift, ~pll.locked),
             AsyncResetSynchronizer(self.cd_shift, ~pll.locked)
         ]
 
@@ -78,10 +86,10 @@ class _CRG(Module, AutoCSR):
         self._phase_load = CSRStorage()
 
         self.comb += [
-            self.pll.phase_sel.eq(self._phase_sel.storage),
-            self.pll.phase_dir.eq(self._phase_dir.storage),
-            self.pll.phase_step.eq(self._phase_step.storage),
-            self.pll.phase_load.eq(self._phase_load.storage),
+            self.ram_pll.phase_sel.eq(self._phase_sel.storage),
+            self.ram_pll.phase_dir.eq(self._phase_dir.storage),
+            self.ram_pll.phase_step.eq(self._phase_step.storage),
+            self.ram_pll.phase_load.eq(self._phase_load.storage),
         ]
 
 
@@ -148,9 +156,19 @@ class DiVA_SoC(SoCCore):
         self.submodules.rgb = RGB(platform.request("rgb_led"))
         
         # HyperRAM
-        self.submodules.hyperram = HyperRAM(platform.request("hyperRAM"))
-        self.add_wb_slave(self.mem_map["hyperram"], self.hyperram.bus)
-        self.add_memory_region("hyperram", self.mem_map["hyperram"], 0x800000)
+        hyperram = ClockDomainsRenamer({'sys':'ram', 'sys_shift':'ram_shift'})(HyperRAM(platform.request("hyperRAM")))
+        self.submodules += hyperram
+
+        stream_reader = ClockDomainsRenamer({'sys':'ram'})(StreamReader())
+        self.submodules += stream_reader
+
+        self.comb += [
+            hyperram.bus.connect(stream_reader.bus)
+        ]
+
+        #self.add_wb_slave(self.mem_map["hyperram"], hyperram.bus)
+        #self.add_memory_region("hyperram", self.mem_map["hyperram"], 0x800000)
+
 
         ## HDMI output 
         hdmi_pins = platform.request('hdmi')

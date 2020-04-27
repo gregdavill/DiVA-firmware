@@ -68,7 +68,7 @@ class HDMI(Module):
             i_in_green=tmds[1],
             i_in_blue=tmds[0],
             o_out_p=pins.p,
-            o_out_n=pins.n,
+            #o_out_n=pins.n,
 
             i_move=0,
             i_loadn=0,
