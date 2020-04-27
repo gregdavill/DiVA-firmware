@@ -49,11 +49,12 @@ from litex.soc.interconnect.csr import *
 class _CRG(Module, AutoCSR):
     def __init__(self, platform, sys_clk_freq):
         self.clock_domains.cd_sys = ClockDomain()
+        self.clock_domains.cd_sys_shift = ClockDomain()
         self.clock_domains.cd_shift = ClockDomain()
         self.clock_domains.cd_ram = ClockDomain()
         self.clock_domains.cd_ram_shift = ClockDomain()
         
-        pixel_clock = 75e6
+        pixel_clock = (75e6)
 
         # # #
 
@@ -63,6 +64,7 @@ class _CRG(Module, AutoCSR):
         self.submodules.pll = pll = ECP5PLL()
         pll.register_clkin(clk48, 48e6)
         pll.create_clkout(self.cd_sys, pixel_clock, margin=0)
+        pll.create_clkout(self.cd_sys_shift, pixel_clock, phase=1, margin=0)
         pll.create_clkout(self.cd_shift, pixel_clock * 5, margin=0)
 
 
@@ -86,10 +88,10 @@ class _CRG(Module, AutoCSR):
         self._phase_load = CSRStorage()
 
         self.comb += [
-            self.ram_pll.phase_sel.eq(self._phase_sel.storage),
-            self.ram_pll.phase_dir.eq(self._phase_dir.storage),
-            self.ram_pll.phase_step.eq(self._phase_step.storage),
-            self.ram_pll.phase_load.eq(self._phase_load.storage),
+            self.pll.phase_sel.eq(self._phase_sel.storage),
+            self.pll.phase_dir.eq(self._phase_dir.storage),
+            self.pll.phase_step.eq(self._phase_step.storage),
+            self.pll.phase_load.eq(self._phase_load.storage),
         ]
 
 
@@ -110,42 +112,13 @@ class DiVA_SoC(SoCCore):
     }
     interrupt_map.update(SoCCore.interrupt_map)
 
-
-
-    def add_cpu(self, name, variant, reset_address=None):
-
-        from litex.soc.integration.soc import SoCIORegion    
-        # Add CPU
-        self.submodules.cpu = serv(self.platform)
-        self.cpu.add_sources(self.platform)
-
-        # Update SoC with CPU constraints
-        for n, (origin, size) in enumerate(self.cpu.io_regions.items()):
-            self.bus.add_region("io{}".format(n), SoCIORegion(origin=origin, size=size, cached=False))
-        self.mem_map.update(self.cpu.mem_map) # FIXME
-        self.csr.update_alignment(self.cpu.data_width)
-        # Add Bus Masters/CSR/IRQs
-        reset_address = self.mem_map["rom"]
-        self.cpu.set_reset_address(reset_address)
-        for n, cpu_bus in enumerate(self.cpu.buses):
-            self.bus.add_master(name="cpu_bus{}".format(n), master=cpu_bus)
-        self.csr.add("cpu", use_loc_if_exists=True)
-        for name, loc in self.cpu.interrupts.items():
-            self.irq.add(name, loc)
-        if hasattr(self, "ctrl"):
-            self.comb += self.cpu.reset.eq(self.ctrl.reset)
-        self.add_config("CPU_RESET_ADDR", reset_address)
-        # Add constants
-        self.add_config("CPU_TYPE",    str(name))
-        self.add_config("CPU_VARIANT", str(variant.split('+')[0]))
-
     def __init__(self):
 
         self.platform = platform = orangecrab.Platform()
         
         sys_clk_freq = int(75e6)
         SoCCore.__init__(self, platform, clk_freq=sys_clk_freq,
-                          cpu_type='serv', cpu_variant=None, with_uart=True, uart_name='crossover',
+                          cpu_type='serv', with_uart=True, uart_name='stub',
                           csr_data_width=32,
                           ident="HyperRAM Test SoC", ident_version=True, wishbone_timeout_cycles=128,
                           integrated_rom_size=16*1024)
@@ -156,18 +129,20 @@ class DiVA_SoC(SoCCore):
         self.submodules.rgb = RGB(platform.request("rgb_led"))
         
         # HyperRAM
-        hyperram = ClockDomainsRenamer({'sys':'ram', 'sys_shift':'ram_shift'})(HyperRAM(platform.request("hyperRAM")))
+#        hyperram = ClockDomainsRenamer({'sys':'ram', 'sys_shift':'ram_shift'})(HyperRAM(platform.request("hyperRAM")))
+#        self.submodules += hyperram
+        hyperram = HyperRAM(platform.request("hyperRAM"))
         self.submodules += hyperram
 
-        stream_reader = ClockDomainsRenamer({'sys':'ram'})(StreamReader())
-        self.submodules += stream_reader
+#        stream_reader = ClockDomainsRenamer({'sys':'ram'})(StreamReader())
+#        self.submodules += stream_reader
+#
+#        self.comb += [
+#            hyperram.bus.connect(stream_reader.bus)
+#        ]
 
-        self.comb += [
-            hyperram.bus.connect(stream_reader.bus)
-        ]
-
-        #self.add_wb_slave(self.mem_map["hyperram"], hyperram.bus)
-        #self.add_memory_region("hyperram", self.mem_map["hyperram"], 0x800000)
+        self.add_wb_slave(self.mem_map["hyperram"], hyperram.bus)
+        self.add_memory_region("hyperram", self.mem_map["hyperram"], 0x800000)
 
 
         ## HDMI output 

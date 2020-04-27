@@ -102,7 +102,7 @@ class ECP5PLL(Module):
     def create_clkout(self, cd, freq, phase=0, margin=1e-2):
         (clko_freq_min, clko_freq_max) = self.clko_freq_range
         assert freq >= clko_freq_min
-        assert freq <= clko_freq_max
+       # assert freq <= clko_freq_max
         assert self.nclkouts < self.nclkouts_max
         clkout = Signal()
         self.clkouts[self.nclkouts] = (clkout, freq, phase, margin)

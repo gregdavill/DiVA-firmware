@@ -77,7 +77,7 @@ output wire [1:0] out_blue,
 output wire [1:0] out_clock
 );
 
-parameter C_shift_clock_synchronizer=1'b1;
+parameter C_shift_clock_synchronizer=1'b0;
 parameter C_parallel=1'b1;
 parameter C_serial=1'b1;
 parameter C_ddr=1'b0;
@@ -181,46 +181,16 @@ wire [7:0] blue_d;
     assign outp_blue = latched_blue;
   end
   endgenerate
-  generate if ((C_serial &  ~C_ddr) == 1'b1) begin: G_SDR
-      always @(posedge clk_shift) begin
-      //if shift_clock = "0000011111" then
-      if(shift_clock[5:4] == C_shift_clock_initial[5:4]) begin
-        // same as above line but simplified
-        shift_red <= latched_red;
-        shift_green <= latched_green;
-        shift_blue <= latched_blue;
-      end
-      else begin
-        shift_red <= {1'b0,shift_red[9:1]};
-        shift_green <= {1'b0,shift_green[9:1]};
-        shift_blue <= {1'b0,shift_blue[9:1]};
-      end
-      if(R_shift_clock_synchronizer[(7)] == 1'b0) begin
-        shift_clock <= {shift_clock[0],shift_clock[9:1]};
-      end
-      else begin
-        // synchronization failed.
-        // after too many fails, reinitialize shift_clock
-        if(R_sync_fail[(6)] == 1'b1) begin
-          shift_clock <= C_shift_clock_initial;
-          R_sync_fail <= {7{1'b0}};
-        end
-        else begin
-          R_sync_fail <= R_sync_fail + 1;
-        end
-      end
-    end
-
-  end
-  endgenerate
+  
   generate if ((C_serial & C_ddr) == 1'b1) begin: G_DDR
       always @(posedge clk_shift) begin
       //if shift_clock = "0000011111" then
       if(shift_clock[5:4] == C_shift_clock_initial[5:4]) begin
         // same as above line but simplified
-        shift_red <= latched_red;
-        shift_green <= latched_green;
-        shift_blue <= latched_blue;
+          shift_red <= latched_red;
+          shift_green <= latched_green;
+          shift_blue <= latched_blue;
+        
       end
       else begin
         shift_red <= {2'b00,shift_red[9:2]};
