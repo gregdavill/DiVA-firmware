@@ -412,4 +412,43 @@ class HyperBusPHY(Module):
         ]
         
 
+
+
+class SimHyperBusPHY(Module):
+
+    #def add_tristate(self, pad):
+    #    t = TSTriple(len(pad))
+    #    self.specials += t.get_tristate(pad)
+    #    return t
+
+    def __init__(self, pads):
         
+        # # #
+        self.clk_en = Signal()
+        self.cs = Signal()
+
+        self.dq_oe = Signal()
+        self.dq_in = Signal(16)
+        self.dq_out = Signal(16)
+
+        self.rwds_oe = Signal()
+        self.rwds_in = Signal(2)
+        self.rwds_out = Signal(2)
+
+        self.shift = Signal()
+
+        #dq        = self.add_tristate(pads.dq) if not hasattr(pads.dq, "oe") else pads.dq
+        #rwds      = self.add_tristate(pads.rwds) if not hasattr(pads.rwds, "oe") else pads.rwds
+
+        rwds_oe = Signal()
+        dq_oe = Signal()
+
+        # Shift non DDR signals to match the FF's inside DDR modules.
+        self.specials += MultiReg(self.cs, pads.cs_n, n=2)
+
+        self.specials += MultiReg(self.rwds_oe, rwds_oe, n=2)
+        self.specials += MultiReg(self.dq_oe, dq_oe, n=2)
+        
+        # mask off clock when no CS
+        clk_en = Signal()
+    

@@ -36,9 +36,10 @@ from litex.soc.cores.gpio import GPIOOut
 from rgb_led import RGB
 from hyperram import HyperRAM
 
+from streamable_hyperram import StreamableHyperRAM
+
 from wishbone_stream import StreamReader, StreamWriter
 
-from serv import serv
 #from hyperRAM.hyperbus_fast import HyperRAM
 #from dma.dma import StreamWriter, StreamReader, dummySink, dummySource
 
@@ -99,6 +100,7 @@ class DiVA_SoC(SoCCore):
     csr_map = {
         "rgb"        :  10, 
         "crg"        :  11, 
+        "test"       :  12,
     }
     csr_map.update(SoCCore.csr_map)
 
@@ -131,18 +133,12 @@ class DiVA_SoC(SoCCore):
         # HyperRAM
 #        hyperram = ClockDomainsRenamer({'sys':'ram', 'sys_shift':'ram_shift'})(HyperRAM(platform.request("hyperRAM")))
 #        self.submodules += hyperram
-        hyperram = HyperRAM(platform.request("hyperRAM"))
-        self.submodules += hyperram
+        
 
-#        stream_reader = ClockDomainsRenamer({'sys':'ram'})(StreamReader())
-#        self.submodules += stream_reader
-#
-#        self.comb += [
-#            hyperram.bus.connect(stream_reader.bus)
-#        ]
+        self.submodules.test = StreamableHyperRAM(platform.request("hyperRAM"))
 
-        self.add_wb_slave(self.mem_map["hyperram"], hyperram.bus)
-        self.add_memory_region("hyperram", self.mem_map["hyperram"], 0x800000)
+        #self.add_wb_slave(self.mem_map["hyperram"], hyperram.bus)
+        #self.add_memory_region("hyperram", self.mem_map["hyperram"], 0x800000)
 
 
         ## HDMI output 

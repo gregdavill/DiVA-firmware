@@ -163,19 +163,13 @@ class StreamReader(Module, AutoCSR):
         self._evt_enable = CSRStorage(1)
         self._tx_cnt = CSRStatus(32)
         self._busy = CSRStatus()
-        self._done = CSRStatus()
         self._enable = CSR()
-        self._reset = CSR()
 
-
-        self.evt_start = Signal()
-        self.evt_done = evt_done = Signal()
         
         # Connect Status registers
         self.comb += [
             self._tx_cnt.status.eq(tx_cnt),
-            self._busy.status.eq(busy),
-            self._done.status.eq(done)
+            self._busy.status.eq(busy)
         ]
 
         self.comb += [
@@ -214,17 +208,6 @@ class StreamReader(Module, AutoCSR):
                     burst_cnt.eq(burst_cnt + 1)
                 )
             ),
-
-            If(self._reset.re,
-                tx_cnt.eq(0),
-                burst_cnt.eq(0),
-                done.eq(0),
-            ),
-
-            If(evt_done,
-                done.eq(1),
-            )
-
         ]
 
         # Main FSM
@@ -233,7 +216,7 @@ class StreamReader(Module, AutoCSR):
             If(busy & sink.valid,
                 NextState("ACTIVE"),
             ),
-            If(self._enable.re | (self._evt_enable.storage & self.evt_start),
+            If(self._enable.re,
                 NextValue(busy,1),
             )
         )
@@ -244,15 +227,9 @@ class StreamReader(Module, AutoCSR):
             If(burst_end & bus.ack,
                 NextState("IDLE"),
                 If(last_address,
-                    NextValue(busy,0),
-                    evt_done.eq(1)
+                    NextValue(busy,0)
                 )
             ),
-
-            If(self._reset.re,
-                NextValue(busy, 0),
-                NextState("IDLE")
-            )
         )
 
         self.comb += active.eq(fsm.ongoing("ACTIVE") & sink.valid)
@@ -291,7 +268,7 @@ class TestWriter(unittest.TestCase):
         class test(Module):
             def __init__(self):    
                 self.submodules.writer = StreamWriter()
-                self.submodules.wb_mem = wishbone.SRAM(32, 8, init=[i for i in range(8)])
+                self.submodules.wb_mem = wishbone.SRAM(32, init=[i for i in range(8)])
                 self.comb += self.writer.bus.connect(self.wb_mem.bus)
 
         dut = test()
@@ -300,108 +277,6 @@ class TestWriter(unittest.TestCase):
         run_simulation(dut, [write(dut), logger(dut)], vcd_name='write.vcd')
     
 
-class TestReader(unittest.TestCase):
-
-    def test_dma_write(self):
-        def write(dut):
-            dut = dut.reader
-            yield from dut._burst_size.write(3)
-            yield from dut._start_address.write(0)
-            yield from dut._transfer_size.write(7)
-            yield from dut._enable.write(1)
-            yield
-            yield
-            yield
-            ...
-
-        def logger(dut):
-            mem = dut.wb_mem
-            dut = dut.reader
-            j = 0
-            for i in range(32):
-                if (yield ((dut.sink.ready == 0) & (dut.sink.valid))):
-                    yield
-                else:
-                    yield dut.sink.valid.eq(1)
-                    yield dut.sink.data.eq(j)
-                    j = j + 1
-                    yield
-
-            yield
-            yield
-            for i in range(7):
-                yield from dut._start_address.write(i)
-                yield
-                assert (yield dut.bus.dat_r) == i
-                
-                    
-
-        class test(Module):
-            def __init__(self):    
-                self.submodules.reader = StreamReader()
-                self.submodules.wb_mem = wishbone.SRAM(32,read_only=None, init=[0 for i in range(8)])
-                self.comb += self.reader.bus.connect(self.wb_mem.bus)
-
-        dut = test()
-        
-
-        run_simulation(dut, [write(dut), logger(dut)], vcd_name='read.vcd')
-    
-
-
-class TestReaderFIFO(unittest.TestCase):
-
-    def test_dma_write(self):
-        def write(dut):
-            dut = dut.reader
-            yield from dut._burst_size.write(16)
-            yield from dut._start_address.write(0)
-            yield from dut._transfer_size.write(16)
-            yield from dut._enable.write(1)
-            yield
-            yield
-            yield
-            ...
-
-        def logger(dut):
-            mem = dut.wb_mem
-            reader = dut.reader
-            dut = dut.fifo
-            j = 0
-            for i in range(16):
-                    yield dut.sink.valid.eq(1)
-                    yield dut.sink.data.eq(0xAA000000 | j)
-                    yield 
-                    yield dut.sink.valid.eq(0)
-                    for _ in range(random.randint(1,5)):
-                        yield
-                    j = j + 1
-                    
-
-            yield
-            yield
-            for i in range(16):
-                yield from reader._start_address.write(i)
-                yield
-                assert (yield reader.bus.dat_r) == (0xAA000000 | i)
-            
-                
-                    
-
-        class test(Module):
-            def __init__(self):    
-                self.submodules.fifo = ClockDomainsRenamer({"write": "sys1", "read": "sys"})(AsyncFIFO([("data",32)], 8))
-                self.submodules.reader = StreamReader()
-                self.submodules.wb_mem = wishbone.SRAM(64,read_only=None, init=[0 for i in range(16)])
-                self.comb += self.reader.bus.connect(self.wb_mem.bus)
-                self.comb += self.fifo.source.connect(self.reader.sink)
-                
-
-        dut = test()
-        
-
-        run_simulation(dut, [write(dut), logger(dut)], vcd_name='fifo.vcd', clocks={"sys":10, "sys1":20})
-    
 
 if __name__ == '__main__':
     unittest.main()
