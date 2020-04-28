@@ -59,6 +59,32 @@ uint32_t test_write(uint32_t a){
 
 
 
+void write_pixels(int line, int colour){
+	test_clear_write(1);
+
+	test_reader_addr_write(line);
+	test_reader_len_write(1920);
+	
+
+
+
+	test_reader_enable_write(1);
+
+	for(int i = 0; i < 1920; i++)
+	test_source_data_write(rand());
+
+
+}
+
+void start_pixels(){
+	test_writer_pix_addr_write(0);
+	test_writer_pix_len_write(1920*1080);
+	test_writer_pix_enable_write(1);
+
+}
+
+
+
 void io_shift(){
 	test_loadn_write(1);
 	test_direction_write(1);
@@ -128,18 +154,30 @@ int main(int i, char **c)
 		io_shift();
 	}
 
+
+	start_pixels();
 //	memtest((unsigned int*)HYPERRAM_BASE);
 	printf("\n");
 
-
-
-	
-	test_write(0xDEADBEEF);
     printf("--============= \e[1mConsole\e[0m ================--\n");
+
+	uint32_t line = 0;
+
+	uint32_t colour = 0xFF22410;
     while(1) {
-		putsnonl("DiVA> ");
-		readstr(buffer, 64);
-		do_command(buffer);
+		printf("Overrun: %08x\r", terminal_overrun_read());
+
+		if(line > 1920*1080){
+			line = 0;
+			colour = rand();
+		}
+
+		//write_pixels(line, colour);
+		line += 1920;
+		
+		//putsnonl("DiVA> ");
+		//readstr(buffer, 64);
+		//do_command(buffer);
 	}
 	return 0;
 }

@@ -41,8 +41,9 @@ class StreamableHyperRAM(Module, AutoCSR):
         self.submodules.reader = reader = ClockDomainsRenamer({'sys':'ram'})(StreamReader())
         #self.submodules.writer = writer = StreamWriter()
         #self.submodules.reader = reader = StreamReader()
+        self.submodules.writer_pix = writer_pix = ClockDomainsRenamer({'sys':'ram'})(StreamWriter())
         
-        self.submodules.arbiter = ClockDomainsRenamer({'sys':'ram'})(Arbiter([reader.bus, writer.bus], hyperram.bus))
+        self.submodules.arbiter = ClockDomainsRenamer({'sys':'ram'})(Arbiter([writer_pix.bus, reader.bus, writer.bus], hyperram.bus))
         #self.submodules.arbiter = Arbiter([reader.bus, writer.bus], hyperram.bus)
         #self.submodules.p2p = InterconnectPointToPoint(reader.bus, hyperram.bus)   
 
@@ -53,6 +54,11 @@ class StreamableHyperRAM(Module, AutoCSR):
         self.reader_addr = CSRStorage(21)
         self.reader_enable = CSR(1)
         self.reader_len = CSRStorage(21)
+
+
+        self.writer_pix_addr = CSRStorage(21)
+        self.writer_pix_enable = CSR(1)
+        self.writer_pix_len = CSRStorage(21)
 
         # CPU addressable logic 
         self.clear = CSR(1)
@@ -71,6 +77,8 @@ class StreamableHyperRAM(Module, AutoCSR):
         
 
 
+        self.pixels = Endpoint(EndpointDescription([("data", 32)]))
+
         # Patch values across clock domains
         #self.specials += [
         #    MultiReg(self.writer_addr.storage, writer.start_address, "sys"),
@@ -84,16 +92,27 @@ class StreamableHyperRAM(Module, AutoCSR):
             writer.transfer_size.eq(self.writer_len.storage),
             reader.start_address.eq(self.reader_addr.storage),
             reader.transfer_size.eq(self.reader_len.storage),
+            writer_pix.start_address.eq(self.writer_pix_addr.storage),
+            writer_pix.transfer_size.eq(self.writer_pix_len.storage),
         ]
 
         self.submodules.writer_en = writer_en = PulseSynchronizer("sys", "ram")
         self.submodules.reader_en = reader_en = PulseSynchronizer("sys", "ram")
+        self.submodules.writer_pix_en = writer_pix_en = PulseSynchronizer("sys", "ram")
+        #self.submodules.writer_pix_restart = writer_pix_restart = PulseSynchronizer("sys", "ram")
 
         self.comb += [
             writer_en.i.eq(self.writer_enable.re),
             writer.enable.eq(writer_en.o),
             reader_en.i.eq(self.reader_enable.re),
             reader.enable.eq(reader_en.o),
+
+            writer_pix_en.i.eq(self.writer_pix_enable.re),
+            writer_pix.enable.eq(writer_pix_en.o),
+
+            writer_pix.auto.eq(1),
+            #writer_pix_resart.i.eq(pixel_restart),
+            #writer_pix.enable.eq(writer_pix_en.o),
         ]
 
        
@@ -105,7 +124,12 @@ class StreamableHyperRAM(Module, AutoCSR):
                 ClockDomainsRenamer({'write':'sys', 'read':'ram'})(AsyncFIFO([("data", 32)], 32, buffered=False))
             )
 
+        self.submodules.pix_fifo = pix_fifo = ResetInserter(["sys", "ram"])(
+                ClockDomainsRenamer({'write':'ram', 'read':'sys'})(AsyncFIFO([("data", 32)], 256, buffered=False))
+            )
+
         self.submodules.ram_ps = ram_ps = PulseSynchronizer("sys", "ram")
+        self.submodules.pix_ps = pix_ps = PulseSynchronizer("sys", "ram")
 
         self.comb += [
             self.source.source.connect(source_fifo.sink),
@@ -124,6 +148,15 @@ class StreamableHyperRAM(Module, AutoCSR):
 
             sink_fifo.reset_ram.eq(ram_ps.o),
             source_fifo.reset_ram.eq(ram_ps.o),
+
+
+
+            pix_fifo.reset_sys.eq(0),
+            pix_fifo.reset_ram.eq(0),
+
+            # Pixel interface
+            writer_pix.source.connect(pix_fifo.sink),
+            pix_fifo.source.connect(self.pixels),
         ]
 
     

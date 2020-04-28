@@ -9,6 +9,8 @@ from litex.soc.interconnect import wishbone
 
 from litex.soc.interconnect.stream import Endpoint, EndpointDescription, SyncFIFO, AsyncFIFO
 
+from litex.soc.interconnect.csr import AutoCSR, CSR, CSRStatus, CSRStorage
+
 # Terminal emulation with 640 x 480 pixels, 80 x 30 characters, individual foreground and background
 # color per character (VGA palette) and user definable font, with code page 437 VGA font initialized.
 # 60 Hz framerate, if vga_clk is 25.175 MHz. Independent system clock possible, internal dual-port
@@ -57,12 +59,17 @@ def read_ram_init_file(filename, size):
 
 # Terminal -----------------------------------------------------------------------------------------
 
-class Terminal(Module):
+class Terminal(Module, AutoCSR):
     def __init__(self, pads=None, font_filename="util/cp437.bin"):
         # Wishbone interface
         self.bus = bus = wishbone.Interface(data_width=32)
-
         self.source = source = Endpoint(EndpointDescription([("data", 32)]))
+
+        self.overrun = CSRStatus(32)
+
+
+        overrun = Signal(32)
+        self.comb += self.overrun.status.eq(overrun)
 
         # Acknowledge immediately
         self.sync += [
@@ -112,6 +119,10 @@ class Terminal(Module):
         self.vsync = vsync = Signal()  if pads is None else pads.vsync
 
         self.blank = blank = Signal()
+
+        self.comb += [
+            source.ready.eq(~blank)
+        ]
 
         # VGA timings
         H_SYNC_PULSE  = 44
@@ -183,11 +194,20 @@ class Terminal(Module):
                         green.eq(fgcolor[8:16]),
                         blue.eq(fgcolor[0:8])
                     ).Else(
-                        red.eq(bgcolor[16:24]),
-                        green.eq(bgcolor[8:16]),
-                        blue.eq(bgcolor[0:8])
+                        If(source.valid,
+                            red.eq(source.data[16:24]),
+                            green.eq(source.data[8:16]),
+                            blue.eq(source.data[0:8])
+                        ).Else( 
+                            red.eq(0xFF),
+                            green.eq(0x33),
+                            blue.eq(0xFF)
+                        )
                     ),
-                    fbyte.eq(Cat(Signal(), fbyte[:-1]))
+                    fbyte.eq(Cat(Signal(), fbyte[:-1])),
+                    If(~source.valid,
+                        overrun.eq(overrun + 1)
+                    )
                 )
             ),
 

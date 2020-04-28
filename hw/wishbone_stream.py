@@ -60,14 +60,14 @@ class StreamWriter(Module, AutoCSR):
         self.start_address = Signal(21)
         self.transfer_size = Signal(21)
 
-        burst_size = Signal(8, reset=32)
+        burst_size = Signal(14, reset=512)
 
         #self.tx_cnt = Signal(21)
         #self._busy = CSRStatus()
         self.enable = Signal()
         self.reset = Signal()
 
-        
+        self.auto = Signal()
         
     
 
@@ -136,7 +136,11 @@ class StreamWriter(Module, AutoCSR):
             If(burst_end & bus.ack,
                 NextState("IDLE"),
                 If(last_address,
-                    NextValue(busy,0),
+                    If(self.auto,
+                        # do nothing
+                    ).Else(
+                        NextValue(busy,0),
+                    )
                 )
             ),
 

@@ -118,7 +118,7 @@ class HyperRAM(Module):
         # CS can't be low for longer than 4us 
         # to ensure data reliability across temperature range.
         # each 32bits is 2 DDR clock cycles
-        BURST_MAX = int(((4 * 75e6/1e6) -10) / 2)
+        BURST_MAX = 512
 
         burst_count = Signal(max=(BURST_MAX+1))
 

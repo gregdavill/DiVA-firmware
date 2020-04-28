@@ -65,7 +65,7 @@ class _CRG(Module, AutoCSR):
         self.submodules.pll = pll = ECP5PLL()
         pll.register_clkin(clk48, 48e6)
         pll.create_clkout(self.cd_sys, pixel_clock, margin=0)
-        pll.create_clkout(self.cd_sys_shift, pixel_clock, phase=1, margin=0)
+        #pll.create_clkout(self.cd_sys_shift, pixel_clock, phase=1, margin=0)
         pll.create_clkout(self.cd_shift, pixel_clock * 5, margin=0)
 
 
@@ -101,6 +101,7 @@ class DiVA_SoC(SoCCore):
         "rgb"        :  10, 
         "crg"        :  11, 
         "test"       :  12,
+        "terminal"   :  13,
     }
     csr_map.update(SoCCore.csr_map)
 
@@ -159,6 +160,8 @@ class DiVA_SoC(SoCCore):
             hdmi.r.eq(terminal.red),
             hdmi.g.eq(terminal.green),
             hdmi.b.eq(terminal.blue),
+
+            self.test.pixels.connect(terminal.source)
         ]
 
         # Add git version into firmware 
