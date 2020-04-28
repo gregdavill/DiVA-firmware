@@ -32,6 +32,30 @@ static int basic_memtest(volatile uint32_t* addr){
 	if(test_write(0x0123FECD) != 0x0123FECD)
 		return 0;
 
+
+
+	/* Test stream?*/
+
+	test_clear_write(1);
+
+	test_reader_addr_write(100);
+	test_reader_len_write(16);
+	
+	test_writer_addr_write(100);
+	test_writer_len_write(16);
+
+	test_reader_enable_write(1);
+
+	for(int i = 0; i < 16; i++)
+		test_source_data_write(1 << i);
+
+	test_writer_enable_write(1);
+
+
+	for(int i = 0; i < 16; i++)
+		if(test_sink_data_read() != (1 << i))
+			return 0;
+
 	
 	return 1;
 }

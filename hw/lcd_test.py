@@ -13,7 +13,7 @@ from math import log2, ceil
 import os
 import shutil
 from hdmi import HDMI
-from litevideo.terminal.core import Terminal
+from terminal import Terminal
 
 #from file_helper import package_file
 

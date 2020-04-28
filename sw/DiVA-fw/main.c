@@ -27,8 +27,8 @@ void terminal_write(char c){
 			y += 1;
 		}
 
-		vga[x*2 + y*80*2] = c; 
-		vga[x*2 + y*80*2 + 1] = 14; 
+		vga[x + y*80] = c; 
+		//vga[x*2 + y*80*2 + 1] = 14; 
 		x += 1;
 	}
 }
@@ -48,25 +48,10 @@ uint32_t test_write(uint32_t a){
 	
 	test_writer_addr_write(0);
 	test_writer_len_write(1);
-	
-	//test_reader_transfer_size_write(1);
-	//test_reader_burst_size_write(1);
-	//test_reader_start_address_write(0x0);
 
-	//test_writer_transfer_size_write(1);
-	//test_writer_burst_size_write(1);
-	//test_writer_start_address_write(0x0);
-
-
-
-
-	//test_reader_enable_write(1);
 	test_reader_enable_write(1);
 	test_source_data_write(a);
 
-
-
-	//test_writer_enable_write(1);
 	test_writer_enable_write(1);
 
 	return test_sink_data_read();	
