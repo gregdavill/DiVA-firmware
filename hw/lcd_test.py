@@ -71,8 +71,8 @@ class _CRG(Module, AutoCSR):
 
         self.submodules.ram_pll = ram_pll = ECP5PLL()
         ram_pll.register_clkin(clk48, 48e6)
-        ram_pll.create_clkout(self.cd_ram, 165e6, margin=0)
-        ram_pll.create_clkout(self.cd_ram_shift, 165e6, phase=1, margin=0)
+        ram_pll.create_clkout(self.cd_ram, 100e6, margin=0)
+        ram_pll.create_clkout(self.cd_ram_shift, 100e6, phase=1, margin=0)
 
         self.specials += [
             AsyncResetSynchronizer(self.cd_sys, ~pll.locked),
@@ -89,10 +89,10 @@ class _CRG(Module, AutoCSR):
         self._phase_load = CSRStorage()
 
         self.comb += [
-            self.pll.phase_sel.eq(self._phase_sel.storage),
-            self.pll.phase_dir.eq(self._phase_dir.storage),
-            self.pll.phase_step.eq(self._phase_step.storage),
-            self.pll.phase_load.eq(self._phase_load.storage),
+            self.ram_pll.phase_sel.eq(self._phase_sel.storage),
+            self.ram_pll.phase_dir.eq(self._phase_dir.storage),
+            self.ram_pll.phase_step.eq(self._phase_step.storage),
+            self.ram_pll.phase_load.eq(self._phase_load.storage),
         ]
 
 

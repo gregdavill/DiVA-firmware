@@ -52,46 +52,46 @@ class StreamWriter(Module, AutoCSR):
         active = Signal()
         burst_cnt = Signal(32)
         burst_end = Signal()
+        start_address = Signal(21)
+        transfer_size = Signal(21)
         
-        self._start_address = CSRStorage(32)
-        self._transfer_size = CSRStorage(32)
-        self._burst_size = CSRStorage(32)
-        self._evt_enable = CSRStorage(1)
-        self._tx_cnt = CSRStatus(32)
-        self._busy = CSRStatus()
-        self._enable = CSR()
-        self._reset = CSR()
 
-        self.evt_start = Signal()
-        self.evt_done = evt_done = Signal()
+
+        self.start_address = Signal(21)
+        self.transfer_size = Signal(21)
+
+        burst_size = Signal(8, reset=32)
+
+        #self.tx_cnt = Signal(21)
+        #self._busy = CSRStatus()
+        self.enable = Signal()
+        self.reset = Signal()
+
         
-        # Connect Status registers
-        self.comb += [
-            self._tx_cnt.status.eq(tx_cnt),
-            self._busy.status.eq(busy)
-        ]
+        
+    
 
         self.comb += [
             bus.sel.eq(0xF),
             bus.we.eq(0),
             bus.cyc.eq(active),
             bus.stb.eq(active),
-            bus.adr.eq(self._start_address.storage + tx_cnt),
+            bus.adr.eq(start_address + tx_cnt),
 
             source.data.eq(bus.dat_r),
             source.valid.eq(bus.ack)
         ]
 
         self.comb += [
-            If(self._burst_size.storage == 1,
-                burst_end.eq(1),
-            ).Else(
-                burst_end.eq(last_address | (burst_cnt == self._burst_size.storage - 1)),
-            )
+            #If(self.burst_size.storage == 1,
+            #    burst_end.eq(1),
+            #).Else(
+                burst_end.eq(last_address | (burst_cnt == burst_size - 1)),
+            #)
         ]
 
         self.sync += [
-            last_address.eq(tx_cnt == self._transfer_size.storage - 1),
+            last_address.eq(tx_cnt == transfer_size - 1),
             If(bus.ack,
                 If(last_address,
                     tx_cnt.eq(0)
@@ -108,10 +108,6 @@ class StreamWriter(Module, AutoCSR):
                 )
             ),
 
-            If(self._reset.re,
-                tx_cnt.eq(0),
-                burst_cnt.eq(0),
-            )
         ]
 
         # Main FSM
@@ -120,8 +116,10 @@ class StreamWriter(Module, AutoCSR):
             If(busy & source.ready,
                 NextState("ACTIVE"),
             ),
-            If(self._enable.re | (self._evt_enable.storage & self.evt_start),
+            If(self.enable,
                 NextValue(busy,1),
+                NextValue(start_address, 0),
+                NextValue(transfer_size, 1),
             )
         )
         fsm.act("ACTIVE",
@@ -131,15 +129,10 @@ class StreamWriter(Module, AutoCSR):
             If(burst_end & bus.ack,
                 NextState("IDLE"),
                 If(last_address,
-                    evt_done.eq(1),
                     NextValue(busy,0),
                 )
             ),
 
-            If(self._reset.re,
-                NextValue(busy, 0),
-                NextState("IDLE")
-            )
         )
 
         self.comb += active.eq(fsm.ongoing("ACTIVE") & source.ready)
@@ -152,47 +145,45 @@ class StreamReader(Module, AutoCSR):
         tx_cnt = Signal(32)
         last_address = Signal()
         busy = Signal()
-        done = Signal()
         active = Signal()
         burst_cnt = Signal(32)
         burst_end = Signal()
+        start_address = Signal(21)
+        transfer_size = Signal(21)
         
-        self._start_address = CSRStorage(32)
-        self._transfer_size = CSRStorage(32)
-        self._burst_size = CSRStorage(32)
-        self._evt_enable = CSRStorage(1)
-        self._tx_cnt = CSRStatus(32)
-        self._busy = CSRStatus()
-        self._enable = CSR()
 
-        
-        # Connect Status registers
-        self.comb += [
-            self._tx_cnt.status.eq(tx_cnt),
-            self._busy.status.eq(busy)
-        ]
+
+        self.start_address = Signal(21)
+        self.transfer_size = Signal(21)
+
+        burst_size = Signal(8, reset=32)
+
+        #self.tx_cnt = Signal(21)
+        #self._busy = CSRStatus()
+        self.enable = Signal()
+        self.reset = Signal()
 
         self.comb += [
             bus.sel.eq(0xF),
             bus.we.eq(active),
             bus.cyc.eq(active),
             bus.stb.eq(active),
-            bus.adr.eq(self._start_address.storage + tx_cnt),
+            bus.adr.eq(start_address + tx_cnt),
             bus.dat_w.eq(sink.data),
 
             sink.ready.eq(bus.ack)
         ]
 
         self.comb += [
-            If(self._burst_size.storage == 1,
-                burst_end.eq(1),
-            ).Else(
-                burst_end.eq(last_address | (burst_cnt == self._burst_size.storage - 1)),
-            )
+            #If(self._burst_size.storage == 1,
+            #    burst_end.eq(1),
+            #).Else(
+                burst_end.eq(last_address | (burst_cnt == burst_size - 1)),
+            #)
         ]
 
         self.sync += [
-            last_address.eq(tx_cnt == self._transfer_size.storage - 1),
+            last_address.eq(tx_cnt == transfer_size - 1),
             If(bus.ack,
                 If(last_address,
                     tx_cnt.eq(0)
@@ -216,8 +207,10 @@ class StreamReader(Module, AutoCSR):
             If(busy & sink.valid,
                 NextState("ACTIVE"),
             ),
-            If(self._enable.re,
+            If(self.enable,
                 NextValue(busy,1),
+                NextValue(start_address, 0),
+                NextValue(transfer_size, 1),
             )
         )
         fsm.act("ACTIVE",

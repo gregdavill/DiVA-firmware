@@ -156,7 +156,7 @@ class HyperRAM(Module):
                 counter_rst.eq(1), 
                 NextState('READ_START'),  
             ).Elif(counter > 100,
-                NextState('CLEANUP'),
+                NextState('TIMEOUT'),
             ) 
         )
 
@@ -167,7 +167,7 @@ class HyperRAM(Module):
                 counter_rst.eq(1), 
                 NextState('READ_ACK'),
             ).Elif(counter > 100,
-                NextState('CLEANUP'),
+                NextState('TIMEOUT'),
             ) 
         )
 
@@ -178,7 +178,7 @@ class HyperRAM(Module):
                 counter_rst.eq(1), 
                 NextState('READ_BURST'),
             ).Elif(counter > 100,
-                NextState('CLEANUP'),
+                NextState('TIMEOUT'),
             ) 
         )
 
@@ -223,6 +223,11 @@ class HyperRAM(Module):
         fsm.act('WRITE_FINISH',
             NextValue(clk_en,0), 
             counter_rst.eq(1), NextState('CLEANUP'),
+        )
+
+        fsm.act('TIMEOUT',
+            bus.ack.eq(1),
+            NextState('CLEANUP'),
         )
 
         fsm.act('CLEANUP',
