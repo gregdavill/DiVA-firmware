@@ -42,7 +42,7 @@ class dummySink(Module):
         ]
 
 class StreamWriter(Module, AutoCSR):
-    def __init__(self):
+    def __init__(self, external_sync=False):
         self.bus  = bus = wishbone.Interface()
         self.source = source = Endpoint(data_stream_description(32))
 
@@ -67,8 +67,9 @@ class StreamWriter(Module, AutoCSR):
         self.enable = Signal()
         self.reset = Signal()
 
-        self.auto = Signal()
-        
+        self.start = Signal()
+
+        enabled = Signal()
     
 
         self.comb += [
@@ -114,6 +115,9 @@ class StreamWriter(Module, AutoCSR):
                     burst_cnt.eq(burst_cnt + 1)
                 )
             ),
+            If(self.enable,
+                enabled.eq(~enabled)
+            )
 
         ]
 
@@ -123,7 +127,7 @@ class StreamWriter(Module, AutoCSR):
             If(busy & source.ready,
                 NextState("ACTIVE"),
             ),
-            If(self.enable,
+            If((self.start & enabled & external_sync) | (~external_sync & self.enable),
                 NextValue(busy,1),
                 NextValue(start_address, self.start_address),
                 NextValue(transfer_size, self.transfer_size),
@@ -136,11 +140,7 @@ class StreamWriter(Module, AutoCSR):
             If(burst_end & bus.ack,
                 NextState("IDLE"),
                 If(last_address,
-                    If(self.auto,
-                        # do nothing
-                    ).Else(
-                        NextValue(busy,0),
-                    )
+                    NextValue(busy,0),
                 )
             ),
 

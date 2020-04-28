@@ -152,6 +152,11 @@ class DiVA_SoC(SoCCore):
         self.register_mem("terminal", self.mem_map["terminal"], terminal.bus, size=0x100000)
         #self.add_memory_region("terminal", 0x30000000, 0x100000)
 
+        vsync_r = Signal()
+        self.sync += [
+            vsync_r.eq(terminal.vsync)
+        ]
+
         ## Connect VGA pins
         self.comb += [
             hdmi.vsync.eq(terminal.vsync),
@@ -161,7 +166,8 @@ class DiVA_SoC(SoCCore):
             hdmi.g.eq(terminal.green),
             hdmi.b.eq(terminal.blue),
 
-            self.test.pixels.connect(terminal.source)
+            self.test.pixels.connect(terminal.source),
+            self.test.pixels_reset.eq(vsync_r & ~terminal.vsync)
         ]
 
         # Add git version into firmware 

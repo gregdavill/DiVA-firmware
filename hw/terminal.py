@@ -281,6 +281,6 @@ class Terminal(Module, AutoCSR):
             If(line_counter == V_BACK_PORCH - 1,
                 # Prepare generating next image data
                 fline.eq(0),
-                text_addr_start.eq(0)
+                text_addr_start.eq(0),
             )
         ]

@@ -41,7 +41,7 @@ class StreamableHyperRAM(Module, AutoCSR):
         self.submodules.reader = reader = ClockDomainsRenamer({'sys':'ram'})(StreamReader())
         #self.submodules.writer = writer = StreamWriter()
         #self.submodules.reader = reader = StreamReader()
-        self.submodules.writer_pix = writer_pix = ClockDomainsRenamer({'sys':'ram'})(StreamWriter())
+        self.submodules.writer_pix = writer_pix = ClockDomainsRenamer({'sys':'ram'})(StreamWriter(external_sync=True))
         
         self.submodules.arbiter = ClockDomainsRenamer({'sys':'ram'})(Arbiter([writer_pix.bus, reader.bus, writer.bus], hyperram.bus))
         #self.submodules.arbiter = Arbiter([reader.bus, writer.bus], hyperram.bus)
@@ -78,6 +78,7 @@ class StreamableHyperRAM(Module, AutoCSR):
 
 
         self.pixels = Endpoint(EndpointDescription([("data", 32)]))
+        self.pixels_reset = Signal()
 
         # Patch values across clock domains
         #self.specials += [
@@ -99,7 +100,7 @@ class StreamableHyperRAM(Module, AutoCSR):
         self.submodules.writer_en = writer_en = PulseSynchronizer("sys", "ram")
         self.submodules.reader_en = reader_en = PulseSynchronizer("sys", "ram")
         self.submodules.writer_pix_en = writer_pix_en = PulseSynchronizer("sys", "ram")
-        #self.submodules.writer_pix_restart = writer_pix_restart = PulseSynchronizer("sys", "ram")
+        self.submodules.writer_pix_restart = writer_pix_restart = PulseSynchronizer("sys", "ram")
 
         self.comb += [
             writer_en.i.eq(self.writer_enable.re),
@@ -110,8 +111,8 @@ class StreamableHyperRAM(Module, AutoCSR):
             writer_pix_en.i.eq(self.writer_pix_enable.re),
             writer_pix.enable.eq(writer_pix_en.o),
 
-            writer_pix.auto.eq(1),
-            #writer_pix_resart.i.eq(pixel_restart),
+            writer_pix.start.eq(writer_pix_restart.o),
+            writer_pix_restart.i.eq(self.pixels_reset),
             #writer_pix.enable.eq(writer_pix_en.o),
         ]
 
