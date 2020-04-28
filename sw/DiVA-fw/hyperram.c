@@ -39,20 +39,25 @@ static int basic_memtest(volatile uint32_t* addr){
 
 void hyperram_init(){
 
-	printf("HyperRAM PLL Tuning\n");
-
 	int window = 0;
 	int i = 0;
+	bool dir = false;
 	printf("|");
-	for(i = 0; i < 512; i++){
+	for(i = 0; i < 64; i++){
 
 		int pass = basic_memtest(0);
 
-		// Shift our PLL up
+		// Shift our PLL
 		crg_phase_sel_write(0);
-		crg_phase_dir_write(1);
+		crg_phase_dir_write(dir);
 		crg_phase_step_write(0);
 		crg_phase_step_write(1);
+
+		if((pass == 0) & !dir)
+			dir = true;
+
+		if(!dir)
+			continue;
 
 	    printf("%c", pass > 0 ? '0' : '-');
 
@@ -61,15 +66,15 @@ void hyperram_init(){
 		}
 		else if(pass != 1){
 			if(window > 8){
-			//	break;
+				break;
 			}else {
 				window = 0;
 			}
 		}
 
 	}
-	printf("|\n");
-	printf("Window: %u, steps:%u\n", window, i);
+	printf("| - ");
+	printf("Window: %u \n", window, i);
 
 	for(i = 0; i < window/2; i++){
 		// Shift our PLL up
@@ -78,8 +83,6 @@ void hyperram_init(){
 		crg_phase_step_write(0);
 		crg_phase_step_write(1);
 	}
-
-	printf("HyperRAM PLL Tuning: Done\n");
 }
 
 

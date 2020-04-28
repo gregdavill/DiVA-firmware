@@ -33,6 +33,10 @@ class HyperRAM(Module):
         self.bus  = bus = wishbone.Interface(adr_width=21)
 
 
+        self.loadn = Signal()
+        self.move = Signal()
+        self.direction = Signal()
+
         # # #
 
         clk_en    = Signal()
@@ -48,6 +52,12 @@ class HyperRAM(Module):
         
         phy = HyperBusPHY(pads)
         self.submodules += phy
+
+        self.comb += [
+            phy.direction.eq(self.direction),
+            phy.loadn.eq(self.loadn),
+            phy.move.eq(self.move),
+        ]
         
         fsm = FSM(reset_state='IDLE')
         self.submodules += fsm
@@ -275,6 +285,10 @@ class HyperBusPHY(Module):
 
         self.shift = Signal()
 
+        self.loadn = Signal()
+        self.move = Signal()
+        self.direction = Signal()
+
         dq        = self.add_tristate(pads.dq) if not hasattr(pads.dq, "oe") else pads.dq
         rwds      = self.add_tristate(pads.rwds) if not hasattr(pads.rwds, "oe") else pads.rwds
 
@@ -372,9 +386,9 @@ class HyperBusPHY(Module):
                     p_DEL_MODE="USER_DEFINED",
                     p_DEL_VALUE=120, # 2ns (25ps per tap)
                     i_A=dq.i[i],
-                    i_LOADN=0,
-                    i_MOVE=0,
-                    i_DIRECTION=1,
+                    i_LOADN=self.loadn,
+                    i_MOVE=self.move,
+                    i_DIRECTION=self.direction,
                     o_Z=dq_in)
             ]
         
@@ -403,9 +417,9 @@ class HyperBusPHY(Module):
                     p_DEL_MODE="USER_DEFINED",
                     p_DEL_VALUE=120, # 2ns (25ps per tap)
                     i_A=rwds.i,
-                    i_LOADN=0,
-                    i_MOVE=0,
-                    i_DIRECTION=1,
+                    i_LOADN=self.loadn,
+                    i_MOVE=self.move,
+                    i_DIRECTION=self.direction,
                     o_Z=rwds_in)
         ]
         

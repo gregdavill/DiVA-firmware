@@ -59,6 +59,17 @@ class StreamableHyperRAM(Module, AutoCSR):
         self.submodules.source = CSRSource()
         self.submodules.sink = CSRSink()
 
+        self.loadn = CSRStorage()
+        self.move = CSRStorage()
+        self.direction = CSRStorage()
+
+        self.comb += [
+            hyperram.loadn.eq(self.loadn.storage),
+            hyperram.move.eq(self.move.storage),
+            hyperram.direction.eq(self.direction.storage),
+        ]
+        
+
 
         # Patch values across clock domains
         #self.specials += [
