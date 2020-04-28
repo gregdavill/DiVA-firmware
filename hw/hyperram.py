@@ -30,7 +30,7 @@ class HyperRAM(Module):
     """
     def __init__(self, pads):
         self.pads = pads
-        self.bus  = bus = wishbone.Interface()
+        self.bus  = bus = wishbone.Interface(adr_width=21)
 
 
         # # #
@@ -46,8 +46,6 @@ class HyperRAM(Module):
         ca_load = Signal()
         dq_load = Signal()
         
-        last_adr = Signal(32)
-
         phy = HyperBusPHY(pads)
         self.submodules += phy
         
@@ -155,18 +153,16 @@ class HyperRAM(Module):
             If((phy.rwds_in == 0b01) & (counter > 3), # Skip over initial RWDS noise from CMD cycle
                 counter_rst.eq(1), 
                 NextState('READ_START'),  
-            ).Elif(counter > 100,
+            ).Elif(counter & 0x80,
                 NextState('TIMEOUT'),
             ) 
         )
 
         fsm.act('READ_START',
             If(phy.rwds_in == 0b01, 
-                
-                NextValue(last_adr, bus.adr),
                 counter_rst.eq(1), 
                 NextState('READ_ACK'),
-            ).Elif(counter > 100,
+            ).Elif(counter & 0x80,
                 NextState('TIMEOUT'),
             ) 
         )
@@ -174,16 +170,15 @@ class HyperRAM(Module):
         fsm.act('READ_ACK',
             If(phy.rwds_in == 0b01, 
                 bus.ack.eq(1),
-                NextValue(last_adr, bus.adr),
                 counter_rst.eq(1), 
                 NextState('READ_BURST'),
-            ).Elif(counter > 100,
+            ).Elif(counter & 0x80,
                 NextState('TIMEOUT'),
             ) 
         )
 
         fsm.act('READ_BURST',
-            If(bus.cyc & bus.stb & (bus.adr == (last_adr + 1)) & (burst_count < BURST_MAX),
+            If(bus.cyc & bus.stb & (bus.cti == 0b010) & (burst_count < BURST_MAX),
                 If(phy.rwds_in == 0b01,
                     counter_rst.eq(1), 
                     NextState('READ_ACK'),
@@ -209,11 +204,11 @@ class HyperRAM(Module):
             bus.ack.eq(1),
             counter_rst.eq(1),
             NextState('WRITE_BURST'),
-            NextValue(last_adr, bus.adr),
+
         ) 
 
         fsm.act('WRITE_BURST',
-            If(bus.cyc & bus.stb & (bus.adr == (last_adr + 1)) & (burst_count < BURST_MAX),
+            If(bus.cyc & bus.stb & (bus.cti == 0b010) & (burst_count < BURST_MAX),
                 NextState('W_PREP'),
             ).Else(
                 counter_rst.eq(1), NextState('WRITE_FINISH'),
@@ -255,8 +250,6 @@ class HyperRAM(Module):
             ca,
             counter,
             dq_load,
-            last_adr,
-
         ]
 
 class HyperBusPHY(Module):

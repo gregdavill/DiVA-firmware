@@ -4,7 +4,7 @@ from litex.soc.interconnect.csr import AutoCSR, CSR, CSRStatus, CSRStorage
 from litex.soc.interconnect.stream import Endpoint, EndpointDescription, SyncFIFO, AsyncFIFO
 from wishbone_stream import StreamReader, StreamWriter
 from litex.soc.interconnect.wishbone import InterconnectShared, Arbiter, SRAM, InterconnectPointToPoint
-from migen.genlib.cdc import PulseSynchronizer, MultiReg
+from migen.genlib.cdc import PulseSynchronizer, MultiReg, BusSynchronizer
 
 
 from hyperram import HyperRAM
@@ -61,11 +61,18 @@ class StreamableHyperRAM(Module, AutoCSR):
 
 
         # Patch values across clock domains
-        self.specials += [
-            MultiReg(self.writer_addr.storage, writer.start_address, "sys"),
-            MultiReg(self.writer_len.storage, writer.transfer_size, "sys"),
-            MultiReg(self.reader_addr.storage, reader.start_address, "sys"),
-            MultiReg(self.reader_len.storage, reader.transfer_size, "sys"),
+        #self.specials += [
+        #    MultiReg(self.writer_addr.storage, writer.start_address, "sys"),
+        #    MultiReg(self.writer_len.storage, writer.transfer_size, "sys"),
+        #    MultiReg(self.reader_addr.storage, reader.start_address, "sys"),
+        #    MultiReg(self.reader_len.storage, reader.transfer_size, "sys"),
+        #]
+
+        self.sync += [
+            writer.start_address.eq(self.writer_addr.storage),
+            writer.transfer_size.eq(self.writer_len.storage),
+            reader.start_address.eq(self.reader_addr.storage),
+            reader.transfer_size.eq(self.reader_len.storage),
         ]
 
         self.submodules.writer_en = writer_en = PulseSynchronizer("sys", "ram")

@@ -79,13 +79,20 @@ class StreamWriter(Module, AutoCSR):
             bus.adr.eq(start_address + tx_cnt),
 
             source.data.eq(bus.dat_r),
-            source.valid.eq(bus.ack)
+            source.valid.eq(bus.ack),
+
+            If(~active,
+                bus.cti.eq(0b000) # CLASSIC_CYCLE
+            ).Elif(burst_end,
+                bus.cti.eq(0b111), # END-OF-BURST
+            ).Else(
+                bus.cti.eq(0b010), # LINEAR_BURST
+            )
         ]
 
         self.comb += [
-            #If(self.burst_size.storage == 1,
-            #    burst_end.eq(1),
-            #).Else(
+            
+
                 burst_end.eq(last_address | (burst_cnt == burst_size - 1)),
             #)
         ]
@@ -118,8 +125,8 @@ class StreamWriter(Module, AutoCSR):
             ),
             If(self.enable,
                 NextValue(busy,1),
-                NextValue(start_address, 0),
-                NextValue(transfer_size, 1),
+                NextValue(start_address, self.start_address),
+                NextValue(transfer_size, self.transfer_size),
             )
         )
         fsm.act("ACTIVE",
@@ -171,7 +178,15 @@ class StreamReader(Module, AutoCSR):
             bus.adr.eq(start_address + tx_cnt),
             bus.dat_w.eq(sink.data),
 
-            sink.ready.eq(bus.ack)
+            sink.ready.eq(bus.ack),
+
+            If(~active,
+                bus.cti.eq(0b000) # CLASSIC_CYCLE
+            ).Elif(burst_end,
+                bus.cti.eq(0b111), # END-OF-BURST
+            ).Else(
+                bus.cti.eq(0b010), # LINEAR_BURST
+            )
         ]
 
         self.comb += [
@@ -209,8 +224,8 @@ class StreamReader(Module, AutoCSR):
             ),
             If(self.enable,
                 NextValue(busy,1),
-                NextValue(start_address, 0),
-                NextValue(transfer_size, 1),
+                NextValue(start_address, self.start_address),
+                NextValue(transfer_size, self.transfer_size),
             )
         )
         fsm.act("ACTIVE",
