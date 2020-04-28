@@ -81,10 +81,10 @@ class StreamableHyperRAM(Module, AutoCSR):
        
 
         self.submodules.sink_fifo = sink_fifo = ResetInserter(["sys", "ram"])(
-                ClockDomainsRenamer({'write':'ram', 'read':'sys'})(AsyncFIFO([("data", 32)], 32, buffered=True))
+                ClockDomainsRenamer({'write':'ram', 'read':'sys'})(AsyncFIFO([("data", 32)], 32, buffered=False))
             )
         self.submodules.source_fifo = source_fifo = ResetInserter(["sys", "ram"])(
-                ClockDomainsRenamer({'write':'sys', 'read':'ram'})(AsyncFIFO([("data", 32)], 32, buffered=True))
+                ClockDomainsRenamer({'write':'sys', 'read':'ram'})(AsyncFIFO([("data", 32)], 32, buffered=False))
             )
 
         self.submodules.ram_ps = ram_ps = PulseSynchronizer("sys", "ram")
