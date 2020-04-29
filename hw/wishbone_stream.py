@@ -20,17 +20,10 @@ def data_stream_description(dw):
 class dummySource(Module):
     def __init__(self):
         self.source = source = Endpoint(data_stream_description(32))
-        counter = Signal(32)
 
         self.comb += [
             source.valid.eq(1),
-            source.data.eq(counter)
-        ]
-
-        self.sync += [
-            If(source.ready,
-                counter.eq(counter + 1)
-            )
+            source.data.eq(0)
         ]
 
 class dummySink(Module):
@@ -60,7 +53,7 @@ class StreamWriter(Module, AutoCSR):
         self.start_address = Signal(21)
         self.transfer_size = Signal(21)
 
-        burst_size = Signal(14, reset=512)
+        burst_size = Signal(14, reset=320)
 
         #self.tx_cnt = Signal(21)
         #self._busy = CSRStatus()
@@ -166,8 +159,9 @@ class StreamReader(Module, AutoCSR):
 
         self.start_address = Signal(21)
         self.transfer_size = Signal(21)
+        self.blank = Signal(1)
 
-        burst_size = Signal(8, reset=32)
+        burst_size = Signal(8, reset=320)
 
         #self.tx_cnt = Signal(21)
         #self._busy = CSRStatus()
@@ -181,7 +175,6 @@ class StreamReader(Module, AutoCSR):
             bus.stb.eq(active),
             bus.adr.eq(start_address + tx_cnt),
             bus.dat_w.eq(sink.data),
-
             sink.ready.eq(bus.ack),
 
             If(~active,

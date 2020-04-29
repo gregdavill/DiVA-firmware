@@ -2,7 +2,7 @@ from migen import *
 
 from litex.soc.interconnect.csr import AutoCSR, CSR, CSRStatus, CSRStorage
 from litex.soc.interconnect.stream import Endpoint, EndpointDescription, SyncFIFO, AsyncFIFO
-from wishbone_stream import StreamReader, StreamWriter
+from wishbone_stream import StreamReader, StreamWriter, dummySource
 from litex.soc.interconnect.wishbone import InterconnectShared, Arbiter, SRAM, InterconnectPointToPoint
 from migen.genlib.cdc import PulseSynchronizer, MultiReg, BusSynchronizer
 
@@ -54,6 +54,7 @@ class StreamableHyperRAM(Module, AutoCSR):
         self.reader_addr = CSRStorage(21)
         self.reader_enable = CSR(1)
         self.reader_len = CSRStorage(21)
+        self.reader_blank = CSRStorage(1)
 
 
         self.writer_pix_addr = CSRStorage(21)
@@ -113,16 +114,15 @@ class StreamableHyperRAM(Module, AutoCSR):
 
             writer_pix.start.eq(writer_pix_restart.o),
             writer_pix_restart.i.eq(self.pixels_reset),
-            #writer_pix.enable.eq(writer_pix_en.o),
         ]
 
        
 
         self.submodules.sink_fifo = sink_fifo = ResetInserter(["sys", "ram"])(
-                ClockDomainsRenamer({'write':'ram', 'read':'sys'})(AsyncFIFO([("data", 32)], 32, buffered=False))
+                ClockDomainsRenamer({'write':'ram', 'read':'sys'})(AsyncFIFO([("data", 32)], 4, buffered=False))
             )
         self.submodules.source_fifo = source_fifo = ResetInserter(["sys", "ram"])(
-                ClockDomainsRenamer({'write':'sys', 'read':'ram'})(AsyncFIFO([("data", 32)], 32, buffered=False))
+                ClockDomainsRenamer({'write':'sys', 'read':'ram'})(AsyncFIFO([("data", 32)], 4, buffered=False))
             )
 
         self.submodules.pix_fifo = pix_fifo = ResetInserter(["sys", "ram"])(
@@ -132,9 +132,15 @@ class StreamableHyperRAM(Module, AutoCSR):
         self.submodules.ram_ps = ram_ps = PulseSynchronizer("sys", "ram")
         self.submodules.pix_ps = pix_ps = PulseSynchronizer("sys", "ram")
 
+        self.submodules.dummy_source = dummySource()
+
         self.comb += [
-            self.source.source.connect(source_fifo.sink),
-            source_fifo.source.connect(reader.sink),
+            If(self.reader_blank.storage,
+                self.dummy_source.source.connect(source_fifo.sink),
+            ).Else(
+                self.source.source.connect(source_fifo.sink),
+            ),
+                source_fifo.source.connect(reader.sink),
 
 
             writer.source.connect(sink_fifo.sink),
