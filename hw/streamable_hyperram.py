@@ -89,7 +89,7 @@ class StreamableHyperRAM(Module, AutoCSR):
         self.pixels_reset = Signal()
 
         self.boson = Endpoint(EndpointDescription([("data", 32)]))
-        #self.boson_reset = Signal()
+        self.boson_sync = Signal()
 
         # Patch values across clock domains
         #self.specials += [
@@ -128,11 +128,11 @@ class StreamableHyperRAM(Module, AutoCSR):
             writer_pix_en.i.eq(self.writer_pix_enable.re),
             writer_pix.enable.eq(writer_pix_en.o),
 
-            writer_pix.start.eq(writer_pix_restart.o),
             writer_pix_restart.i.eq(self.pixels_reset),
+            writer_pix.start.eq(writer_pix_restart.o),
 
             reader_boson_en.i.eq(self.reader_boson_enable.re),
-            reader_boson.enable.eq(reader_boson_en.i),
+            reader_boson.enable.eq(reader_boson_en.o),
         ]
 
        
@@ -149,14 +149,19 @@ class StreamableHyperRAM(Module, AutoCSR):
             )
 
 
-        self.submodules.boson_fifo = boson_fifo = ResetInserter(["sys", "ram"])(
+        self.submodules.boson_fifo = boson_fifo = ResetInserter(["boson_rx", "ram"])(
                 ClockDomainsRenamer({'write':'boson_rx', 'read':'ram'})(AsyncFIFO([("data", 32)], 256, buffered=False))
             )
 
         self.submodules.ram_ps = ram_ps = PulseSynchronizer("sys", "ram")
-        self.submodules.pix_ps = pix_ps = PulseSynchronizer("sys", "ram")
+        self.submodules.boson_ps = boson_ps = PulseSynchronizer("sys", "ram")
 
         self.submodules.dummy_source = dummySource()
+
+        boson_sync_ = Signal()
+        self.sync += [
+            boson_sync_.eq(self.boson_sync)
+        ]
 
         self.comb += [
             If(self.reader_blank.storage,
@@ -176,6 +181,13 @@ class StreamableHyperRAM(Module, AutoCSR):
 
             self.boson.connect(boson_fifo.sink),
             boson_fifo.source.connect(reader_boson.sink),
+
+            boson_ps.i.eq(self.boson_sync & ~boson_sync_),
+            reader_boson.start.eq(boson_ps.o),
+
+            #boson_rst.eq(boson_cnt != 0),
+            boson_fifo.reset_boson_rx.eq(~self.boson_sync),
+            boson_fifo.reset_ram.eq(~self.boson_sync),
 
 
 

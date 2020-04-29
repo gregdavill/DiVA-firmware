@@ -168,6 +168,11 @@ class StreamReader(Module, AutoCSR):
         self.enable = Signal()
         self.reset = Signal()
 
+
+        self.start = Signal()
+
+        enabled = Signal()
+
         self.comb += [
             bus.sel.eq(0xF),
             bus.we.eq(active),
@@ -211,6 +216,9 @@ class StreamReader(Module, AutoCSR):
                     burst_cnt.eq(burst_cnt + 1)
                 )
             ),
+            If(self.enable,
+                enabled.eq(~enabled)
+            )
         ]
 
         # Main FSM
@@ -219,7 +227,7 @@ class StreamReader(Module, AutoCSR):
             If(busy & sink.valid,
                 NextState("ACTIVE"),
             ),
-            If(self.enable,
+            If((self.start & enabled & external_sync) | (~external_sync & self.enable),
                 NextValue(busy,1),
                 NextValue(start_address, self.start_address),
                 NextValue(transfer_size, self.transfer_size),
@@ -232,7 +240,7 @@ class StreamReader(Module, AutoCSR):
             If(burst_end & bus.ack,
                 NextState("IDLE"),
                 If(last_address,
-                    NextValue(busy,external_sync)
+                    NextValue(busy,0)
                 )
             ),
         )

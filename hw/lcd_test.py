@@ -41,6 +41,7 @@ from streamable_hyperram import StreamableHyperRAM
 from wishbone_stream import StreamReader, StreamWriter
 
 from boson import Boson
+from YCrCb import YCrCbConvert
 
 #from hyperRAM.hyperbus_fast import HyperRAM
 #from dma.dma import StreamWriter, StreamReader, dummySink, dummySource
@@ -141,6 +142,7 @@ class DiVA_SoC(SoCCore):
         self.submodules.test = StreamableHyperRAM(platform.request("hyperRAM"))
 
         self.submodules.boson = Boson(platform, platform.request("boson"))
+        self.submodules.YCrCb = ClockDomainsRenamer({"sys":"boson_rx"})(YCrCbConvert())
 
         #self.add_wb_slave(self.mem_map["hyperram"], hyperram.bus)
         #self.add_memory_region("hyperram", self.mem_map["hyperram"], 0x800000)
@@ -173,7 +175,9 @@ class DiVA_SoC(SoCCore):
             self.test.pixels.connect(terminal.source),
             self.test.pixels_reset.eq(vsync_r & ~terminal.vsync),
 
-            self.boson.source.connect(self.test.boson)
+            self.boson.source.connect(self.YCrCb.sink),
+            self.YCrCb.source.connect(self.test.boson),
+            self.test.boson_sync.eq(self.boson.sync_out)
         ]
 
         # Add git version into firmware 

@@ -86,7 +86,7 @@ void start_pixels(){
 
 void start_boson(){
 	test_reader_boson_addr_write(0);
-	test_reader_boson_len_write(640*512);
+	test_reader_boson_len_write(640*512 * 3);
 	test_reader_boson_enable_write(1);
 }
 
