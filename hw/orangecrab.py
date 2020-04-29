@@ -31,6 +31,25 @@ _io = [
         Subsignal("rwds",       Pins("H3"),      IOStandard("LVCMOS18"),Misc("SLEWRATE=FAST")),
     ),
 
+    ("boson", 0,
+        Subsignal("data", Pins("D15 C17 C13 B17 A2 A10 A11 C2 \
+                                D1 C15 B11 A15 C3 A8 C1 B13 \
+                                B12 B1 D13 B10 B15 A16 A4 A12"),IOStandard("LVCMOS18"),Misc("SLEWRATE=SLOW"),Misc("DRIVE=4")),
+        Subsignal("clk", Pins("A17"),IOStandard("LVCMOS18"),Misc("SLEWRATE=SLOW"),Misc("DRIVE=4")),
+        Subsignal("vsync", Pins("A13"),IOStandard("LVCMOS18"),Misc("SLEWRATE=SLOW"),Misc("DRIVE=4")),
+        Subsignal("hsync", Pins("D16"),IOStandard("LVCMOS18"),Misc("SLEWRATE=SLOW"),Misc("DRIVE=4")),
+        Subsignal("valid", Pins("C16"),IOStandard("LVCMOS18"),Misc("SLEWRATE=SLOW"),Misc("DRIVE=4")),
+        Subsignal("rx", Pins("A3"),IOStandard("LVCMOS18"),Misc("SLEWRATE=SLOW"),Misc("DRIVE=4")),
+        Subsignal("tx", Pins("B9"),IOStandard("LVCMOS18"),Misc("SLEWRATE=SLOW"),Misc("DRIVE=4")),
+        Subsignal("reset", Pins("B2"),IOStandard("LVCMOS18"),Misc("SLEWRATE=SLOW"),Misc("DRIVE=4")),
+        Subsignal("ext_sync", Pins("B18"),IOStandard("LVCMOS18"),Misc("SLEWRATE=SLOW"),Misc("DRIVE=4")),
+    ),    
+
+    #("button", 0,
+    #    Subsignal("a", Pins("K1"),IOStandard("LVCMOS33"),Misc("PULLMODE=UP")),
+    #    Subsignal("b", Pins("M2"),IOStandard("LVCMOS33"),Misc("PULLMODE=UP")),
+    #)
+
     ("spiflash", 0,
         Subsignal("cs_n", Pins("U17"), IOStandard("LVCMOS33")),
         #Subsignal("clk",  Pins("U16"), IOStandard("LVCMOS33")), # Note: CLK is bound using USRMCLK block

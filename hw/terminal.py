@@ -105,8 +105,8 @@ class Terminal(Module, AutoCSR):
         ]
 
         # Display resolution
-        WIDTH  = 1920
-        HEIGHT = 1080
+        WIDTH  = 1280
+        HEIGHT = 720
 
         # Offset to font data in RAM
         FONT_ADDR = 80 * 40
@@ -125,15 +125,15 @@ class Terminal(Module, AutoCSR):
         ]
 
         # VGA timings
-        H_SYNC_PULSE  = 44
-        H_BACK_PORCH  = 133 + H_SYNC_PULSE
+        H_SYNC_PULSE  = 32
+        H_BACK_PORCH  = 80 + H_SYNC_PULSE
         H_DATA        = WIDTH + H_BACK_PORCH
-        H_FRONT_PORCH = 88 + H_DATA
+        H_FRONT_PORCH = 48 + H_DATA
 
         V_SYNC_PULSE  = 5
-        V_BACK_PORCH  = 46 + V_SYNC_PULSE
+        V_BACK_PORCH  = 13 + V_SYNC_PULSE
         V_DATA        = HEIGHT + V_BACK_PORCH
-        V_FRONT_PORCH = 4 + V_DATA
+        V_FRONT_PORCH = 3 + V_DATA
 
         pixel_counter = Signal(14)
         line_counter  = Signal(14)
@@ -236,7 +236,7 @@ class Terminal(Module, AutoCSR):
                 If(fx == 7,
                     # Set background color and everything for the next 8 pixels
                     bgcolor.eq(0x000000),
-                    fgcolor.eq(0xaa5500),
+                    fgcolor.eq(0x00aaaa),
                     fbyte.eq(next_byte)
                 ),
             ),

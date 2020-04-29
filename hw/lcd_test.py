@@ -40,6 +40,8 @@ from streamable_hyperram import StreamableHyperRAM
 
 from wishbone_stream import StreamReader, StreamWriter
 
+from boson import Boson
+
 #from hyperRAM.hyperbus_fast import HyperRAM
 #from dma.dma import StreamWriter, StreamReader, dummySink, dummySource
 
@@ -55,7 +57,7 @@ class _CRG(Module, AutoCSR):
         self.clock_domains.cd_ram = ClockDomain()
         self.clock_domains.cd_ram_shift = ClockDomain()
         
-        pixel_clock = (75e6)
+        pixel_clock = (64e6)
 
         # # #
 
@@ -138,6 +140,8 @@ class DiVA_SoC(SoCCore):
 
         self.submodules.test = StreamableHyperRAM(platform.request("hyperRAM"))
 
+        self.submodules.boson = Boson(platform, platform.request("boson"))
+
         #self.add_wb_slave(self.mem_map["hyperram"], hyperram.bus)
         #self.add_memory_region("hyperram", self.mem_map["hyperram"], 0x800000)
 
@@ -167,7 +171,9 @@ class DiVA_SoC(SoCCore):
             hdmi.b.eq(terminal.blue),
 
             self.test.pixels.connect(terminal.source),
-            self.test.pixels_reset.eq(vsync_r & ~terminal.vsync)
+            self.test.pixels_reset.eq(vsync_r & ~terminal.vsync),
+
+            self.boson.source.connect(self.test.boson)
         ]
 
         # Add git version into firmware 
@@ -259,6 +265,9 @@ def main():
     # create a compressed bitstream
     output_bit = os.path.join(builder.output_dir, "gateware", "DiVA.bit")
     os.system(f"ecppack --input {output_config} --compress --freq 38.8 --bit {output_bit}")
+
+    # Add DFU suffix
+    os.system(f"dfu-suffix -p 1209 -d 5bf0 -a {output_bit}")
 
     print(
     f"""DiVA build complete!  Output files:

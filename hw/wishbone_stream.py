@@ -142,7 +142,7 @@ class StreamWriter(Module, AutoCSR):
         self.comb += active.eq(fsm.ongoing("ACTIVE") & source.ready)
 
 class StreamReader(Module, AutoCSR):
-    def __init__(self):
+    def __init__(self, external_sync=False):
         self.bus  = bus = wishbone.Interface()
         self.sink = sink = Endpoint(data_stream_description(32))
 
@@ -232,7 +232,7 @@ class StreamReader(Module, AutoCSR):
             If(burst_end & bus.ack,
                 NextState("IDLE"),
                 If(last_address,
-                    NextValue(busy,0)
+                    NextValue(busy,external_sync)
                 )
             ),
         )

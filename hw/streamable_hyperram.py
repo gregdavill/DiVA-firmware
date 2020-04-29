@@ -42,8 +42,10 @@ class StreamableHyperRAM(Module, AutoCSR):
         #self.submodules.writer = writer = StreamWriter()
         #self.submodules.reader = reader = StreamReader()
         self.submodules.writer_pix = writer_pix = ClockDomainsRenamer({'sys':'ram'})(StreamWriter(external_sync=True))
+
+        self.submodules.reader_boson = reader_boson = ClockDomainsRenamer({'sys':'ram'})(StreamReader(external_sync=True))
         
-        self.submodules.arbiter = ClockDomainsRenamer({'sys':'ram'})(Arbiter([writer_pix.bus, reader.bus, writer.bus], hyperram.bus))
+        self.submodules.arbiter = ClockDomainsRenamer({'sys':'ram'})(Arbiter([writer_pix.bus, reader_boson.bus, reader.bus, writer.bus], hyperram.bus))
         #self.submodules.arbiter = Arbiter([reader.bus, writer.bus], hyperram.bus)
         #self.submodules.p2p = InterconnectPointToPoint(reader.bus, hyperram.bus)   
 
@@ -60,6 +62,11 @@ class StreamableHyperRAM(Module, AutoCSR):
         self.writer_pix_addr = CSRStorage(21)
         self.writer_pix_enable = CSR(1)
         self.writer_pix_len = CSRStorage(21)
+
+
+        self.reader_boson_addr = CSRStorage(21)
+        self.reader_boson_enable = CSR(1)
+        self.reader_boson_len = CSRStorage(21)
 
         # CPU addressable logic 
         self.clear = CSR(1)
@@ -81,6 +88,9 @@ class StreamableHyperRAM(Module, AutoCSR):
         self.pixels = Endpoint(EndpointDescription([("data", 32)]))
         self.pixels_reset = Signal()
 
+        self.boson = Endpoint(EndpointDescription([("data", 32)]))
+        #self.boson_reset = Signal()
+
         # Patch values across clock domains
         #self.specials += [
         #    MultiReg(self.writer_addr.storage, writer.start_address, "sys"),
@@ -96,12 +106,18 @@ class StreamableHyperRAM(Module, AutoCSR):
             reader.transfer_size.eq(self.reader_len.storage),
             writer_pix.start_address.eq(self.writer_pix_addr.storage),
             writer_pix.transfer_size.eq(self.writer_pix_len.storage),
+
+            reader_boson.start_address.eq(self.reader_boson_addr.storage),
+            reader_boson.transfer_size.eq(self.reader_boson_len.storage),
         ]
 
         self.submodules.writer_en = writer_en = PulseSynchronizer("sys", "ram")
         self.submodules.reader_en = reader_en = PulseSynchronizer("sys", "ram")
         self.submodules.writer_pix_en = writer_pix_en = PulseSynchronizer("sys", "ram")
         self.submodules.writer_pix_restart = writer_pix_restart = PulseSynchronizer("sys", "ram")
+
+        self.submodules.reader_boson_en = reader_boson_en = PulseSynchronizer("sys", "ram")
+
 
         self.comb += [
             writer_en.i.eq(self.writer_enable.re),
@@ -114,6 +130,9 @@ class StreamableHyperRAM(Module, AutoCSR):
 
             writer_pix.start.eq(writer_pix_restart.o),
             writer_pix_restart.i.eq(self.pixels_reset),
+
+            reader_boson_en.i.eq(self.reader_boson_enable.re),
+            reader_boson.enable.eq(reader_boson_en.i),
         ]
 
        
@@ -127,6 +146,11 @@ class StreamableHyperRAM(Module, AutoCSR):
 
         self.submodules.pix_fifo = pix_fifo = ResetInserter(["sys", "ram"])(
                 ClockDomainsRenamer({'write':'ram', 'read':'sys'})(AsyncFIFO([("data", 32)], 256, buffered=False))
+            )
+
+
+        self.submodules.boson_fifo = boson_fifo = ResetInserter(["sys", "ram"])(
+                ClockDomainsRenamer({'write':'boson_rx', 'read':'ram'})(AsyncFIFO([("data", 32)], 256, buffered=False))
             )
 
         self.submodules.ram_ps = ram_ps = PulseSynchronizer("sys", "ram")
@@ -149,6 +173,10 @@ class StreamableHyperRAM(Module, AutoCSR):
             
             sink_fifo.reset_sys.eq(self.clear.re),
             source_fifo.reset_sys.eq(self.clear.re),
+
+            self.boson.connect(boson_fifo.sink),
+            boson_fifo.source.connect(reader_boson.sink),
+
 
 
             ram_ps.i.eq(self.clear.re),

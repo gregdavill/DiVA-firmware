@@ -76,67 +76,18 @@ void write_pixels(int line, int colour){
 
 }
 
-void inline swap(int a, int b){
-	int c = a;
-	a = b;
-	b = c;
-}
-
-void write_line(int x0, int y0, int x1, int y1,
-                             uint32_t color) {
-
-  int steep = abs(y1 - y0) > abs(x1 - x0);
-  if (steep) {
-    swap(x0, y0);
-    swap(x1, y1);
-  }
-
-  if (x0 > x1) {
-    swap(x0, x1);
-    swap(y0, y1);
-  }
-
-  int dx, dy;
-  dx = x1 - x0;
-  dy = abs(y1 - y0);
-
-  int err = dx / 2;
-  int ystep;
-
-  if (y0 < y1) {
-    ystep = 1;
-  } else {
-    ystep = -1;
-  }
-
-  for (; x0 <= x1; x0++) {
-    if (steep) {
-      write_pixel(y0, x0, color);
-    } else {
-      write_pixel(x0, y0, color);
-    }
-    err -= dy;
-    if (err < 0) {
-      y0 += ystep;
-      err += dx;
-    }
-  }
-}
-
-void write_pixel(int x, int y, int colour){
-	//test_clear_write(1);
-	test_reader_addr_write(x + y*1919);
-	test_reader_len_write(1);
-	test_reader_enable_write(1);
-
-	test_source_data_write(colour);
-}
-
 void start_pixels(){
 	test_writer_pix_addr_write(0);
-	test_writer_pix_len_write(1920*1080);
+	test_writer_pix_len_write(1280*720);
 	test_writer_pix_enable_write(1);
 
+}
+
+
+void start_boson(){
+	test_reader_boson_addr_write(0);
+	test_reader_boson_len_write(640*512);
+	test_reader_boson_enable_write(1);
 }
 
 
@@ -232,15 +183,13 @@ int main(int i, char **c)
 
 	uint32_t line = 0;
 
+	start_boson();
+
 	uint32_t colour = 0xFF22410;
     while(1) {
 		printf("Overrun: %08x\r", terminal_overrun_read());
 
-		for(int i = 0; i < 1920; i += 20){
-			write_line(0,0,i, 1079, colour);
-		}
-
-		colour = rand();
+		
 		
 		//putsnonl("DiVA> ");
 		//readstr(buffer, 64);
