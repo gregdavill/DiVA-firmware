@@ -1,7 +1,7 @@
 from migen import *
 
 from litex.soc.interconnect.csr import AutoCSR, CSR, CSRStatus, CSRStorage
-from litex.soc.interconnect.stream import Endpoint, EndpointDescription, SyncFIFO, AsyncFIFO
+from litex.soc.interconnect.stream import Endpoint, EndpointDescription, SyncFIFO, AsyncFIFO, Monitor
 from wishbone_stream import StreamReader, StreamWriter, dummySource
 from litex.soc.interconnect.wishbone import InterconnectShared, Arbiter, SRAM, InterconnectPointToPoint
 from migen.genlib.cdc import PulseSynchronizer, MultiReg, BusSynchronizer
@@ -85,6 +85,7 @@ class StreamableHyperRAM(Module, AutoCSR):
         
 
 
+
         self.pixels = Endpoint(EndpointDescription([("data", 32)]))
         self.pixels_reset = Signal()
 
@@ -145,13 +146,17 @@ class StreamableHyperRAM(Module, AutoCSR):
             )
 
         self.submodules.pix_fifo = pix_fifo = ResetInserter(["sys", "ram"])(
-                ClockDomainsRenamer({'write':'ram', 'read':'sys'})(AsyncFIFO([("data", 32)], 256, buffered=False))
+                ClockDomainsRenamer({'write':'ram', 'read':'sys'})(AsyncFIFO([("data", 32)], 512, buffered=False))
             )
 
 
         self.submodules.boson_fifo = boson_fifo = ResetInserter(["boson_rx", "ram"])(
-                ClockDomainsRenamer({'write':'boson_rx', 'read':'ram'})(AsyncFIFO([("data", 32)], 256, buffered=False))
+                ClockDomainsRenamer({'write':'boson_rx', 'read':'ram'})(AsyncFIFO([("data", 32)], 512, buffered=False))
             )
+
+
+        self.submodules.boson_stats = Monitor(boson_fifo.sink, clock_domain="boson_rx", with_tokens=True, with_overflows=True)
+        self.submodules.hdmi_stats = Monitor(pix_fifo.source, clock_domain="sys", with_tokens=True, with_underflows=True)
 
         self.submodules.ram_ps = ram_ps = PulseSynchronizer("sys", "ram")
         self.submodules.boson_ps = boson_ps = PulseSynchronizer("sys", "ram")

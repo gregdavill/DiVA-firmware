@@ -78,7 +78,7 @@ void write_pixels(int line, int colour){
 
 void start_pixels(){
 	test_writer_pix_addr_write(0);
-	test_writer_pix_len_write(1280*720);
+	test_writer_pix_len_write(640*720);
 	test_writer_pix_enable_write(1);
 
 }
@@ -86,7 +86,7 @@ void start_pixels(){
 
 void start_boson(){
 	test_reader_boson_addr_write(0);
-	test_reader_boson_len_write(640*512 * 3);
+	test_reader_boson_len_write(640*512);
 	test_reader_boson_enable_write(1);
 }
 
@@ -98,7 +98,7 @@ void io_shift(){
 
 	/* 25ps of delay per tap.
 	   Each rising edge adds to the io delay */
-	for(int i = 0; i < 10; i++){ 
+	for(int i = 0; i < 8; i++){ 
 		test_move_write(1);
 		test_move_write(0);
 	}
@@ -125,17 +125,15 @@ int main(int i, char **c)
 	rgb_div_m_write(60000*5);
     rgb_config_write(2);
 
+	printf("     ______    ___   __   __   _______ \n");
+	printf("    |      |  |___| |  | |  | |   _   |\n");
+	printf("    |  _    |  ___  |  |_|  | |  |_|  |\n");
+	printf("    | | |   | |   | |       | |       |\n");
+	printf("    | |_|   | |   | |       | |       |\n");
+	printf("    |       | |   |  |     |  |   _   |\n");
+	printf("    |______|  |___|   |___|   |__| |__|\n");
 
-	printf("\n\n");
-	printf("  ______    ___   __   __   _______ \n");
-	printf(" |      |  |___| |  | |  | |   _   |\n");
-	printf(" |  _    |  ___  |  |_|  | |  |_|  |\n");
-	printf(" | | |   | |   | |       | |       |\n");
-	printf(" | |_|   | |   | |       | |       |\n");
-	printf(" |       | |   |  |     |  |   _   |\n");
-	printf(" |______|  |___|   |___|   |__| |__|\n");
-
-	printf("- Digital Video Interface for Boson -\n");
+	printf("   - Digital Video Interface for Boson -\n");
 	
 // 	printf("\n (c) Copyright 2019-2020 GetLabs \n");
 // 	printf(" fw built: "__DATE__ " " __TIME__ " \n\n");
@@ -167,7 +165,7 @@ int main(int i, char **c)
 // 	printf("\n");
 
 
-    printf("--========== Initialization ============--\n");
+    printf("--========== HyperRAM Initialization ============--\n  ");
 	for(int i = 0; i < 20; i++){
 		hyperram_init();
 		io_shift();
@@ -179,7 +177,7 @@ int main(int i, char **c)
 //	memtest((unsigned int*)HYPERRAM_BASE);
 	printf("\n");
 
-    printf("--============= \e[1mConsole\e[0m ================--\n");
+    printf("--============= Stats: ================--\n");
 
 	uint32_t line = 0;
 
@@ -187,9 +185,14 @@ int main(int i, char **c)
 
 	uint32_t colour = 0xFF22410;
     while(1) {
-		printf("Overrun: %08x\r", terminal_overrun_read());
+		test_boson_stats_latch_write(1);
+		test_hdmi_stats_latch_write(1);
 
-		
+		printf("Boson: %08x %08x  HDMI: %08x %08x\r", test_boson_stats_tokens_read(), test_boson_stats_overflows_read(),
+		test_hdmi_stats_tokens_read(), test_hdmi_stats_underflows_read());
+
+
+
 		
 		//putsnonl("DiVA> ");
 		//readstr(buffer, 64);

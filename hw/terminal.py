@@ -120,9 +120,6 @@ class Terminal(Module, AutoCSR):
 
         self.blank = blank = Signal()
 
-        self.comb += [
-            source.ready.eq(~blank)
-        ]
 
         # VGA timings
         H_SYNC_PULSE  = 32
@@ -138,6 +135,9 @@ class Terminal(Module, AutoCSR):
         pixel_counter = Signal(14)
         line_counter  = Signal(14)
 
+        self.comb += [
+            source.ready.eq((~blank) & (pixel_counter < (H_DATA - 320)) & (pixel_counter >= H_BACK_PORCH + 320))
+        ]
         # Read address in text RAM
         text_addr = Signal(16)
 
@@ -187,27 +187,24 @@ class Terminal(Module, AutoCSR):
 
             # Show pixels
             If((line_counter >= V_BACK_PORCH) & (line_counter < V_DATA),
-                If((pixel_counter >= H_BACK_PORCH) & (pixel_counter < H_DATA),
+                If((pixel_counter >= H_BACK_PORCH) & (pixel_counter < (H_DATA)),
                     blank.eq(0),
                     If(fbyte[7],
                         red.eq(fgcolor[16:24]),
                         green.eq(fgcolor[8:16]),
                         blue.eq(fgcolor[0:8])
                     ).Else(
-                        If(source.valid,
+                        If(source.valid & source.ready,
                             red.eq(source.data[16:24]),
                             green.eq(source.data[8:16]),
                             blue.eq(source.data[0:8])
                         ).Else( 
-                            red.eq(0xFF),
+                            red.eq(0x33),
                             green.eq(0x33),
-                            blue.eq(0xFF)
+                            blue.eq(0x33)
                         )
                     ),
                     fbyte.eq(Cat(Signal(), fbyte[:-1])),
-                    If(~source.valid,
-                        overrun.eq(overrun + 1)
-                    )
                 )
             ),
 

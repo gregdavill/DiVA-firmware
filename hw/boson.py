@@ -138,13 +138,14 @@ flirInitPackets = Array([
     #flirFrame(2, 0x00100000,[0x01, 0x00,0x00,0x00,0x01]), # set test pattern?
     #flirFrame(3, 0x00000013, [0x00,0x00,0x00,0x00]), # enable test ramp
 
+    flirFrame(110, 0x0000000B,[0x00,0x00,0x00,0x00]), # Averager: disable (60Hz)
     flirFrame(12, 0x0006000F,[0x00,0x00,0x00,0x00]), # colour
 
     flirFrame(19, 0x00060004,[0x00,0x00,0x00,0x00]), # Analog off
     flirFrame(20, 0x00060006,[0x00,0x00,0x00,0x02]), # Output format = YCbCr
     
     flirFrame(40, 0x0006000A,[0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00]), # RGB888
-    flirFrame(41, 0x00060008,[0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x01, 0x00,0x00,0x00,0x00]), # YCBCR Muxed
+    flirFrame(41, 0x00060008,[0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00]), # YCBCR Muxed
     
     flirFrame(50, 0x0006000C), # Apply Settings
     
@@ -153,9 +154,8 @@ flirInitPackets = Array([
     
     flirFrame(100, 0x0006000F,[0x00,0x00,0x00,0x02]), # colour
 
-    #flirFrame(110, 0x0000000B,[0x00,0x00,0x00,0x00]), # Averager: disable (60Hz)
 
-    #flirFrame(120, 0x00050007), # FFC
+    flirFrame(120, 0x00050007), # FFC
 
     
 
@@ -290,7 +290,7 @@ class boson_rx(Module):
 
         pixel_counter = Signal(20)
         
-        self.comb += [
+        self.sync += [
             source.data.eq(data),
             source.valid.eq(valid[1]),
         ]
@@ -335,7 +335,7 @@ class boson_rx(Module):
 class boson_clk(Module):
     def __init__(self, clk_pad):
         self.clock_domains.cd_boson_rx = ClockDomain()        
-        self.comb += self.cd_boson_rx.clk.eq(clk_pad)
+        self.comb += self.cd_boson_rx.clk.eq(~clk_pad)
 
 
 class Boson(Module):
@@ -361,7 +361,7 @@ class Boson(Module):
         
         self.comb += [
             self.conf.button.eq(~button.a),
-           
+            #self.sync_out.eq(button.b),
         ]
 
     

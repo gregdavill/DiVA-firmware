@@ -53,7 +53,7 @@ class StreamWriter(Module, AutoCSR):
         self.start_address = Signal(21)
         self.transfer_size = Signal(21)
 
-        burst_size = Signal(14, reset=320)
+        burst_size = Signal(14, reset=512)
 
         #self.tx_cnt = Signal(21)
         #self._busy = CSRStatus()
@@ -161,7 +161,7 @@ class StreamReader(Module, AutoCSR):
         self.transfer_size = Signal(21)
         self.blank = Signal(1)
 
-        burst_size = Signal(8, reset=320)
+        burst_size = Signal(14, reset=512)
 
         #self.tx_cnt = Signal(21)
         #self._busy = CSRStatus()
