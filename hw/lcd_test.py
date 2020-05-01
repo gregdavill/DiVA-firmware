@@ -55,10 +55,16 @@ class _CRG(Module, AutoCSR):
         self.clock_domains.cd_sys = ClockDomain()
         self.clock_domains.cd_sys_shift = ClockDomain()
         self.clock_domains.cd_shift = ClockDomain()
-        self.clock_domains.cd_ram = ClockDomain()
-        self.clock_domains.cd_ram_shift = ClockDomain()
+
+        self.clock_domains.cd_hr = ClockDomain()
+        self.clock_domains.cd_hr2x = ClockDomain()
+        self.clock_domains.cd_hr2x_90 = ClockDomain()
+        self.clock_domains.cd_hr2x_ = ClockDomain()
+        self.clock_domains.cd_hr2x_90_ = ClockDomain()
         
         pixel_clock = (64e6)
+
+        self.stop = Signal()
 
         # # #
 
@@ -70,17 +76,34 @@ class _CRG(Module, AutoCSR):
         pll.create_clkout(self.cd_sys, pixel_clock, margin=0)
         #pll.create_clkout(self.cd_sys_shift, pixel_clock, phase=1, margin=0)
         pll.create_clkout(self.cd_shift, pixel_clock * 5, margin=0)
+        self.specials += [
+            AsyncResetSynchronizer(self.cd_sys, ~pll.locked),
+            AsyncResetSynchronizer(self.cd_shift, ~pll.locked)
+        ]
 
 
         self.submodules.ram_pll = ram_pll = ECP5PLL()
         ram_pll.register_clkin(clk48, 48e6)
-        ram_pll.create_clkout(self.cd_ram, 165e6, margin=0)
-        ram_pll.create_clkout(self.cd_ram_shift, 165e6, phase=1, margin=0)
+        ram_pll.create_clkout(self.cd_hr2x_,    165e6, phase=0, margin=0)
+        ram_pll.create_clkout(self.cd_hr2x_90_, 165e6, phase=1, margin=0) # SW tunes this phase during init
 
+        # ECLK stuff 
         self.specials += [
-            AsyncResetSynchronizer(self.cd_sys, ~pll.locked),
-            #AsyncResetSynchronizer(self.cd_sys_shift, ~pll.locked),
-            AsyncResetSynchronizer(self.cd_shift, ~pll.locked)
+            Instance("ECLKSYNCB",
+                i_ECLKI = self.cd_hr2x_.clk,
+                i_STOP  = self.stop,
+                o_ECLKO = self.cd_hr2x.clk),
+            Instance("ECLKSYNCB",
+                i_ECLKI = self.cd_hr2x_90_.clk,
+                i_STOP  = self.stop,
+                o_ECLKO = self.cd_hr2x_90.clk),
+            Instance("CLKDIVF",
+                p_DIV     = "2.0",
+                i_ALIGNWD = 0,
+                i_CLKI    = self.cd_hr2x.clk,
+                i_RST     = self.cd_hr2x.rst,
+                o_CDIVX   = self.cd_hr.clk),
+            AsyncResetSynchronizer(self.cd_hr, ~pll.locked)
         ]
 
         #platform.add_period_constraint(self.cd_sys.clk, period_ns(sys_clk_freq))

@@ -12,7 +12,6 @@ from litex.soc.cores.clock import *
 
 from migen.genlib.cdc import MultiReg
 
-
 # HyperRAM -----------------------------------------------------------------------------------------
 
 class HyperRAM(Module):
@@ -30,7 +29,7 @@ class HyperRAM(Module):
     """
     def __init__(self, pads):
         self.pads = pads
-        self.bus  = bus = wishbone.Interface(adr_width=21)
+        self.bus  = bus = wishbone.Interface(adr_width=22)
 
 
         self.loadn = Signal()
@@ -39,12 +38,12 @@ class HyperRAM(Module):
 
         # # #
 
-        clk_en    = Signal()
-        cs        = Signal()
-        ca        = Signal(48)
-        sr_out    = Signal(48)
-        sr_in     = Signal(32)
-        sr_rwds   = Signal(4)
+        clk_enable = Signal()
+        cs         = Signal()
+        ca         = Signal(48)
+        sr_out     = Signal(48)
+        sr_in      = Signal(32)
+        sr_rwds    = Signal(4)
 
         latency = Signal(4, reset=11)
         ca_load = Signal()
@@ -63,14 +62,13 @@ class HyperRAM(Module):
         self.submodules += fsm
 
         self.comb += [
-            phy.clk_en.eq(clk_en)
+            phy.clk_enable.eq(clk_enable)
         ]
 
         # Drive rst_n, from internal signals ---------------------------------------------
         if hasattr(pads, "rst_n"):
             self.comb += pads.rst_n.eq(1)
         self.comb += phy.cs.eq(~cs)
-        self.comb += phy.shift.eq(bus.ack)
         
         # Data Out Shift Register (for write) -------------------------------------------------
         self.sync += [
@@ -141,7 +139,7 @@ class HyperRAM(Module):
         fsm.act('IDLE',
             If(bus.cyc & bus.stb, counter_rst.eq(1), 
                 NextState('CMD'),
-                NextValue(clk_en,1),
+                NextValue(clk_enable,1),
                 NextValue(cs,1), 
                 NextValue(phy.dq_oe,1), 
                 ca_load.eq(1),
@@ -194,7 +192,7 @@ class HyperRAM(Module):
                     NextState('READ_ACK'),
                 )
             ).Else(
-                NextValue(clk_en,0), 
+                NextValue(clk_enable,0), 
                 NextValue(cs,0), 
                 NextState('IDLE'),
             )
@@ -226,7 +224,7 @@ class HyperRAM(Module):
         )
 
         fsm.act('WRITE_FINISH',
-            NextValue(clk_en,0), 
+            NextValue(clk_enable,0), 
             counter_rst.eq(1), NextState('CLEANUP'),
         )
 
@@ -237,7 +235,7 @@ class HyperRAM(Module):
 
         fsm.act('CLEANUP',
             NextValue(cs,0), 
-            NextValue(clk_en,0), 
+            NextValue(clk_enable,0), 
             counter_rst.eq(1), NextState('IDLE'),
             NextValue(phy.rwds_oe,0), 
             NextValue(phy.dq_oe,0),
@@ -246,7 +244,7 @@ class HyperRAM(Module):
 
         self.dbg = [
             bus,
-            phy.clk_en,
+            phy.clk_enable,
             phy.dq_in,
             phy.dq_out,
             phy.dq_oe,
@@ -272,19 +270,22 @@ class HyperBusPHY(Module):
     def __init__(self, pads):
         
         # # #
-        self.clk_en = Signal()
+        self.interface = Record([
+            ("clk_enable1", 1)
+        ])
+
+        self.clk_enable = Signal()
         self.cs = Signal()
 
         self.dq_oe = Signal()
-        self.dq_in = Signal(16)
-        self.dq_out = Signal(16)
+        self.dq_in = Signal(32)
+        self.dq_out = Signal(32)
 
         self.rwds_oe = Signal()
-        self.rwds_in = Signal(2)
-        self.rwds_out = Signal(2)
+        self.rwds_in = Signal(4)
+        self.rwds_out = Signal(4)
 
-        self.shift = Signal()
-
+        ## IO Delay shifting 
         self.loadn = Signal()
         self.move = Signal()
         self.direction = Signal()
@@ -301,71 +302,38 @@ class HyperBusPHY(Module):
         
         # mask off clock when no CS
         clk_en = Signal()
-        self.comb += clk_en.eq(self.clk_en & ~self.cs)
+        self.comb += clk_en.eq(self.clk_enable & ~self.cs)
         #self.sync += [
         #    clk_en.eq(self.clk_en & ~self.cs)
         #]
         
-        # CLK
-        if hasattr(pads, "clk"):
+        #clk_out
+        for clk in [pads.clk_p, pads.clk_n]:
             self.specials += [
-                Instance("ODDRX1F",
-                    i_D0=0,
-                    i_D1=clk_en,
-                    i_SCLK=ClockSignal("sys_shift"),
-                    i_RST=ResetSignal("sys_shift"),
-                    o_Q=pads.clk
+                Instance("ODDRX2F",
+                    i_D0=clk_en,
+                    i_D1=0,
+                    i_D2=clk_en,
+                    i_D3=0,
+                    i_SCLK=ClockSignal("hr"),
+                    i_ECLK=ClockSignal("hr2x_90"),
+                    i_RST=ResetSignal("hr"),
+                    o_Q=clk
                 )
             ]
-        else: # DIFF PAIR CLK
-            clk_p = Signal()
-            clk_n = Signal()
 
-            self.specials += [
-                Instance("ODDRX1F",
-                    i_D0=0,
-                    i_D1=clk_en,
-                    i_SCLK=ClockSignal("sys_shift"),
-                    i_RST=ResetSignal("sys_shift"),
-                    o_Q=clk_p
-                ),
-                Instance("DELAYF",
-                    p_DEL_MODE="USER_DEFINED",
-                    p_DEL_VALUE=0, # 2ns (25ps per tap)
-                    i_A=clk_p,
-                    i_LOADN=0,
-                    i_MOVE=0,
-                    i_DIRECTION=1,
-                    o_Z=pads.clk_p)
-            ]
-
-            self.specials += [
-                Instance("ODDRX1F",
-                    i_D0=1,
-                    i_D1=~clk_en,
-                    i_SCLK=ClockSignal("sys_shift"),
-                    i_RST=ResetSignal("sys_shift"),
-                    o_Q=clk_n
-                ),
-                Instance("DELAYF",
-                    p_DEL_MODE="USER_DEFINED",
-                    p_DEL_VALUE=0, # 2ns (25ps per tap)
-                    i_A=clk_n,
-                    i_LOADN=0,
-                    i_MOVE=0,
-                    i_DIRECTION=1,
-                    o_Z=pads.clk_n)
-            ]
-            
 
         # DQ_out
         for i in range(8):
             self.specials += [
-                Instance("ODDRX1F",
-                    i_D0=self.dq_out[8+i],
-                    i_D1=self.dq_out[i],
-                    i_SCLK=ClockSignal("sys"),
-                    i_RST=ResetSignal("sys"),
+                Instance("ODDRX2F",
+                    i_D0=self.dq_out[i],
+                    i_D1=self.dq_out[8+i],
+                    i_D2=self.dq_out[16+i],
+                    i_D3=self.dq_out[24+i],
+                    i_SCLK=ClockSignal("hr"),
+                    i_ECLK=ClockSignal("hr2x"),
+                    i_RST=ResetSignal("hr"),
                     o_Q=dq.o[i]
                 )
             ]
@@ -375,12 +343,15 @@ class HyperBusPHY(Module):
         for i in range(8):
             dq_in = Signal()
             self.specials += [
-                Instance("IDDRX1F",
+                Instance("IDDRX2F",
                     i_D=dq_in,
-                    i_SCLK=ClockSignal("sys"),
-                    i_RST=ResetSignal("sys"),
+                    i_SCLK=ClockSignal("hr"),
+                    i_ECLK=ClockSignal("hr2x"),
+                    i_RST= ResetSignal("hr"),
                     o_Q0=self.dq_in[i+8],
-                    o_Q1=self.dq_in[i]
+                    o_Q1=self.dq_in[i],
+                    o_Q2=self.dq_in[i+24],
+                    o_Q3=self.dq_in[i+16]
                 ),
                 Instance("DELAYF",
                     p_DEL_MODE="USER_DEFINED",
@@ -394,11 +365,14 @@ class HyperBusPHY(Module):
         
         # RWDS_out
         self.specials += [
-            Instance("ODDRX1F",
+            Instance("ODDRX2F",
                 i_D0=self.rwds_out[1],
                 i_D1=self.rwds_out[0],
-                i_SCLK=ClockSignal("sys"),
-                i_RST=ResetSignal("sys"),
+                i_D2=self.rwds_out[3],
+                i_D3=self.rwds_out[2],
+                i_SCLK=ClockSignal("hr"),
+                i_ECLK=ClockSignal("hr2x"),
+                i_RST=ResetSignal("hr"),
                 o_Q=rwds.o
             )
         ]
@@ -406,12 +380,15 @@ class HyperBusPHY(Module):
         # RWDS_in
         rwds_in = Signal()
         self.specials += [
-            Instance("IDDRX1F",
+            Instance("IDDRX2F",
                 i_D=rwds_in,
-                i_SCLK=ClockSignal("sys"),
-                i_RST=ResetSignal("sys"),
+                i_SCLK=ClockSignal("hr"),
+                i_ECLK=ClockSignal("hr2x"),
+                i_RST= ResetSignal("hr"),
                 o_Q0=self.rwds_in[1],
-                o_Q1=self.rwds_in[0]
+                o_Q1=self.rwds_in[0],
+                o_Q2=self.rwds_in[3],
+                o_Q3=self.rwds_in[2]
             ),
             Instance("DELAYF",
                     p_DEL_MODE="USER_DEFINED",
@@ -422,45 +399,3 @@ class HyperBusPHY(Module):
                     i_DIRECTION=self.direction,
                     o_Z=rwds_in)
         ]
-        
-
-
-
-class SimHyperBusPHY(Module):
-
-    #def add_tristate(self, pad):
-    #    t = TSTriple(len(pad))
-    #    self.specials += t.get_tristate(pad)
-    #    return t
-
-    def __init__(self, pads):
-        
-        # # #
-        self.clk_en = Signal()
-        self.cs = Signal()
-
-        self.dq_oe = Signal()
-        self.dq_in = Signal(16)
-        self.dq_out = Signal(16)
-
-        self.rwds_oe = Signal()
-        self.rwds_in = Signal(2)
-        self.rwds_out = Signal(2)
-
-        self.shift = Signal()
-
-        #dq        = self.add_tristate(pads.dq) if not hasattr(pads.dq, "oe") else pads.dq
-        #rwds      = self.add_tristate(pads.rwds) if not hasattr(pads.rwds, "oe") else pads.rwds
-
-        rwds_oe = Signal()
-        dq_oe = Signal()
-
-        # Shift non DDR signals to match the FF's inside DDR modules.
-        self.specials += MultiReg(self.cs, pads.cs_n, n=2)
-
-        self.specials += MultiReg(self.rwds_oe, rwds_oe, n=2)
-        self.specials += MultiReg(self.dq_oe, dq_oe, n=2)
-        
-        # mask off clock when no CS
-        clk_en = Signal()
-    
