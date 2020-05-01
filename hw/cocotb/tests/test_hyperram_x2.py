@@ -101,33 +101,75 @@ class WbGpio(object):
         self.log.info(" - Burst Type:      %s" % ("Linear" if burst_type == 1 else "Wrapped"))
         self.log.info(" - Address:         %s" % "{0:#0{1}x}".format(address, 10))
 
+        if read_writen == 1:
+            latency = 11
+            for i in range(latency):
+                yield Edge(self.hyperbus.clock)
+                if latency-i < 3:
+                    self.dut.hyperRAM_rwds = 0
 
-        latency = 11
-        for i in range(latency):
-            yield Edge(self.hyperbus.clock)
-            if latency-i < 3:
-                self.dut.hyperRAM_rwds = 0
 
+            for d in data:
+                word = BinaryValue(d, 16, bigEndian=False)
 
-        for d in data:
-            word = BinaryValue(d, 16, bigEndian=False)
-            for bits in range(2):
                 yield Edge(self.hyperbus.clock)
                 yield Timer(1, "ns")
-                self.dut.hyperRAM_dq = word[8:0]
+                self.dut.hyperRAM_dq = word[15:8]
+                self.dut.hyperRAM_rwds = 1
+                
+                yield Edge(self.hyperbus.clock)
+                yield Timer(1, "ns")
+                self.dut.hyperRAM_dq = word[7:0]
                 self.dut.hyperRAM_rwds = (bits == 0)
+        
+        else:    
+            latency = 11
+            for i in range(latency):
+                yield Edge(self.hyperbus.clock)
+                if latency-i < 3:
+                    self.dut.hyperRAM_rwds = 0
+
+            bits = ""
+
+            for bit in range(4):
+                value = yield self.hyperbus._monitor_recv()
+                self.log.info("%s" % value)
+                bits += str(value['dq'])
+                
+            dq_reg = BinaryValue(n_bits=32, value=bits, bigEndian=False)
+            self.log.info("data: %s" % "{0:#0{1}x}".format(dq_reg.integer, 10))
+            
+
+            for d in data:
+                word = BinaryValue(d, 16, bigEndian=False)
+
+                # check
+
             
 
         
 
 
-@cocotb.test()#skip=True)
-def test_read_version(dut):
+@cocotb.test()
+def test_read(dut):
     wbgpio = WbGpio(dut)
     yield wbgpio.reset()
     
     hyperram = cocotb.fork(wbgpio.hr_recieve([0x0011,0x2233]))
-    wbRes = yield wbgpio.wbs.send_cycle([WBOp(addr) for addr in range(4)])
+    wbRes = yield wbgpio.wbs.send_cycle([WBOp(0)])
     
+    if wbRes[0].datrd != 0x00112233:
+        raise TestFailure("data %s != 0x00112233" % "{0:#0{1}x}".format(wbRes[0].datrd.integer,10))
     
-    yield Timer(1, units="us")
+
+@cocotb.test()
+def test_write(dut):
+    wbgpio = WbGpio(dut)
+    yield wbgpio.reset()
+    
+    hyperram = cocotb.fork(wbgpio.hr_recieve([0x0011,0x2233]))
+    wbRes = yield wbgpio.wbs.send_cycle([WBOp(0, dat=0x00112233, sel=0xF)])
+    
+    #if wbRes[0].datrd != 0x00112233:
+    #    raise TestFailure("data %s != 0x00112233" % "{0:#0{1}x}".format(wbRes[0].datrd.integer,10))
+    
