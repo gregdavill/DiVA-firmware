@@ -132,33 +132,35 @@ class HyperRAM(Module):
         #self.counter = counter = Signal(8)
         #counter_rst = Signal()
 
-        offset = Signal(5)
-
         # Sequencer --------------------------------------------------------------------------------
-        dt_seq = [
-            # DT,  Action
-            (1,    [cs.eq(1)]),
-            (2,    [clk.eq(1), phy.dq.oe.eq(1), sr.eq(Cat(Signal(16),ca))]),    # Command: 6 clk
-            (3,    [phy.dq.oe.eq(0)]),                         # Latency(default): 2*6 clk
-            (3,    []),
-            (1,    [phy.dq.oe.eq(self.bus.we),                 # Write/Read data byte: 2 clk
-                    sr[:32].eq(0),
-                    sr[32:].eq(Cat(self.bus.dat_w[16:32],self.bus.dat_w[0:16])),
-                    phy.rwds.o.eq(~bus.sel[0:4])]),
-            (1,    [clk.eq(0)]),              # Write/Read data byte: 2 clk
-            (2,    [cs.eq(0),phy.rwds.oe.eq(0),phy.dq.oe.eq(0)]),              # Write/Read data byte: 2 clk
-            (1,    [bus.ack.eq(1)]),
-            (1,    [bus.ack.eq(0)]),
-            (0,    []),
-        ]
-        # Convert delta-time sequencer to time sequencer
-        t_seq = []
-        t = 0
-        for dt, a in dt_seq:
-            t_seq.append((t, a))
-            t += dt
-        self.sync += timeline(bus.cyc & bus.stb, t_seq, offset)
+        self.submodules.fsm = fsm = FSM(reset_state="IDLE")
 
+        fsm.act("IDLE", If(bus.cyc & bus.stb, NextValue(cs, 1), NextState("CA-SEND")))
+        fsm.act("CA-SEND", NextValue(clk, 1), NextValue(phy.dq.oe, 1), NextValue(sr,Cat(Signal(16),ca)), NextState("CA-WAIT"))
+        fsm.act("CA-WAIT", NextState("LATENCY-WAIT"))
+        fsm.act("LATENCY-WAIT", NextValue(phy.dq.oe, 0), NextState("LATENCY-WAIT0"))
+        fsm.act("LATENCY-WAIT0", NextState("LATENCY-WAIT1"))
+        fsm.act("LATENCY-WAIT1", NextState("LATENCY-WAIT2"))
+        fsm.act("LATENCY-WAIT2", NextState("LATENCY-WAIT3"))
+        fsm.act("LATENCY-WAIT3", NextState("LATENCY-WAIT4"))
+        fsm.act("LATENCY-WAIT4", NextState("LATENCY-WAIT5"))
+        fsm.act("LATENCY-WAIT5", NextValue(phy.dq.oe, self.bus.we), NextState("READ-WRITE"))
+        fsm.act("READ-WRITE", NextState("CLK-OFF"),
+                NextValue(phy.dq.oe,self.bus.we),                 # Write/Read data byte: 2 clk
+                NextValue(sr[:32],0),
+                NextValue(sr[32:],Cat(self.bus.dat_w[16:32],self.bus.dat_w[0:16])),
+                NextValue(phy.rwds.o,~bus.sel[0:4]))
+        
+        fsm.act("CLK-OFF", NextValue(clk, 0), NextState("CLEANUP"))
+        fsm.act("CLEANUP", NextValue(cs, 0), NextValue(phy.rwds.oe, 0), NextValue(phy.dq.oe, 0), NextState("ACK"))
+        
+        fsm.act("ACK", 
+            If(phy.rwds.i[3], 
+                bus.ack.eq(1), NextState("HOLD-WAIT")))
+        
+        fsm.act("HOLD-WAIT", NextState("HOLD-WAIT0"))
+        fsm.act("HOLD-WAIT0", NextState("HOLD-WAIT1"))
+        fsm.act("HOLD-WAIT1", NextState("IDLE"))
 
         self.dbg = [
             bus,

@@ -32,7 +32,7 @@ wb.regs.test_direction.write(1)
 
 
 wb.regs.crg_phase_sel.write(0)
-wb.regs.crg_phase_dir.write(0)
+wb.regs.crg_phase_dir.write(1)
 
 
 analyzer = LiteScopeAnalyzerDriver(wb.regs, "analyzer", debug=True)
@@ -44,14 +44,14 @@ for _ in range(128):
     wb.regs.test_move.write(0)
     wb.regs.test_move.write(1)
 
-for i in range(10000):
+for i in range(20):
     #wb.regs.test_move.write(0)
     #wb.regs.test_move.write(1)
     wb.regs.crg_phase_step.write(1)
-    wb.regs.crg_phase_step.write(0)
+    #wb.regs.crg_phase_step.write(0)
 
-    #wb.write(0x10000000, 0x00112233)
-    print("{0:#0{1}x}".format(wb.read(0x10000000),10))
+    wb.write(0x10000000+i*4, 0)
+    print("{0:#0{1}x}".format(wb.read(0x10000000 + i*4),10))
     #wb.read(0x10000000)
     #    print('.')
 #wb.regs.reader0_burst_size.write(64)
