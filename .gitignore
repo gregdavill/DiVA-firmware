@@ -3,3 +3,7 @@ __pycache__
 settings.json
 
 *.vcd
+*.vvp
+
+sim_build/
+results.xml
