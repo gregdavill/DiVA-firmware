@@ -148,13 +148,12 @@ class HyperRAM(Module):
             (3,    [phy.dq.oe.eq(0)]),                         # Latency(default): 2*6 clk
             (1,    [phy.dq.oe.eq(self.bus.we),                 # Write/Read data byte: 2 clk
                     sr[:32].eq(0),
-                    sr[32:].eq(self.bus.dat_w),
-                    phy.rwds.oe.eq(self.bus.we),
-                    phy.rwds.o.eq(~bus.sel[0])]),
+                    sr[32:].eq(Cat(self.bus.dat_w[16:32],self.bus.dat_w[0:16])),
+                    phy.rwds.o.eq(~bus.sel[0:4])]),
             #(2,    [phy.rwds.o.eq(~bus.sel[1])]),              # Write/Read data byte: 2 clk
-            (1,    [phy.rwds.o.eq(~bus.sel[2])]),              # Write/Read data byte: 2 clk
-            (1,    [phy.rwds.o.eq(~bus.sel[3]),clk.eq(0)]),              # Write/Read data byte: 2 clk
-            (2,    [cs.eq(0), phy.rwds.oe.eq(0), phy.dq.oe.eq(0)]),
+            (1,    [clk.eq(0)]),              # Write/Read data byte: 2 clk
+            (1,    [cs.eq(0),phy.rwds.oe.eq(0),phy.dq.oe.eq(0)]),              # Write/Read data byte: 2 clk
+            (2,    []),
             (1,    [bus.ack.eq(1)]),
             (1,    [bus.ack.eq(0)]),
             (0,    []),
