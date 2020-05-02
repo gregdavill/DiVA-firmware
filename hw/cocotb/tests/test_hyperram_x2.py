@@ -102,10 +102,10 @@ class WbGpio(object):
         self.log.info(" - Address:         %s" % "{0:#0{1}x}".format(address, 10))
 
         if read_writen == 1:
-            latency = 11
+            latency = 23 - 4
             for i in range(latency):
                 yield Edge(self.hyperbus.clock)
-                if latency-i < 3:
+                if latency-i < 8:
                     self.dut.hyperRAM_rwds = 0
 
 
@@ -120,7 +120,12 @@ class WbGpio(object):
                 yield Edge(self.hyperbus.clock)
                 yield Timer(1, "ns")
                 self.dut.hyperRAM_dq = word[7:0]
-                self.dut.hyperRAM_rwds = (bits == 0)
+                self.dut.hyperRAM_rwds = 0
+            
+
+            
+            self.dut.hyperRAM_rwds = 0
+            yield Timer(100, "ns")
         
         else:    
             latency = 14

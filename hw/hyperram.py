@@ -63,6 +63,8 @@ class HyperRAM(Module):
         self.bus  = bus = wishbone.Interface(adr_width=22)
 
 
+        
+
         self.loadn = Signal()
         self.move = Signal()
         self.direction = Signal()
@@ -101,14 +103,6 @@ class HyperRAM(Module):
         self.sync += [
             sr.eq(Cat(phy.dq.i, sr[:32])),
             sr_rwds[-4:].eq(sr_rwds),
-            #If(ca_load, 
-            #    sr.eq(ca)
-            #),
-            #If(dq_load,
-            #    sr_out[:16].eq(0),
-            #    sr_out[16:].eq(self.bus.dat_w),
-            #    sr_rwds.eq(~self.bus.sel)
-            #)
         ]
 
         # Data in Shift Register
@@ -121,7 +115,7 @@ class HyperRAM(Module):
         ]
 
         self.comb += [
-            bus.dat_r.eq(Cat(phy.dq.i[16:32], sr[:16])), # To Wishbone
+            bus.dat_r.eq(Cat(phy.dq.i[-16:], sr[:16])), # To Wishbone
             phy.dq.o.eq(sr[-32:]),  # To HyperRAM
         #    phy.rwds_out.eq(sr_rwds[-2:]) # To HyperRAM
         ]
@@ -144,16 +138,15 @@ class HyperRAM(Module):
         dt_seq = [
             # DT,  Action
             (1,    [cs.eq(1)]),
-            (2,    [clk.eq(1), phy.dq.oe.eq(1), sr.eq(ca)]),    # Command: 6 clk
+            (2,    [clk.eq(1), phy.dq.oe.eq(1), sr.eq(Cat(Signal(16),ca))]),    # Command: 6 clk
             (3,    [phy.dq.oe.eq(0)]),                         # Latency(default): 2*6 clk
+            (3,    []),
             (1,    [phy.dq.oe.eq(self.bus.we),                 # Write/Read data byte: 2 clk
                     sr[:32].eq(0),
                     sr[32:].eq(Cat(self.bus.dat_w[16:32],self.bus.dat_w[0:16])),
                     phy.rwds.o.eq(~bus.sel[0:4])]),
-            #(2,    [phy.rwds.o.eq(~bus.sel[1])]),              # Write/Read data byte: 2 clk
             (1,    [clk.eq(0)]),              # Write/Read data byte: 2 clk
-            (1,    [cs.eq(0),phy.rwds.oe.eq(0),phy.dq.oe.eq(0)]),              # Write/Read data byte: 2 clk
-            (2,    []),
+            (2,    [cs.eq(0),phy.rwds.oe.eq(0),phy.dq.oe.eq(0)]),              # Write/Read data byte: 2 clk
             (1,    [bus.ack.eq(1)]),
             (1,    [bus.ack.eq(0)]),
             (0,    []),
@@ -165,6 +158,20 @@ class HyperRAM(Module):
             t_seq.append((t, a))
             t += dt
         self.sync += timeline(bus.cyc & bus.stb, t_seq, offset)
+
+
+        self.dbg = [
+            bus,
+            sr,
+            cs,
+            clk,
+            phy.dq.i,
+            phy.dq.o,
+            phy.dq.oe,
+            phy.rwds.i,
+            phy.rwds.o,
+            phy.rwds.oe,
+        ]
 
 
 class HyperBusPHY(Module):
@@ -196,6 +203,7 @@ class HyperBusPHY(Module):
             ("o", 4),
         ])
 
+
         ## IO Delay shifting 
         self.loadn = Signal()
         self.move = Signal()
@@ -214,41 +222,50 @@ class HyperBusPHY(Module):
         # mask off clock when no CS
         clk_en = Signal()
         self.comb += clk_en.eq(self.clk_enable & ~self.cs)
-        #self.sync += [
-        #    clk_en.eq(self.clk_en & ~self.cs)
-        #]
-        
-        #clk_out
-        for clk in [pads.clk_p, pads.clk_n]:
-            self.specials += [
-                Instance("ODDRX2F",
-                    i_D0=clk_en,
-                    i_D1=0,
-                    i_D2=clk_en,
-                    i_D3=0,
-                    i_SCLK=ClockSignal("hr"),
-                    i_ECLK=ClockSignal("hr2x_90"),
-                    i_RST=ResetSignal("hr"),
-                    o_Q=clk
-                )
-            ]
 
+        #clk_out
+        #for clk in [pads.clk_p, pads.clk_n]:
+        self.specials += [
+            Instance("ODDRX2F",
+                i_D0=clk_en,
+                i_D1=0,
+                i_D2=clk_en,
+                i_D3=0,
+                i_SCLK=ClockSignal("hr"),
+                i_ECLK=ClockSignal("hr2x_90"),
+                i_RST=ResetSignal("hr"),
+                o_Q=pads.clk_p
+            )
+        ]
+
+        self.specials += [
+            Instance("ODDRX2F",
+                i_D0=~clk_en,
+                i_D1=1,
+                i_D2=~clk_en,
+                i_D3=1,
+                i_SCLK=ClockSignal("hr"),
+                i_ECLK=ClockSignal("hr2x_90"),
+                i_RST=ResetSignal("hr"),
+                o_Q=pads.clk_n
+            )
+        ]
 
         # DQ_out
         for i in range(8):
             self.specials += [
                 Instance("ODDRX2F",
-                    i_D1=self.dq.o[i],
-                    i_D0=self.dq.o[8+i],
-                    i_D3=self.dq.o[16+i],
-                    i_D2=self.dq.o[24+i],
+                    i_D3=self.dq.o[i],
+                    i_D2=self.dq.o[8+i],
+                    i_D1=self.dq.o[16+i],
+                    i_D0=self.dq.o[24+i],
                     i_SCLK=ClockSignal("hr"),
                     i_ECLK=ClockSignal("hr2x"),
                     i_RST=ResetSignal("hr"),
                     o_Q=dq.o[i]
                 )
             ]
-        
+    
 
         # DQ_in
         for i in range(8):
@@ -266,21 +283,23 @@ class HyperBusPHY(Module):
                 ),
                 Instance("DELAYF",
                     p_DEL_MODE="USER_DEFINED",
-                    p_DEL_VALUE=120, # 2ns (25ps per tap)
+                    p_DEL_VALUE=127, # 2ns (25ps per tap)
                     i_A=dq.i[i],
                     i_LOADN=self.loadn,
                     i_MOVE=self.move,
                     i_DIRECTION=self.direction,
                     o_Z=dq_in)
             ]
+
+        self.comb += pads.dbg0.eq(self.rwds.i[0] |self.rwds.i[1] |self.rwds.i[2] |self.rwds.i[3])
         
         # RWDS_out
         self.specials += [
             Instance("ODDRX2F",
-                i_D0=self.rwds.o[0],
-                i_D1=self.rwds.o[1],
-                i_D2=self.rwds.o[2],
-                i_D3=self.rwds.o[3],
+                i_D3=self.rwds.o[0],
+                i_D2=self.rwds.o[1],
+                i_D1=self.rwds.o[2],
+                i_D0=self.rwds.o[3],
                 i_SCLK=ClockSignal("hr"),
                 i_ECLK=ClockSignal("hr2x"),
                 i_RST=ResetSignal("hr"),
@@ -296,14 +315,14 @@ class HyperBusPHY(Module):
                 i_SCLK=ClockSignal("hr"),
                 i_ECLK=ClockSignal("hr2x"),
                 i_RST= ResetSignal("hr"),
-                o_Q0=self.rwds.i[1],
-                o_Q1=self.rwds.i[0],
-                o_Q2=self.rwds.i[3],
-                o_Q3=self.rwds.i[2]
+                o_Q3=self.rwds.i[0],
+                o_Q2=self.rwds.i[1],
+                o_Q1=self.rwds.i[2],
+                o_Q0=self.rwds.i[3]
             ),
             Instance("DELAYF",
                     p_DEL_MODE="USER_DEFINED",
-                    p_DEL_VALUE=120, # 2ns (25ps per tap)
+                    p_DEL_VALUE=127, # 2ns (25ps per tap)
                     i_A=rwds.i,
                     i_LOADN=self.loadn,
                     i_MOVE=self.move,

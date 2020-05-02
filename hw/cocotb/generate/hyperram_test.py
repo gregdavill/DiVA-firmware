@@ -32,6 +32,8 @@ _io = [
     Subsignal("cs_n",  Pins(1)),
     Subsignal("dq",    Pins(8)),
     Subsignal("rwds",  Pins(1)),
+    Subsignal("dbg0",  Pins(1)),
+    Subsignal("dbg1",  Pins(1)),
     ),
 
     ("clock_2x_in", 0, Pins(1)),

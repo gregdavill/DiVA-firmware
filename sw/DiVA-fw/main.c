@@ -16,7 +16,8 @@ uint8_t y = 0;
 
 
 void terminal_write(char c){
-	volatile uint32_t* vga = (volatile uint32_t*) (TERMINAL_BASE);
+	return;
+	volatile uint32_t* vga = (volatile uint32_t*) (0);
 	if(c == '\r'){
 		x = 0;
 	}else if(c == '\n'){
@@ -38,58 +39,6 @@ void terminal_write(char c){
 uint8_t buffer[64];
 
 
-uint32_t test_write(uint32_t a){
-	uint32_t b = 0;
-
-	test_clear_write(1);
-
-	test_reader_addr_write(0);
-	test_reader_len_write(1);
-	
-	test_writer_addr_write(0);
-	test_writer_len_write(1);
-
-	test_reader_enable_write(1);
-	test_source_data_write(a);
-
-	test_writer_enable_write(1);
-
-	return test_sink_data_read();	
-}
-
-
-
-void write_pixels(int line, int colour){
-	test_clear_write(1);
-
-	test_reader_addr_write(line);
-	test_reader_len_write(1920);
-	
-
-
-
-	test_reader_enable_write(1);
-
-	for(int i = 0; i < 1920; i++)
-	test_source_data_write(rand());
-
-
-}
-
-void start_pixels(){
-	test_writer_pix_addr_write(0);
-	test_writer_pix_len_write(640*720);
-	test_writer_pix_enable_write(1);
-
-}
-
-
-void start_boson(){
-	test_reader_boson_addr_write(0);
-	test_reader_boson_len_write(640*512);
-	test_reader_boson_enable_write(1);
-}
-
 
 
 void io_shift(){
@@ -104,17 +53,6 @@ void io_shift(){
 	}
 }
 
-void screen_blank(){
-	test_reader_addr_write(0);
-	test_reader_len_write(1080*1920);
-	test_reader_blank_write(1);
-
-	test_reader_enable_write(1);
-
-	msleep(100);
-	
-	test_reader_blank_write(0);
-}
 
 int main(int i, char **c)
 {	
@@ -135,6 +73,9 @@ int main(int i, char **c)
 
 	printf("   - Digital Video Interface for Boson -\n");
 	
+
+
+	while(1);
 // 	printf("\n (c) Copyright 2019-2020 GetLabs \n");
 // 	printf(" fw built: "__DATE__ " " __TIME__ " \n\n");
 
@@ -172,8 +113,7 @@ int main(int i, char **c)
 	}
 
 
-	screen_blank();
-	start_pixels();
+	
 //	memtest((unsigned int*)HYPERRAM_BASE);
 	printf("\n");
 
@@ -181,22 +121,20 @@ int main(int i, char **c)
 
 	uint32_t line = 0;
 
-	start_boson();
+	volatile uint32_t* ptr = HYPERRAM_BASE;
+	*ptr = 0xAA55AA55;
+
+	printf("Test read: %08x %08x %08x", *ptr++,*ptr++,*ptr++);
+	
 
 	uint32_t colour = 0xFF22410;
     while(1) {
-		test_boson_stats_latch_write(1);
-		test_hdmi_stats_latch_write(1);
-
-		printf("Boson: %08x %08x  HDMI: %08x %08x\r", test_boson_stats_tokens_read(), test_boson_stats_overflows_read(),
-		test_hdmi_stats_tokens_read(), test_hdmi_stats_underflows_read());
-
-
+		
 
 		
-		//putsnonl("DiVA> ");
-		//readstr(buffer, 64);
-		//do_command(buffer);
+		putsnonl("DiVA> ");
+		readstr(buffer, 64);
+		do_command(buffer);
 	}
 	return 0;
 }
