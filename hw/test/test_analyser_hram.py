@@ -36,24 +36,22 @@ wb.regs.crg_phase_dir.write(0)
 
 
 analyzer = LiteScopeAnalyzerDriver(wb.regs, "analyzer", debug=True)
-analyzer.configure_trigger(cond={"hyperram_bus_cyc": 1,"hyperram_bus_we": 1},)
-analyzer.run(offset=8 , length=32)
+analyzer.configure_trigger(cond={"hyperram_bus_cyc": 1,"hyperram_bus_we": 0},)
+analyzer.run(offset=10 , length=128)
 
 for _ in range(128):
     ...
     wb.regs.test_move.write(0)
     wb.regs.test_move.write(1)
 
-
-
-for i in range(1):
+#for i in range(1):
     #wb.regs.test_move.write(0)
     #wb.regs.test_move.write(1)
     #wb.regs.crg_phase_step.write(1)
     #wb.regs.crg_phase_step.write(0)
 
-    wb.write(0x10000000, 0xDEADBEEF)
-    print("{0:#0{1}x}".format(wb.read(0x10000000),10))
+    #wb.write(0x10000000, 0xDEADBEEF)
+#print("{0:#0{1}x}".format(wb.read(0x10000000),10))
     #wb.read(0x10000000)
     #    print('.')
 #wb.regs.reader0_burst_size.write(64)
@@ -64,6 +62,9 @@ for i in range(1):
 #while wb.regs.reader0_busy.read() == 1:
 #    ...
 
+wb.regs.reader_transfer_size.write(4)
+wb.regs.reader_start_address.write(0x10000000>>2)
+wb.regs.reader_enable.write(1)
 
 
 

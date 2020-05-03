@@ -16,7 +16,7 @@ from hyperbus_monitor import HyperBusSubordinate, HyperBus
 class WbGpio(object):
     """ test class for Spi2KszTest
     """
-    LOGLEVEL = logging.INFO
+    LOGLEVEL = logging.DEBUG
 
     # clock frequency is 100Mhz
     PERIOD = (10, "ns")
@@ -47,7 +47,7 @@ class WbGpio(object):
                                         "datrd":"dat_r",
                                         "ack":  "ack" })
 
-        self.hyperbus = HyperBusSubordinate(dut, "hyperRAM", dut.hyperRAM_clk_p, 
+        self.hyperbus = HyperBusSubordinate(dut, "hyperRAM", dut.hyperRAM_clk_p,  reset=self.dut.reset,
                                                 signals_dict ={"dq" : "dq",
                                                                "rwds" : "rwds",
                                                                "cs" : "cs_n" })
@@ -82,7 +82,9 @@ class WbGpio(object):
         bits = ""
 
         for bit in range(6):
-            value = yield self.hyperbus._monitor_recv()
+            value = yield self.hyperbus.wait_for_recv(timeout=250e3)
+            if value == None:
+                raise TimeoutError("Timeout waiting for CA bits")
             #self.log.info("%s" % value)
             bits += str(value['dq'])
             
@@ -102,30 +104,44 @@ class WbGpio(object):
         self.log.info(" - Address:         %s" % "{0:#0{1}x}".format(address, 10))
 
         if read_writen == 1:
-            latency = 23 - 4
+            latency = 22
             for i in range(latency):
                 yield Edge(self.hyperbus.clock)
                 if latency-i < 8:
                     self.dut.hyperRAM_rwds = 0
 
+            # RAM drives DQ at a fixed delay around 6ns from edge
+            dq_delay = 6
 
             for d in data:
-                word = BinaryValue(d, 16, bigEndian=False)
+                word = BinaryValue(d, 32, bigEndian=False)
 
                 yield Edge(self.hyperbus.clock)
-                yield Timer(1, "ns")
+                yield Timer(dq_delay, "ns")
+                self.dut.hyperRAM_dq = word[31:24]
+                self.dut.hyperRAM_rwds = 1
+                
+                yield Edge(self.hyperbus.clock)
+                yield Timer(dq_delay, "ns")
+                self.dut.hyperRAM_dq = word[23:16]
+                self.dut.hyperRAM_rwds = 0
+
+                yield Edge(self.hyperbus.clock)
+                yield Timer(dq_delay, "ns")
                 self.dut.hyperRAM_dq = word[15:8]
                 self.dut.hyperRAM_rwds = 1
                 
                 yield Edge(self.hyperbus.clock)
-                yield Timer(1, "ns")
+                yield Timer(dq_delay, "ns")
                 self.dut.hyperRAM_dq = word[7:0]
                 self.dut.hyperRAM_rwds = 0
             
-
-            
             self.dut.hyperRAM_rwds = 0
-            yield Timer(100, "ns")
+            yield Timer(50, "ns")
+
+
+            self.dut.hyperRAM_rwds = BinaryValue('z')
+            self.dut.hyperRAM_dq = BinaryValue('zzzzzzzz')
         
         else:    
             latency = 22
@@ -173,8 +189,10 @@ def test_read(dut):
     wbgpio = WbGpio(dut)
     yield wbgpio.reset()
     
-    hyperram = cocotb.fork(wbgpio.hr_recieve([0x0011,0x2233]))
-    wbRes = yield wbgpio.wbs.send_cycle([WBOp(0)])
+    
+
+    hyperram = cocotb.fork(wbgpio.hr_recieve([0x00112233]))
+    wbRes = yield [Timer(5000, units='ns'), wbgpio.wbs.send_cycle([WBOp(0)])]
     
     if wbRes[0].datrd != 0x00112233:
         raise TestFailure("data %s != 0x00112233" % "{0:#0{1}x}".format(wbRes[0].datrd.integer,10))
@@ -184,12 +202,12 @@ def test_read(dut):
 
 
 @cocotb.test()
-def test_read_1(dut):
+def test_read_dual(dut):
     wbgpio = WbGpio(dut)
     yield wbgpio.reset()
     
-    hyperram = cocotb.fork(wbgpio.hr_recieve([0x0011,0x2233]))
-    wbRes = yield wbgpio.wbs.send_cycle([WBOp(0)])
+    hyperram = cocotb.fork(wbgpio.hr_recieve([0x00112233,0x44556677]))
+    wbRes = yield [Timer(5000, units='ns'), wbgpio.wbs.send_cycle([WBOp(0), WBOp(1)])]
     
     if wbRes[0].datrd != 0x00112233:
         raise TestFailure("data %s != 0x00112233" % "{0:#0{1}x}".format(wbRes[0].datrd.integer,10))

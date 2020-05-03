@@ -44,7 +44,7 @@ from hyperram import HyperRAM
 
 from streamable_hyperram import StreamableHyperRAM
 
-from wishbone_stream import StreamReader, StreamWriter
+from wishbone_stream import StreamReader, StreamWriter, dummySink, dummySource
 
 from boson import Boson
 from YCrCb import YCrCbConvert
@@ -187,6 +187,8 @@ class DiVA_SoC(SoCCore):
         "test"       :  12,
         "terminal"   :  13,
         "analyzer"   :  14,
+        "reader"   :  16,
+        "writer"   :  17,
     }
     csr_map.update(SoCCore.csr_map)
 
@@ -229,6 +231,23 @@ class DiVA_SoC(SoCCore):
             hyperram.move.eq(self.test.move.storage),
             hyperram.direction.eq(self.test.direction.storage),
         ]
+
+
+        self.submodules.writer = writer = StreamWriter()
+        self.submodules.reader = reader = StreamReader()
+
+        self.submodules.d_sink = dSink = dummySink()
+        self.submodules.d_source = dSource = dummySource()
+
+        self.add_wb_master(writer.bus)
+        self.add_wb_master(reader.bus)
+
+        self.comb += [
+            writer.source.connect(dSink.sink),
+            dSource.source.connect(reader.sink)
+            
+        ]
+        
 
         #self.submodules.test = StreamableHyperRAM(platform.request("hyperRAM"))
 

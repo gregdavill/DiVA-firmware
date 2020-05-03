@@ -3,9 +3,10 @@ import cocotb
 from itertools import repeat
 from cocotb.decorators  import coroutine
 from cocotb.monitors    import BusMonitor
-from cocotb.triggers    import Edge
+from cocotb.triggers    import Edge, FallingEdge, RisingEdge
 from cocotb.result      import TestFailure
 from cocotb.decorators  import public  
+from cocotb.triggers import Timer
 from cocotb.binary import BinaryValue
 
 
@@ -44,15 +45,32 @@ class HyperBusSubordinate(HyperBus):
 
     @coroutine
     def _monitor_recv(self):
-        dq = BinaryValue(n_bits=8)
-        rwds = BinaryValue(n_bits=1)
-
         while True:
-            yield Edge(self.clock)
-            dq = self.bus.dq.value
-            rwds = self.bus.rwds.value
 
-            if self.bus.cs == 0:
-                return {"dq":dq, "rwds":rwds}
-            
+            # Handle reset condition
+            while str(self._reset) == "z":
+                yield Timer(1, "ns")
+            while self.in_reset:
+                yield FallingEdge(self._reset)
+
+            # Wait for next CS edge
+            if int(self.bus.cs) == 1:
+                self.log.debug("Wait for CS fall")
+                yield FallingEdge(self.bus.cs)
+                self.log.debug("CS falling edge")
+
+            # while in a transaction we can watch for data or end of transaction
+            while int(self.bus.cs) == 0:
+                trig = yield [Edge(self.clock), Edge(self.bus.cs)]
+                if trig == Edge(self.clock):
+                    dq   = str(self.bus.dq)
+                    rwds = str(self.bus.rwds)
+                    values_recv = {"dq": dq, "rwds": rwds}
+                    self.log.debug("data: %s" % values_recv) 
+                    self._recv(values_recv)
+                else:
+                    self.log.debug("CS rising edge")
+
+
+           
             

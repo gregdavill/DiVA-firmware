@@ -20,10 +20,17 @@ def data_stream_description(dw):
 class dummySource(Module):
     def __init__(self):
         self.source = source = Endpoint(data_stream_description(32))
+        counter = Signal(32)
 
         self.comb += [
             source.valid.eq(1),
-            source.data.eq(0)
+            source.data.eq(counter),   
+        ]
+
+        self.sync += [
+            If(source.ready,
+                counter.eq(counter + 1)
+            )
         ]
 
 class dummySink(Module):
@@ -39,28 +46,22 @@ class StreamWriter(Module, AutoCSR):
         self.bus  = bus = wishbone.Interface()
         self.source = source = Endpoint(data_stream_description(32))
 
-        tx_cnt = Signal(32)
+        tx_cnt = Signal(21)
         last_address = Signal()
         busy = Signal()
         active = Signal()
-        burst_cnt = Signal(32)
         burst_end = Signal()
-        start_address = Signal(21)
-        transfer_size = Signal(21)
+        burst_cnt = Signal(21)
         
-
-
-        self.start_address = Signal(21)
-        self.transfer_size = Signal(21)
+        self.start_address = CSRStorage(21)
+        self.transfer_size = CSRStorage(21)
 
         burst_size = Signal(14, reset=512)
 
-        #self.tx_cnt = Signal(21)
-        #self._busy = CSRStatus()
-        self.enable = Signal()
-        self.reset = Signal()
+        self.enable = CSR()
+        self.reset = CSR()
 
-        self.start = Signal()
+        self.start = CSR()
 
         enabled = Signal()
     
@@ -70,7 +71,7 @@ class StreamWriter(Module, AutoCSR):
             bus.we.eq(0),
             bus.cyc.eq(active),
             bus.stb.eq(active),
-            bus.adr.eq(start_address + tx_cnt),
+            bus.adr.eq(self.start_address.storage + tx_cnt),
 
             source.data.eq(bus.dat_r),
             source.valid.eq(bus.ack),
@@ -92,7 +93,7 @@ class StreamWriter(Module, AutoCSR):
         ]
 
         self.sync += [
-            last_address.eq(tx_cnt == transfer_size - 1),
+            last_address.eq(tx_cnt == self.transfer_size.storage - 1),
             If(bus.ack,
                 If(last_address,
                     tx_cnt.eq(0)
@@ -108,7 +109,7 @@ class StreamWriter(Module, AutoCSR):
                     burst_cnt.eq(burst_cnt + 1)
                 )
             ),
-            If(self.enable,
+            If(self.enable.re,
                 enabled.eq(~enabled)
             )
 
@@ -120,10 +121,8 @@ class StreamWriter(Module, AutoCSR):
             If(busy & source.ready,
                 NextState("ACTIVE"),
             ),
-            If((self.start & enabled & external_sync) | (~external_sync & self.enable),
+            If((self.start.re & enabled & external_sync) | (~external_sync & self.enable.re),
                 NextValue(busy,1),
-                NextValue(start_address, self.start_address),
-                NextValue(transfer_size, self.transfer_size),
             )
         )
         fsm.act("ACTIVE",
@@ -150,26 +149,18 @@ class StreamReader(Module, AutoCSR):
         last_address = Signal()
         busy = Signal()
         active = Signal()
-        burst_cnt = Signal(32)
         burst_end = Signal()
-        start_address = Signal(21)
-        transfer_size = Signal(21)
+        burst_cnt = Signal(21)
         
-
-
-        self.start_address = Signal(21)
-        self.transfer_size = Signal(21)
-        self.blank = Signal(1)
+        self.start_address = CSRStorage(21)
+        self.transfer_size = CSRStorage(21)
 
         burst_size = Signal(14, reset=512)
+        
+        self.enable = CSR()
+        self.reset = CSR()
 
-        #self.tx_cnt = Signal(21)
-        #self._busy = CSRStatus()
-        self.enable = Signal()
-        self.reset = Signal()
-
-
-        self.start = Signal()
+        self.start = CSR()
 
         enabled = Signal()
 
@@ -178,7 +169,7 @@ class StreamReader(Module, AutoCSR):
             bus.we.eq(active),
             bus.cyc.eq(active),
             bus.stb.eq(active),
-            bus.adr.eq(start_address + tx_cnt),
+            bus.adr.eq(self.start_address.storage + tx_cnt),
             bus.dat_w.eq(sink.data),
             sink.ready.eq(bus.ack),
 
@@ -200,7 +191,7 @@ class StreamReader(Module, AutoCSR):
         ]
 
         self.sync += [
-            last_address.eq(tx_cnt == transfer_size - 1),
+            last_address.eq(tx_cnt == self.transfer_size.storage - 1),
             If(bus.ack,
                 If(last_address,
                     tx_cnt.eq(0)
@@ -216,7 +207,7 @@ class StreamReader(Module, AutoCSR):
                     burst_cnt.eq(burst_cnt + 1)
                 )
             ),
-            If(self.enable,
+            If(self.enable.re,
                 enabled.eq(~enabled)
             )
         ]
@@ -227,10 +218,8 @@ class StreamReader(Module, AutoCSR):
             If(busy & sink.valid,
                 NextState("ACTIVE"),
             ),
-            If((self.start & enabled & external_sync) | (~external_sync & self.enable),
+            If((self.start.re & enabled & external_sync) | (~external_sync & self.enable.re),
                 NextValue(busy,1),
-                NextValue(start_address, self.start_address),
-                NextValue(transfer_size, self.transfer_size),
             )
         )
         fsm.act("ACTIVE",

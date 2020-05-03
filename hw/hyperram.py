@@ -74,9 +74,10 @@ class HyperRAM(Module):
         clk         = Signal()
         cs         = Signal()
         ca         = Signal(48)
-        sr         = Signal(64)
-        #sr_in      = Signal(64)
-        sr_rwds    = Signal(8)
+        sr_in      = Signal(64)
+        sr_out         = Signal(64)
+        sr_rwds_in    = Signal(8)
+        sr_rwds_out    = Signal(8)
 
         latency = Signal(4, reset=11)
         
@@ -101,8 +102,10 @@ class HyperRAM(Module):
         
         # Data Out Shift Register (for write) -------------------------------------------------
         self.sync += [
-            sr.eq(Cat(phy.dq.i, sr[:32])),
-            sr_rwds.eq(Cat(phy.rwds.i, sr_rwds[:4])),
+            sr_out.eq(Cat(Signal(32), sr_out[:32])),
+            sr_in.eq(Cat(phy.dq.i, sr_in[:32])),
+            sr_rwds_in.eq(Cat(phy.rwds.i, sr_rwds_in[:4])),
+            sr_rwds_out.eq(Cat(phy.rwds.i, sr_rwds_out[:4])),
         ]
 
         # Data in Shift Register
@@ -115,9 +118,9 @@ class HyperRAM(Module):
         ]
 
         self.comb += [
-            bus.dat_r.eq(Cat(phy.dq.i[-16:], sr[:16])), # To Wishbone
-            phy.dq.o.eq(sr[-32:]),  # To HyperRAM
-            phy.rwds.o.eq(sr_rwds[-4:]) # To HyperRAM
+            bus.dat_r.eq(Cat(phy.dq.i[-16:], sr_in[:16])), # To Wishbone
+            phy.dq.o.eq(sr_out[-32:]),  # To HyperRAM
+            phy.rwds.o.eq(sr_rwds_out[-4:]) # To HyperRAM
         ]
 
         # Command generation -----------------------------------------------------------------------
@@ -138,7 +141,7 @@ class HyperRAM(Module):
         
 
         fsm.act("IDLE", If(bus.cyc & bus.stb, NextValue(cs, 1), NextState("CA-SEND")))
-        fsm.act("CA-SEND", NextValue(clk, 1), NextValue(phy.dq.oe, 1), NextValue(sr,Cat(Signal(16),ca)), NextState("CA-WAIT"))
+        fsm.act("CA-SEND", NextValue(clk, 1), NextValue(phy.dq.oe, 1), NextValue(sr_out,Cat(Signal(16),ca)), NextState("CA-WAIT"))
         fsm.act("CA-WAIT", NextState("LATENCY-WAIT"))
         fsm.act("LATENCY-WAIT", NextValue(phy.dq.oe, 0), NextState("LATENCY-WAIT0"))
         fsm.act("LATENCY-WAIT0", NextState("LATENCY-WAIT1"))
@@ -147,10 +150,10 @@ class HyperRAM(Module):
         fsm.act("LATENCY-WAIT3", NextValue(phy.dq.oe, self.bus.we), NextValue(phy.rwds.oe,self.bus.we), NextState("READ-WRITE"))
         fsm.act("READ-WRITE", NextState("CLK-OFF"),
                 NextValue(phy.dq.oe,self.bus.we),                 # Write/Read data byte: 2 clk
-                NextValue(sr[:32],0),
-                NextValue(sr[32:],self.bus.dat_w),
-                NextValue(sr_rwds[:4],0),
-                NextValue(sr_rwds[4:],~bus.sel[0:4]),
+                NextValue(sr_out[:32],0),
+                NextValue(sr_out[32:],self.bus.dat_w),
+                NextValue(sr_rwds_out[:4],0),
+                NextValue(sr_rwds_out[4:],~bus.sel[0:4]),
                 )
         
         fsm.act("CLK-OFF", NextValue(clk, 0), NextState("CLEANUP"))
@@ -166,8 +169,10 @@ class HyperRAM(Module):
 
         self.dbg = [
             bus,
-            sr,
-            sr_rwds,
+            sr_out,
+            sr_in,
+            sr_rwds_in,
+            sr_rwds_out,
             cs,
             clk,
             phy.dq.i,
