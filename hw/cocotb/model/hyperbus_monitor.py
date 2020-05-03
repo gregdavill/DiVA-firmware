@@ -3,6 +3,7 @@ import cocotb
 from itertools import repeat
 from cocotb.decorators  import coroutine
 from cocotb.monitors    import BusMonitor
+from cocotb.drivers     import BusDriver
 from cocotb.triggers    import Edge, FallingEdge, RisingEdge
 from cocotb.result      import TestFailure
 from cocotb.decorators  import public  
@@ -10,7 +11,7 @@ from cocotb.triggers import Timer
 from cocotb.binary import BinaryValue
 
 
-class HyperBus(BusMonitor):
+class HyperBus(BusMonitor, BusDriver):
     """HyperBus
     """
     
@@ -19,9 +20,14 @@ class HyperBus(BusMonitor):
     def __init__(self, entity, name, clock, signals_dict=None, **kwargs):
         if signals_dict is not None:
             self._signals=signals_dict
-        BusMonitor.__init__(self, entity, name, clock, **kwargs)
+
+        reset = kwargs.pop('reset', None)
+        BusMonitor.__init__(self, entity, name, clock, reset=reset, **kwargs)
+        BusDriver.__init__(self, entity, name, clock, **kwargs)
         # Drive some sensible defaults (setimmediatevalue to avoid x asserts)
-        #self.bus.dq.setimmediatevalue(BinaryValue('zzzzzzzz')) 
+        self.bus.dq.setimmediatevalue(BinaryValue('zzzzzzzz')) 
+        self.bus.rwds.setimmediatevalue(BinaryValue('z')) 
+        
     
 
             
@@ -41,6 +47,40 @@ class HyperBusSubordinate(HyperBus):
         self._lastTime       = 0
         self._stallCount     = 0   
         HyperBus.__init__(self, entity, name, clock, **kwargs)     
+
+
+    @coroutine
+    def _driver_send(self, transaction, rwds='zz', sync=True):
+        """Implementation for BusDriver.
+
+        Args:
+            transaction: The transaction to send.
+            sync (bool, optional): Synchronize the transfer by waiting for a rising edge.
+        """
+
+        timeout = Timer(50, 'ns')
+        # RAM drives DQ at a fixed delay around 6ns from edge
+        dq_delay = 6
+
+
+        self.log.debug("%s" % transaction)
+
+        trig = yield [RisingEdge(self.clock), timeout]
+        if trig == timeout:
+            raise TimeoutError()
+        else:
+            yield Timer(dq_delay, 'ns')
+            self.bus.dq <= transaction[15:8]
+            self.bus.rwds <= BinaryValue(rwds[1])
+
+        trig = yield [FallingEdge(self.clock), timeout]
+        if trig == timeout:
+            raise TimeoutError()
+        else:
+            yield Timer(dq_delay, 'ns')
+            self.bus.dq <= transaction[7:0]
+            self.bus.rwds <= BinaryValue(rwds[0])
+
 
 
     @coroutine

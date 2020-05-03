@@ -107,38 +107,20 @@ class WbGpio(object):
             latency = 22
             for i in range(latency):
                 yield Edge(self.hyperbus.clock)
-                if latency-i < 8:
+                if latency-i < 4:
                     self.dut.hyperRAM_rwds = 0
 
-            # RAM drives DQ at a fixed delay around 6ns from edge
-            dq_delay = 6
-
+            
             for d in data:
                 word = BinaryValue(d, 32, bigEndian=False)
+                yield self.hyperbus._driver_send(word[31:16], '01')
+                yield self.hyperbus._driver_send(word[15:0], '01')
 
-                yield Edge(self.hyperbus.clock)
-                yield Timer(dq_delay, "ns")
-                self.dut.hyperRAM_dq = word[31:24]
-                self.dut.hyperRAM_rwds = 1
-                
-                yield Edge(self.hyperbus.clock)
-                yield Timer(dq_delay, "ns")
-                self.dut.hyperRAM_dq = word[23:16]
-                self.dut.hyperRAM_rwds = 0
-
-                yield Edge(self.hyperbus.clock)
-                yield Timer(dq_delay, "ns")
-                self.dut.hyperRAM_dq = word[15:8]
-                self.dut.hyperRAM_rwds = 1
-                
-                yield Edge(self.hyperbus.clock)
-                yield Timer(dq_delay, "ns")
-                self.dut.hyperRAM_dq = word[7:0]
-                self.dut.hyperRAM_rwds = 0
+            if str(self.hyperbus.bus.cs) != '0':
+                TestFailure("cs not low at end of transaction ")
             
-            self.dut.hyperRAM_rwds = 0
-            yield Timer(50, "ns")
 
+            yield [Timer(100, "ns"), RisingEdge(self.hyperbus.bus.cs)]
 
             self.dut.hyperRAM_rwds = BinaryValue('z')
             self.dut.hyperRAM_dq = BinaryValue('zzzzzzzz')
@@ -193,6 +175,8 @@ def test_read(dut):
 
     hyperram = cocotb.fork(wbgpio.hr_recieve([0x00112233]))
     wbRes = yield [Timer(5000, units='ns'), wbgpio.wbs.send_cycle([WBOp(0)])]
+    if type(wbRes) is Timer:
+        raise TimeoutError()
     
     if wbRes[0].datrd != 0x00112233:
         raise TestFailure("data %s != 0x00112233" % "{0:#0{1}x}".format(wbRes[0].datrd.integer,10))
@@ -208,7 +192,9 @@ def test_read_dual(dut):
     
     hyperram = cocotb.fork(wbgpio.hr_recieve([0x00112233,0x44556677]))
     wbRes = yield [Timer(5000, units='ns'), wbgpio.wbs.send_cycle([WBOp(0), WBOp(1)])]
-    
+    if type(wbRes) is Timer:
+        raise TimeoutError()
+
     if wbRes[0].datrd != 0x00112233:
         raise TestFailure("data %s != 0x00112233" % "{0:#0{1}x}".format(wbRes[0].datrd.integer,10))
     
