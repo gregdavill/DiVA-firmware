@@ -23,11 +23,12 @@ class dummySource(Module):
         counter = Signal(32)
 
         self.comb += [
-            source.valid.eq(1),
+            
             source.data.eq(counter),   
         ]
 
         self.sync += [
+            source.valid.eq(1),
             If(source.ready,
                 counter.eq(counter + 1)
             )
@@ -53,7 +54,7 @@ class StreamWriter(Module, AutoCSR):
         burst_end = Signal()
         burst_cnt = Signal(21)
         
-        self.start_address = CSRStorage(21)
+        self.start_address = CSRStorage(32)
         self.transfer_size = CSRStorage(21)
 
         burst_size = Signal(14, reset=512)
@@ -71,7 +72,7 @@ class StreamWriter(Module, AutoCSR):
             bus.we.eq(0),
             bus.cyc.eq(active),
             bus.stb.eq(active),
-            bus.adr.eq(self.start_address.storage + tx_cnt),
+            bus.adr.eq(self.start_address.storage[:-2] + tx_cnt),
 
             source.data.eq(bus.dat_r),
             source.valid.eq(bus.ack),
@@ -152,7 +153,7 @@ class StreamReader(Module, AutoCSR):
         burst_end = Signal()
         burst_cnt = Signal(21)
         
-        self.start_address = CSRStorage(21)
+        self.start_address = CSRStorage(32)
         self.transfer_size = CSRStorage(21)
 
         burst_size = Signal(14, reset=512)
@@ -169,7 +170,7 @@ class StreamReader(Module, AutoCSR):
             bus.we.eq(active),
             bus.cyc.eq(active),
             bus.stb.eq(active),
-            bus.adr.eq(self.start_address.storage + tx_cnt),
+            bus.adr.eq(self.start_address.storage[:-2] + tx_cnt),
             bus.dat_w.eq(sink.data),
             sink.ready.eq(bus.ack),
 
@@ -250,29 +251,32 @@ class TestWriter(unittest.TestCase):
 
     def test_dma_write(self):
         def write(dut):
-            dut = dut.writer
-            yield from dut._burst_size.write(2)
-            yield from dut._start_address.write(0)
-            yield from dut._transfer_size.write(4)
-            yield from dut._enable.write(1)
+            dut = dut.reader
+            yield from dut.start_address.write(0x10000000)
+            yield from dut.transfer_size.write(3)
+            yield from dut.enable.write(1)
             yield
-            while (yield dut._busy.status != 0):
+            for _ in range(64):
                 yield
-            yield
             yield
 
         def logger(dut):
-            dut = dut.writer
-            yield dut.source.ready.eq(1)
+            for _ in range(10):
+                yield
+            for _ in range(4):
+                yield dut.reader.bus.ack.eq(1)
+                yield
+            yield dut.reader.bus.ack.eq(0)
             yield
                     
 
         class test(Module):
             def __init__(self):    
-                self.submodules.writer = StreamWriter()
-                self.submodules.wb_mem = wishbone.SRAM(32, init=[i for i in range(8)])
-                self.comb += self.writer.bus.connect(self.wb_mem.bus)
+                self.submodules.reader = StreamReader()
+                self.submodules.dummySource = ds = dummySource()
 
+                self.comb += ds.source.connect(self.reader.sink)
+                
         dut = test()
         
 
