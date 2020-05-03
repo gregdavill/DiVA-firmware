@@ -16,8 +16,7 @@ uint8_t y = 0;
 
 
 void terminal_write(char c){
-	return;
-	volatile uint32_t* vga = (volatile uint32_t*) (0);
+	volatile uint32_t* vga = (volatile uint32_t*) (TERMINAL_BASE);
 	if(c == '\r'){
 		x = 0;
 	}else if(c == '\n'){
@@ -41,13 +40,15 @@ uint8_t buffer[64];
 
 
 
-void io_shift(){
+void set_io_delay(int cnt){
+	test_loadn_write(1);
+	test_loadn_write(0);
 	test_loadn_write(1);
 	test_direction_write(1);
 
 	/* 25ps of delay per tap.
 	   Each rising edge adds to the io delay */
-	for(int i = 0; i < 8; i++){ 
+	for(int i = 0; i < cnt; i++){ 
 		test_move_write(1);
 		test_move_write(0);
 	}
@@ -73,9 +74,6 @@ int main(int i, char **c)
 
 	printf("   - Digital Video Interface for Boson -\n");
 	
-
-
-	while(1);
 // 	printf("\n (c) Copyright 2019-2020 GetLabs \n");
 // 	printf(" fw built: "__DATE__ " " __TIME__ " \n\n");
 
@@ -107,14 +105,14 @@ int main(int i, char **c)
 
 
     printf("--========== HyperRAM Initialization ============--\n  ");
-	for(int i = 0; i < 20; i++){
+	set_io_delay(127);
+	for(int i = 0; i < 1; i++){
 		hyperram_init();
-		io_shift();
 	}
 
 
 	
-//	memtest((unsigned int*)HYPERRAM_BASE);
+	memtest((unsigned int*)HYPERRAM_BASE);
 	printf("\n");
 
     printf("--============= Stats: ================--\n");

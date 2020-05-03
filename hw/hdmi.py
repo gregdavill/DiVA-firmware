@@ -23,7 +23,7 @@ class HDMI(Module):
             p_C_vsync_back_porch=  46, # our adjustment for 75 MHz pixel clock
             p_C_bits_x=            12,
             p_C_bits_y=            11,
-            i_clk_pixel=ClockSignal('sys'),
+            i_clk_pixel=ClockSignal('video'),
             i_test_picture=0,
             o_vga_r=vga_r,
             o_vga_g=vga_g,
@@ -44,8 +44,8 @@ class HDMI(Module):
         self.specials += Instance(
             'vga2dvid',
             p_C_ddr=1,
-            i_clk_pixel=ClockSignal('sys'),
-            i_clk_shift=ClockSignal('shift'),
+            i_clk_pixel=ClockSignal('video'),
+            i_clk_shift=ClockSignal('video_shift'),
             i_in_red=vga_r,
             i_in_green=vga_g,
             i_in_blue=vga_b,
@@ -62,7 +62,7 @@ class HDMI(Module):
         self.specials += Instance(
             'fake_differential',
             p_C_ddr=1,
-            i_clk_shift=ClockSignal('shift'),
+            i_clk_shift=ClockSignal('video_shift'),
             i_in_clock=tmds[3],
             i_in_red=tmds[2],
             i_in_green=tmds[1],

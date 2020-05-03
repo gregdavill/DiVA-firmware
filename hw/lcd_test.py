@@ -70,8 +70,8 @@ class hr_io_tunner(Module, AutoCSR):
 class _CRG(Module, AutoCSR):
     def __init__(self, platform, sys_clk_freq):
         self.clock_domains.cd_sys = ClockDomain()
-        self.clock_domains.cd_sys_shift = ClockDomain()
-        self.clock_domains.cd_shift = ClockDomain()
+        self.clock_domains.cd_video = ClockDomain()
+        self.clock_domains.cd_video_shift = ClockDomain()
 
         self.clock_domains.cd_hr = ClockDomain()
         self.clock_domains.cd_hr2x = ClockDomain()
@@ -94,24 +94,24 @@ class _CRG(Module, AutoCSR):
         pll.register_clkin(clk48, 48e6)
         pll.create_clkout(self.cd_hr2x_, sys_clk_freq*2, margin=0)
         pll.create_clkout(self.cd_hr2x_90_, sys_clk_freq*2, phase=1, margin=0) # SW tunes this phase during init
-        #pll.create_clkout(self.cd_shift, pixel_clock * 5, margin=0)
         self.specials += [
-            AsyncResetSynchronizer(self.cd_sys, ~pll.locked),
-            AsyncResetSynchronizer(self.cd_shift, ~pll.locked)
+            AsyncResetSynchronizer(self.cd_sys, ~pll.locked)
         ]
 
         self.comb += self.cd_sys.clk.eq(self.cd_hr.clk)
         self.comb += self.cd_init.clk.eq(clk48)
 
-        #self.submodules.ram_pll = ram_pll = ECP5PLL()
-        #ram_pll.register_clkin(clk48, 48e6)
-        #ram_pll.create_clkout(self.cd_hr2x_,    165e6, phase=0, margin=0)
-        #ram_pll.create_clkout(self.cd_hr2x_90_, 165e6, phase=1, margin=0) # SW tunes this phase during init
+        pixel_clk = 75e6
+
+        self.submodules.video_pll = video_pll = ECP5PLL()
+        video_pll.register_clkin(clk48, 48e6)
+        video_pll.create_clkout(self.cd_video,    pixel_clk,  margin=0)
+        video_pll.create_clkout(self.cd_video_shift,  pixel_clk*5, margin=0)
 
         stop = Signal()
         reset = Signal()
 
-        # DDRDLLA/DDQBUFM/ECLK initialization sequence ---------------------------------------------
+        # ECLK initialization sequence ---------------------------------------------
         t = 8 # in cycles
         self.sync.init += [
             # Wait DDRDLLA Lock
@@ -121,11 +121,6 @@ class _CRG(Module, AutoCSR):
                 (3*t,  [reset.eq(1)]),  # Reset ECLK domain
                 (4*t,  [reset.eq(0)]),  # Release ECLK domain reset
                 (5*t,  [stop.eq(0)]),   # Release ECLK domain stop
-                (6*t,  []), # Release DDRDLLA freeze
-                (7*t,  []),  # Pause DQSBUFM
-                (8*t,  []), # Update DDRDLLA
-                (9*t,  []), # Release DDRDMMA update
-                (10*t, []),  # Release DQSBUFM pause
             ])
         ]
 
@@ -169,14 +164,6 @@ class _CRG(Module, AutoCSR):
             self.pll.phase_load.eq(self._phase_load.storage),
         ]
 
-        self.clock_domains.cd_usb_12 = ClockDomain()
-        self.clock_domains.cd_usb_48 = ClockDomain()
-        usb_pll = ECP5PLL()
-        self.submodules += usb_pll
-        usb_pll.register_clkin(clk48, 48e6)
-        usb_pll.create_clkout(self.cd_usb_48, 48e6)
-        usb_pll.create_clkout(self.cd_usb_12, 12e6)
-
 
        
 
@@ -208,7 +195,7 @@ class DiVA_SoC(SoCCore):
         
         sys_clk_freq = int(82.5e6)
         SoCCore.__init__(self, platform, clk_freq=sys_clk_freq,
-                          cpu_type=None, with_uart=True, uart_name='stub',
+                          cpu_type='serv', with_uart=True, uart_name='stub',
                           csr_data_width=32,
                           ident="HyperRAM Test SoC", ident_version=True, wishbone_timeout_cycles=128,
                           integrated_rom_size=16*1024)
@@ -257,47 +244,27 @@ class DiVA_SoC(SoCCore):
 
 
         ## HDMI output 
-        #hdmi_pins = platform.request('hdmi')
-        #self.submodules.hdmi = hdmi =  HDMI(platform, hdmi_pins)
+        hdmi_pins = platform.request('hdmi')
+        self.submodules.hdmi = hdmi =  HDMI(platform, hdmi_pins)
 
         ## Create VGA terminal
-        #mem_map["terminal"] = 0x30000000
-        #self.submodules.terminal = terminal = ClockDomainsRenamer({'vga':'sys'})(Terminal())
-        #self.register_mem("terminal", self.mem_map["terminal"], terminal.bus, size=0x100000)
-        #self.add_memory_region("terminal", 0x30000000, 0x100000)
-
-        # USB with Clock-Domain-Crossing support
-        import os
-        import sys
-        os.system("git clone https://github.com/gregdavill/valentyusb -b hw_cdc_eptri")
-        sys.path.append("valentyusb")
-
-        import valentyusb.usbcore.io as usbio
-        import valentyusb.usbcore.cpu.cdc_eptri as cdc_eptri
-        usb_pads = self.platform.request("usb")
-        usb_iobuf = usbio.IoBuf(usb_pads.d_p, usb_pads.d_n, usb_pads.pullup)
-        self.submodules.uart_usb = cdc_eptri.CDCUsb(usb_iobuf)
-        
-
-        self.submodules.bridge = WishboneStreamingBridge(self.uart_usb, sys_clk_freq)
-        self.add_wb_master(self.bridge.wishbone)
-
-        self.submodules.analyzer = LiteScopeAnalyzer(hyperram.dbg, 128)
+        self.submodules.terminal = terminal = ClockDomainsRenamer({'vga':'video'})(Terminal())
+        self.register_mem("terminal", self.mem_map["terminal"], terminal.bus, size=0x100000)
 
 
         vsync_r = Signal()
         self.sync += [
-            #vsync_r.eq(terminal.vsync)
+            vsync_r.eq(terminal.vsync)
         ]
 
         ## Connect VGA pins
         self.comb += [
-            #hdmi.vsync.eq(terminal.vsync),
-            #hdmi.hsync.eq(terminal.hsync),
-            #hdmi.blank.eq(terminal.blank),
-            #hdmi.r.eq(terminal.red),
-            #hdmi.g.eq(terminal.green),
-            #hdmi.b.eq(terminal.blue),
+            hdmi.vsync.eq(terminal.vsync),
+            hdmi.hsync.eq(terminal.hsync),
+            hdmi.blank.eq(terminal.blank),
+            hdmi.r.eq(terminal.red),
+            hdmi.g.eq(terminal.green),
+            hdmi.b.eq(terminal.blue),
 
             #self.test.pixels.connect(terminal.source),
             #self.test.pixels_reset.eq(vsync_r & ~terminal.vsync),
@@ -362,44 +329,44 @@ def main():
     builder = Builder(soc, output_dir="build", csr_csv="build/csr.csv")
 
     # Build firmware
-    #soc.PackageFirmware(builder)
+    soc.PackageFirmware(builder)
         
     # Check if we have the correct files
-    #firmware_file = os.path.join(builder.output_dir, "software", "DiVA-fw", "DiVA-fw.bin")
-    #firmware_data = get_mem_data(firmware_file, soc.cpu.endianness)
-    #firmware_init = os.path.join(builder.output_dir, "software", "DiVA-fw", "DiVA-fw.init")
-    #CreateFirmwareInit(firmware_data, firmware_init)
+    firmware_file = os.path.join(builder.output_dir, "software", "DiVA-fw", "DiVA-fw.bin")
+    firmware_data = get_mem_data(firmware_file, soc.cpu.endianness)
+    firmware_init = os.path.join(builder.output_dir, "software", "DiVA-fw", "DiVA-fw.init")
+    CreateFirmwareInit(firmware_data, firmware_init)
     
-    #rand_rom = os.path.join(builder.output_dir, "gateware", "rand.data")
+    rand_rom = os.path.join(builder.output_dir, "gateware", "rand.data")
 
     input_config = os.path.join(builder.output_dir, "gateware", "top.config")
-    #output_config = os.path.join(builder.output_dir, "gateware", "top_patched.config")
+    output_config = os.path.join(builder.output_dir, "gateware", "top_patched.config")
     
     # If we don't have a random file, create one, and recompile gateware
-    #if (os.path.exists(rand_rom) == False) or (args.update_firmware == False):
-    os.makedirs(os.path.join(builder.output_dir,'gateware'), exist_ok=True)
-    os.makedirs(os.path.join(builder.output_dir,'software'), exist_ok=True)
+    if (os.path.exists(rand_rom) == False) or (args.update_firmware == False):
+        os.makedirs(os.path.join(builder.output_dir,'gateware'), exist_ok=True)
+        os.makedirs(os.path.join(builder.output_dir,'software'), exist_ok=True)
 
-#    os.system(f"ecpbram  --generate {rand_rom} --seed {0} --width {32} --depth {soc.integrated_rom_size}")
+        os.system(f"ecpbram  --generate {rand_rom} --seed {0} --width {32} --depth {soc.integrated_rom_size}")
 
-    # patch random file into BRAM
-    #data = []
-    #with open(rand_rom, 'r') as inp:
-    #    for d in inp.readlines():
-    #        data += [int(d, 16)]
-    #soc.initialize_rom(data)
+        # patch random file into BRAM
+        data = []
+        with open(rand_rom, 'r') as inp:
+            for d in inp.readlines():
+                data += [int(d, 16)]
+        soc.initialize_rom(data)
 
-    # Build gateware
-    vns = builder.build()
-    soc.do_exit(vns)    
+        # Build gateware
+        vns = builder.build()
+        soc.do_exit(vns)    
 
 
     # Insert Firmware into Gateware
-    #os.system(f"ecpbram  --input {input_config} --output {output_config} --from {rand_rom} --to {firmware_init}")
+    os.system(f"ecpbram  --input {input_config} --output {output_config} --from {rand_rom} --to {firmware_init}")
 
     # create a compressed bitstream
     output_bit = os.path.join(builder.output_dir, "gateware", "DiVA.bit")
-    os.system(f"ecppack --input {input_config} --compress --freq 38.8 --bit {output_bit}")
+    os.system(f"ecppack --input {output_config} --compress --freq 38.8 --bit {output_bit}")
 
     # Add DFU suffix
     os.system(f"dfu-suffix -p 1209 -d 5bf0 -a {output_bit}")

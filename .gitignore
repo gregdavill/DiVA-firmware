@@ -7,3 +7,5 @@ settings.json
 
 sim_build/
 results.xml
+
+analyzer.csv

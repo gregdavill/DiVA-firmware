@@ -166,7 +166,9 @@ class HyperRAM(Module):
             If(phy.rwds.i[3], 
                 bus.ack.eq(1),
                 If(bus.cti != 0b010,
-                    NextValue(clk, 0), NextState("CLEANUP"))
+                    NextValue(clk, 0), NextState("CLEANUP"))),
+            If(~self.bus.cyc,
+                NextState("CLK-OFF")
             ))
         
         fsm.act("CLK-OFF", NextValue(clk, 0), NextState("CLEANUP"))
