@@ -36,7 +36,7 @@ wb.regs.crg_phase_dir.write(0)
 
 
 analyzer = LiteScopeAnalyzerDriver(wb.regs, "analyzer", debug=True)
-analyzer.configure_trigger(cond={"hyperram_bus_cyc": 1,"hyperram_bus_we": 1},)
+analyzer.configure_trigger(cond={"hyperram_bus_cyc": 1,"hyperram_bus_we": 0},)
 analyzer.run(offset=10 , length=128)
 
 for _ in range(128):
@@ -63,9 +63,14 @@ for i in range(1):
 #while wb.regs.reader0_busy.read() == 1:
 #    ...
 
-wb.regs.reader_transfer_size.write(32)
+wb.regs.reader_transfer_size.write(7)
 wb.regs.reader_start_address.write(0x10000000 >> 2)
 wb.regs.reader_enable.write(1)
+
+
+wb.regs.writer_transfer_size.write(32)
+wb.regs.writer_start_address.write(0x10000000 >> 2)
+wb.regs.writer_enable.write(1)
 
 
 
