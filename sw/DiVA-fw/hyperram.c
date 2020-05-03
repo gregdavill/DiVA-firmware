@@ -25,14 +25,6 @@ uint32_t test_write(uint32_t a);
 */
 static int basic_memtest(volatile uint32_t* addr){
 
-//	if(test_write(0xFF55AACD) != 0xFF55AACD)
-//		return 0;
-//
-//	if(test_write(0xFF55AAC0) != 0xFF55AAC0)
-//		return 0;
-//
-//	if(test_write(0x0123FECD) != 0x0123FECD)
-//		return 0;
 	*((volatile uint32_t*)HYPERRAM_BASE) = 0xFF55AACD;
 	if(*((volatile uint32_t*)HYPERRAM_BASE) != 0xFF55AACD)
 		return 0;
@@ -46,11 +38,10 @@ static int basic_memtest(volatile uint32_t* addr){
 
 
 void hyperram_init(){
-
 	int window = 0;
 	int i = 0;
 	printf("|");
-	for(i = 0; i < 64; i++){
+	for(i = 0; i < 128; i++){
 
 		int pass = basic_memtest(0);
 
@@ -75,8 +66,7 @@ void hyperram_init(){
 		}
 
 	}
-	printf("%x ", window );
-	printf("| \n");
+	printf("| %x \n", window );
 	if(window > 2){
 		for(i = 0; i < window/2; i++){
 			// Shift our PLL up
@@ -87,7 +77,6 @@ void hyperram_init(){
 		}
 	}
 }
-
 
 
 

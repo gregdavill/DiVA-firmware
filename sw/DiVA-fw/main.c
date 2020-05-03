@@ -41,16 +41,28 @@ uint8_t buffer[64];
 
 
 void set_io_delay(int cnt){
-	test_loadn_write(1);
-	test_loadn_write(0);
-	test_loadn_write(1);
-	test_direction_write(1);
+	test_io_loadn_write(0);
+	test_io_loadn_write(1);
+	test_io_direction_write(0);
 
 	/* 25ps of delay per tap.
 	   Each rising edge adds to the io delay */
 	for(int i = 0; i < cnt; i++){ 
-		test_move_write(1);
-		test_move_write(0);
+		test_io_move_write(1);
+		test_io_move_write(0);
+	}
+}
+
+void set_clk_delay(int cnt){
+	test_clk_loadn_write(0);
+	test_clk_loadn_write(1);
+	test_clk_direction_write(0);
+
+	/* 25ps of delay per tap.
+	   Each rising edge adds to the io delay */
+	for(int i = 0; i < cnt; i++){ 
+		test_clk_move_write(1);
+		test_clk_move_write(0);
 	}
 }
 
@@ -104,11 +116,10 @@ int main(int i, char **c)
 // 	printf("\n");
 
 
-    printf("--========== HyperRAM Initialization ============--\n  ");
-	set_io_delay(127);
-	for(int i = 0; i < 1; i++){
-		hyperram_init();
-	}
+    printf("\n--========== HyperRAM Initialization ============--\n");
+	set_io_delay(0);
+	set_clk_delay(127);
+	hyperram_init();
 
 
 	

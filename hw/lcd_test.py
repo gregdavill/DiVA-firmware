@@ -63,9 +63,13 @@ from litex.soc.interconnect.csr import *
 
 class hr_io_tunner(Module, AutoCSR):
     def __init__(self):
-        self.loadn = CSRStorage()
-        self.move = CSRStorage()
-        self.direction = CSRStorage()
+        self.io_loadn = CSRStorage()
+        self.io_move = CSRStorage()
+        self.io_direction = CSRStorage()
+
+        self.clk_loadn = CSRStorage()
+        self.clk_move = CSRStorage()
+        self.clk_direction = CSRStorage()
 
 class _CRG(Module, AutoCSR):
     def __init__(self, platform, sys_clk_freq):
@@ -214,9 +218,13 @@ class DiVA_SoC(SoCCore):
         self.submodules.test = hr_io_tunner()
 
         self.comb += [
-            hyperram.loadn.eq(self.test.loadn.storage),
-            hyperram.move.eq(self.test.move.storage),
-            hyperram.direction.eq(self.test.direction.storage),
+            hyperram.dly_io.loadn.eq(self.test.io_loadn.storage),
+            hyperram.dly_io.move.eq(self.test.io_move.storage),
+            hyperram.dly_io.direction.eq(self.test.io_direction.storage),
+
+            hyperram.dly_clk.loadn.eq(self.test.clk_loadn.storage),
+            hyperram.dly_clk.move.eq(self.test.clk_move.storage),
+            hyperram.dly_clk.direction.eq(self.test.clk_direction.storage),
         ]
 
 
