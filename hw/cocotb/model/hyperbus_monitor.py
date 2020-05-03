@@ -62,9 +62,6 @@ class HyperBusSubordinate(HyperBus):
         # RAM drives DQ at a fixed delay around 6ns from edge
         dq_delay = 6
 
-
-        self.log.debug("%s" % transaction)
-
         trig = yield [RisingEdge(self.clock), timeout]
         if trig == timeout:
             raise TimeoutError()

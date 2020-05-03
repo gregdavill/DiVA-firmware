@@ -148,21 +148,29 @@ class HyperRAM(Module):
         fsm.act("LATENCY-WAIT1", NextState("LATENCY-WAIT2"))
         fsm.act("LATENCY-WAIT2", NextState("LATENCY-WAIT3"))
         fsm.act("LATENCY-WAIT3", NextValue(phy.dq.oe, self.bus.we), NextValue(phy.rwds.oe,self.bus.we), NextState("READ-WRITE"))
-        fsm.act("READ-WRITE", NextState("CLK-OFF"),
-                NextValue(phy.dq.oe,self.bus.we),                 # Write/Read data byte: 2 clk
-                NextValue(sr_out[:32],0),
-                NextValue(sr_out[32:],self.bus.dat_w),
-                NextValue(sr_rwds_out[:4],0),
-                NextValue(sr_rwds_out[4:],~bus.sel[0:4]),
-                )
+        fsm.act("READ-WRITE", NextState("READ-ACK"),
+                If(self.bus.we,
+                    NextValue(phy.dq.oe,1),                 # Write Cycle
+                    NextValue(sr_out[:32],0),
+                    NextValue(sr_out[32:],self.bus.dat_w),
+                    NextValue(sr_rwds_out[:4],0),
+                    NextValue(sr_rwds_out[4:],~bus.sel[0:4]),
+                    bus.ack.eq(1), # Get next byte
+                    NextState("CLK-OFF"),
+                    If(bus.cti == 0b010,
+                        NextState("READ-WRITE"),
+                )))
+        
+        
+        fsm.act("READ-ACK", 
+            If(phy.rwds.i[3], 
+                bus.ack.eq(1),
+                If(bus.cti != 0b010,
+                    NextValue(clk, 0), NextState("CLEANUP"))
+            ))
         
         fsm.act("CLK-OFF", NextValue(clk, 0), NextState("CLEANUP"))
-        fsm.act("CLEANUP", NextValue(cs, 0), NextValue(phy.rwds.oe, 0), NextValue(phy.dq.oe, 0), NextState("ACK"))
-        
-        fsm.act("ACK", 
-            If(phy.rwds.i[3] | self.bus.we, 
-                bus.ack.eq(1), NextState("HOLD-WAIT")))
-        
+        fsm.act("CLEANUP", NextValue(cs, 0), NextValue(phy.rwds.oe, 0), NextValue(phy.dq.oe, 0), NextState("HOLD-WAIT"))
         fsm.act("HOLD-WAIT", NextState("HOLD-WAIT0"))
         fsm.act("HOLD-WAIT0", NextState("HOLD-WAIT1"))
         fsm.act("HOLD-WAIT1", NextState("IDLE"))

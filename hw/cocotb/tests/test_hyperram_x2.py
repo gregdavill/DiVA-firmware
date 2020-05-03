@@ -45,7 +45,8 @@ class WbGpio(object):
                                         "adr":  "adr",
                                         "datwr":"dat_w",
                                         "datrd":"dat_r",
-                                        "ack":  "ack" })
+                                        "ack":  "ack",
+                                        "cti":  "cti" })
 
         self.hyperbus = HyperBusSubordinate(dut, "hyperRAM", dut.hyperRAM_clk_p,  reset=self.dut.reset,
                                                 signals_dict ={"dq" : "dq",
@@ -110,7 +111,8 @@ class WbGpio(object):
                 if latency-i < 4:
                     self.dut.hyperRAM_rwds = 0
 
-            
+            # Respond with Read Data
+            # TODO: Replace with actual data
             for d in data:
                 word = BinaryValue(d, 32, bigEndian=False)
                 yield self.hyperbus._driver_send(word[31:16], '01')
@@ -118,9 +120,8 @@ class WbGpio(object):
 
             if str(self.hyperbus.bus.cs) != '0':
                 TestFailure("cs not low at end of transaction ")
-            
 
-            yield [Timer(100, "ns"), RisingEdge(self.hyperbus.bus.cs)]
+            yield [Timer(6000, "ns"), RisingEdge(self.hyperbus.bus.cs)]
 
             self.dut.hyperRAM_rwds = BinaryValue('z')
             self.dut.hyperRAM_dq = BinaryValue('zzzzzzzz')
@@ -136,14 +137,8 @@ class WbGpio(object):
                 value = yield self.hyperbus._monitor_recv()
                 self.log.info("%s" % value)
                 bits += str(value['dq'])
-                
-            #dq_reg = BinaryValue(n_bits=32, value=bits, bigEndian=False)
-            #self.log.info("data: %s" % "{0:#0{1}x}".format(dq_reg.integer, 10))
             
-
             yield Timer(500, 'ns')
-            
-            #raise TestFailure("Bad data")
 
             #for d in data:
             word = BinaryValue(data[0], 16, bigEndian=False)

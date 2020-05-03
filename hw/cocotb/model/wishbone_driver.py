@@ -139,6 +139,10 @@ class WishboneMaster(Wishbone):
         cocotb.fork(self._read())
         cocotb.fork(self._clk_cycle_counter()) 
         self.bus.cyc    <= 1
+        if self._op_cnt > 1:
+            self.bus.cti <= BinaryValue("010")
+        if self._op_cnt == 1:
+            self.bus.cti <= BinaryValue("000")
         self._acked_ops = 0  
         self._res_buf   = [] 
         self._aux_buf   = []
@@ -213,6 +217,10 @@ class WishboneMaster(Wishbone):
         if not hasattr(self.bus, "stall"):
             self.bus.stb    <= 0
         self._acked_ops += 1
+        if self._op_cnt - self._acked_ops <= 1:
+            self.bus.cti <= BinaryValue("111")
+        
+        self.log.debug("Acks: %u, Ops: %u" % (self._acked_ops,self._op_cnt))
         self.log.debug("Waited %u cycles for ackknowledge" % count)
 
         raise ReturnValue(count)    
