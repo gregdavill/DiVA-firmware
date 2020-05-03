@@ -45,6 +45,8 @@ class HyperRAM(Module):
         sr_rwds_in    = Signal(8)
         sr_rwds_out    = Signal(8)
 
+        timeout_counter = Signal(6)
+
         self.submodules.phy = phy = HyperBusPHY(pads)
 
         self.comb += [
@@ -94,7 +96,7 @@ class HyperRAM(Module):
 
         fsm.act("IDLE", If(bus.cyc & bus.stb, NextValue(cs, 1), NextState("CA-SEND")))
         fsm.act("CA-SEND", NextValue(clk, 1), NextValue(phy.dq.oe, 1), NextValue(sr_out,Cat(Signal(16),ca)), NextState("CA-WAIT"))
-        fsm.act("CA-WAIT", NextState("LATENCY-WAIT"))
+        fsm.act("CA-WAIT", NextValue(timeout_counter, 0),NextState("LATENCY-WAIT"))
         fsm.act("LATENCY-WAIT", NextValue(phy.dq.oe, 0), NextState("LATENCY-WAIT0"))
         fsm.act("LATENCY-WAIT0", NextState("LATENCY-WAIT1"))
         fsm.act("LATENCY-WAIT1", NextState("LATENCY-WAIT2"))
@@ -115,19 +117,34 @@ class HyperRAM(Module):
         
         
         fsm.act("READ-ACK", 
+            NextValue(timeout_counter, timeout_counter + 1),
             If(phy.rwds.i[3], 
+                NextValue(timeout_counter, 0),
                 bus.ack.eq(1),
                 If(bus.cti != 0b010,
                     NextValue(clk, 0), NextState("CLEANUP"))),
-            If(~self.bus.cyc,
+            If(~self.bus.cyc | (timeout_counter > 20),
                 NextState("CLK-OFF")
             ))
         
         fsm.act("CLK-OFF", NextValue(clk, 0), NextState("CLEANUP"))
         fsm.act("CLEANUP", NextValue(cs, 0), NextValue(phy.rwds.oe, 0), NextValue(phy.dq.oe, 0), NextState("HOLD-WAIT"))
-        fsm.act("HOLD-WAIT", NextState("HOLD-WAIT0"))
+        fsm.act("HOLD-WAIT", NextValue(sr_out, 0), NextValue(sr_rwds_out, 0), NextState("HOLD-WAIT0"))
         fsm.act("HOLD-WAIT0", NextState("HOLD-WAIT1"))
-        fsm.act("HOLD-WAIT1", NextState("IDLE"))
+        fsm.act("HOLD-WAIT1", NextState("HOLD-WAIT2"))
+        fsm.act("HOLD-WAIT2", NextState("HOLD-WAIT3"))
+        fsm.act("HOLD-WAIT3", NextState("HOLD-WAIT4"))
+        fsm.act("HOLD-WAIT4", NextState("HOLD-WAIT5"))
+        fsm.act("HOLD-WAIT5", NextState("HOLD-WAIT6"))
+        fsm.act("HOLD-WAIT6", NextState("HOLD-WAIT7"))
+        fsm.act("HOLD-WAIT7", NextState("HOLD-WAIT8"))
+        fsm.act("HOLD-WAIT8", NextState("HOLD-WAIT9"))
+        fsm.act("HOLD-WAIT9", NextState("HOLD-WAITA"))
+        fsm.act("HOLD-WAITA", NextState("HOLD-WAITB"))
+        fsm.act("HOLD-WAITB", NextState("HOLD-WAITC"))
+        fsm.act("HOLD-WAITC", NextState("HOLD-WAITD"))
+        fsm.act("HOLD-WAITD", NextState("HOLD-WAITE"))
+        fsm.act("HOLD-WAITE", NextState("IDLE"))
 
         self.dbg = [
             bus,
@@ -190,11 +207,11 @@ class HyperBusPHY(Module):
         clkn = Signal()
         self.specials += [
             Instance("ODDRX2F",
-                i_D0=clk_en,
-                i_D1=0,
-                i_D2=clk_en,
-                i_D3=0,
-                i_SCLK=ClockSignal("hr"),
+                i_D1=clk_en,
+                i_D0=0,
+                i_D3=clk_en,
+                i_D2=0,
+                i_SCLK=ClockSignal("hr_90"),
                 i_ECLK=ClockSignal("hr2x_90"),
                 i_RST=ResetSignal("hr"),
                 o_Q=clkp),
@@ -210,11 +227,11 @@ class HyperBusPHY(Module):
         
         self.specials += [
             Instance("ODDRX2F",
-                i_D0=~clk_en,
-                i_D1=1,
-                i_D2=~clk_en,
-                i_D3=1,
-                i_SCLK=ClockSignal("hr"),
+                i_D1=~clk_en,
+                i_D0=1,
+                i_D3=~clk_en,
+                i_D2=1,
+                i_SCLK=ClockSignal("hr_90"),
                 i_ECLK=ClockSignal("hr2x_90"),
                 i_RST=ResetSignal("hr"),
                 o_Q=clkn),

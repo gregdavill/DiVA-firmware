@@ -61,16 +61,6 @@ from migen.genlib.misc import timeline
 
 from litex.soc.interconnect.csr import *
 
-class hr_io_tunner(Module, AutoCSR):
-    def __init__(self):
-        self.io_loadn = CSRStorage()
-        self.io_move = CSRStorage()
-        self.io_direction = CSRStorage()
-
-        self.clk_loadn = CSRStorage()
-        self.clk_move = CSRStorage()
-        self.clk_direction = CSRStorage()
-
 class _CRG(Module, AutoCSR):
     def __init__(self, platform, sys_clk_freq):
         self.clock_domains.cd_sys = ClockDomain()
@@ -78,6 +68,7 @@ class _CRG(Module, AutoCSR):
         self.clock_domains.cd_video_shift = ClockDomain()
 
         self.clock_domains.cd_hr = ClockDomain()
+        self.clock_domains.cd_hr_90 = ClockDomain()
         self.clock_domains.cd_hr2x = ClockDomain()
         self.clock_domains.cd_hr2x_90 = ClockDomain()
         self.clock_domains.cd_hr2x_ = ClockDomain()
@@ -105,12 +96,12 @@ class _CRG(Module, AutoCSR):
         self.comb += self.cd_sys.clk.eq(self.cd_hr.clk)
         self.comb += self.cd_init.clk.eq(clk48)
 
-        pixel_clk = 75e6
+        pixel_clk = 74.5e6
 
         self.submodules.video_pll = video_pll = ECP5PLL()
         video_pll.register_clkin(clk48, 48e6)
-        video_pll.create_clkout(self.cd_video,    pixel_clk,  margin=0)
-        video_pll.create_clkout(self.cd_video_shift,  pixel_clk*5, margin=0)
+        video_pll.create_clkout(self.cd_video,    pixel_clk,  margin=1e-2)
+        video_pll.create_clkout(self.cd_video_shift,  pixel_clk*5, margin=1e-2)
 
         stop = Signal()
         reset = Signal()
@@ -150,6 +141,13 @@ class _CRG(Module, AutoCSR):
                 i_CLKI    = self.cd_hr2x.clk,
                 i_RST     = self.cd_hr2x.rst,
                 o_CDIVX   = self.cd_hr.clk),
+
+            Instance("CLKDIVF",
+                p_DIV     = "2.0",
+                i_ALIGNWD = 0,
+                i_CLKI    = self.cd_hr2x_90.clk,
+                i_RST     = self.cd_hr2x_90.rst,
+                o_CDIVX   = self.cd_hr_90.clk),
             AsyncResetSynchronizer(self.cd_hr, ~pll.locked)
         ]
 
@@ -175,11 +173,9 @@ class DiVA_SoC(SoCCore):
     csr_map = {
         "rgb"        :  10, 
         "crg"        :  11, 
-        "test"       :  12,
+        "hyperram"   :  12,
         "terminal"   :  13,
         "analyzer"   :  14,
-        "reader"   :  16,
-        "writer"   :  17,
     }
     csr_map.update(SoCCore.csr_map)
 
@@ -210,44 +206,18 @@ class DiVA_SoC(SoCCore):
         self.submodules.rgb = RGB(platform.request("rgb_led"))
         
         # HyperRAM
-        hyperram = HyperRAM(platform.request("hyperRAM"))
-        self.submodules += hyperram
-        self.add_wb_slave(self.mem_map["hyperram"], hyperram.bus)
-        self.add_memory_region("hyperram", self.mem_map["hyperram"], 0x800000)
-        
-        self.submodules.test = hr_io_tunner()
-
-        self.comb += [
-            hyperram.dly_io.loadn.eq(self.test.io_loadn.storage),
-            hyperram.dly_io.move.eq(self.test.io_move.storage),
-            hyperram.dly_io.direction.eq(self.test.io_direction.storage),
-
-            hyperram.dly_clk.loadn.eq(self.test.clk_loadn.storage),
-            hyperram.dly_clk.move.eq(self.test.clk_move.storage),
-            hyperram.dly_clk.direction.eq(self.test.clk_direction.storage),
-        ]
-
-
-        self.submodules.writer = writer = StreamWriter()
-        self.submodules.reader = reader = StreamReader()
-
-        self.submodules.d_sink = dSink = dummySink()
-        self.submodules.d_source = dSource = dummySource()
-
-        self.add_wb_master(writer.bus)
-        self.add_wb_master(reader.bus)
-
-        self.comb += [
-            writer.source.connect(dSink.sink),
-            dSource.source.connect(reader.sink)
-            
-        ]
+        #hyperram = HyperRAM(platform.request("hyperRAM"))
+        #self.submodules += hyperram
+        #self.add_wb_slave(self.mem_map["hyperram"], hyperram.bus)
+        #self.add_memory_region("hyperram", self.mem_map["hyperram"], 0x800000)
         
 
-        #self.submodules.test = StreamableHyperRAM(platform.request("hyperRAM"))
+        self.submodules.hyperram = hyperram = StreamableHyperRAM(platform.request("hyperRAM"))
+        #self.add_wb_slave(self.mem_map["hyperram"], hyperram.bus)
+        #self.add_memory_region("hyperram", self.mem_map["hyperram"], 0x800000)
 
-        #self.submodules.boson = Boson(platform, platform.request("boson"))
-        #self.submodules.YCrCb = ClockDomainsRenamer({"sys":"boson_rx"})(YCrCbConvert())
+        self.submodules.boson = Boson(platform, platform.request("boson"))
+        self.submodules.YCrCb = ClockDomainsRenamer({"sys":"boson_rx"})(YCrCbConvert())
 
 
 
@@ -261,7 +231,7 @@ class DiVA_SoC(SoCCore):
 
 
         vsync_r = Signal()
-        self.sync += [
+        self.sync.video += [
             vsync_r.eq(terminal.vsync)
         ]
 
@@ -274,12 +244,12 @@ class DiVA_SoC(SoCCore):
             hdmi.g.eq(terminal.green),
             hdmi.b.eq(terminal.blue),
 
-            #self.test.pixels.connect(terminal.source),
-            #self.test.pixels_reset.eq(vsync_r & ~terminal.vsync),
+            self.hyperram.pixels.connect(terminal.source),
+            self.hyperram.pixels_reset.eq(vsync_r & ~terminal.vsync),
 
-            #self.boson.source.connect(self.YCrCb.sink),
-            #self.YCrCb.source.connect(self.test.boson),
-            #self.test.boson_sync.eq(self.boson.sync_out)
+            self.boson.source.connect(self.YCrCb.sink),
+            self.YCrCb.source.connect(self.hyperram.boson),
+            self.hyperram.boson_sync.eq(self.boson.sync_out)
         ]
 
         # Add git version into firmware 

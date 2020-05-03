@@ -36,8 +36,6 @@ _io = [
         Subsignal("cs_n",      Pins("F3"),       IOStandard("LVCMOS18"),Misc("SLEWRATE=SLOW")),
         Subsignal("dq",        Pins("K4 L4 J3 K3 L1 M3 N4 N3"),     IOStandard("LVCMOS18"),Misc("SLEWRATE=SLOW")),
         Subsignal("rwds",       Pins("H3"),      IOStandard("LVCMOS18"),Misc("SLEWRATE=SLOW")),
-        Subsignal("dbg0",       Pins("F2"),      IOStandard("LVCMOS18"),Misc("SLEWRATE=SLOW")),
-        Subsignal("dbg1",       Pins("J1"),      IOStandard("LVCMOS18"),Misc("SLEWRATE=SLOW")),
     ),
 
     ("boson", 0,

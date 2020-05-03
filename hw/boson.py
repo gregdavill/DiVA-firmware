@@ -182,7 +182,7 @@ flirLUTPackets = Array([
 class BosonConfig(Module):
     def __init__(self, pads):
         baudrate=921600
-        tuning_word = int((baudrate/64e6)*2**32)
+        tuning_word = int((baudrate/82.5e6)*2**32)
 
         self.button = button = Signal()
         self.submodules.tx = tx = RS232PHYTX(pads, tuning_word)
@@ -190,13 +190,13 @@ class BosonConfig(Module):
 
         self.submodules.fsm = fsm = FSM(reset_state="STARTUP")
 
-        fsmCounter = Signal(max=int((64e6)*60), reset=int((64e6)*(300e-3)))
+        fsmCounter = Signal(max=int((82.5e6)*60), reset=int((82.5e6)*(300e-3)))
         currentPacket = Signal(max=12, reset=0)
         currentByte = Signal(max=64, reset=1)
 
 
         fsm.act("STARTUP",
-            NextValue(fsmCounter, int((64e6)*(3.5))),
+            NextValue(fsmCounter, int((82.5e6)*(3.5))),
             NextState("WAIT"),
         )
 
@@ -216,7 +216,7 @@ class BosonConfig(Module):
                     NextState("DONE"),
                 ).Else(
                     NextValue(currentPacket, currentPacket + 1),
-                    NextValue(fsmCounter, int((64e6)*(200e-3))),
+                    NextValue(fsmCounter, int((82.5e6)*(200e-3))),
                     NextState("WAIT"),
                 ),
                 NextValue(currentByte, 1),
@@ -244,7 +244,7 @@ class BosonConfig(Module):
             # done
             If(~button, 
                 NextState("DONE"),
-                NextValue(fsmCounter, int((64e6)*(25e-3))),
+                NextValue(fsmCounter, int((82.5e6)*(25e-3))),
             ),            
         )
 

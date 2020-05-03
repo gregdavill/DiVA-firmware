@@ -3,7 +3,7 @@ from migen import *
 from litex.soc.interconnect.csr import AutoCSR, CSR, CSRStatus, CSRStorage
 from litex.soc.interconnect.stream import Endpoint, EndpointDescription, SyncFIFO, AsyncFIFO, Monitor
 from wishbone_stream import StreamReader, StreamWriter, dummySource
-from litex.soc.interconnect.wishbone import InterconnectShared, Arbiter, SRAM, InterconnectPointToPoint
+from litex.soc.interconnect.wishbone import InterconnectShared, Arbiter, SRAM, InterconnectPointToPoint, Interface
 from migen.genlib.cdc import PulseSynchronizer, MultiReg, BusSynchronizer
 
 
@@ -33,134 +33,84 @@ class CSRSink(Module, AutoCSR):
 
 class StreamableHyperRAM(Module, AutoCSR):
     def __init__(self, hyperram_pads):
-        self.submodules.hyperram = hyperram = ClockDomainsRenamer({"sys":"hr", 'sys_shift':'ram_shift'})(HyperRAM(hyperram_pads))
-        #self.submodules.hyperram = hyperram = HyperRAM(hyperram_pads)
-        #self.hyperram = hyperram = ClockDomainsRenamer({"sys":"hr"})(SRAM(1024, False))
+        #self.bus = cpu_bus = Interface()
+
+
+        self.submodules.hyperram = hyperram = HyperRAM(hyperram_pads)
         
-        self.submodules.writer = writer = ClockDomainsRenamer({"sys":"hr"})(StreamWriter())
-        self.submodules.reader = reader = ClockDomainsRenamer({"sys":"hr"})(StreamReader())
-        #self.submodules.writer = writer = StreamWriter()
-        #self.submodules.reader = reader = StreamReader()
-        self.submodules.writer_pix = writer_pix = ClockDomainsRenamer({"sys":"hr"})(StreamWriter(external_sync=True))
-
-        self.submodules.reader_boson = reader_boson = ClockDomainsRenamer({"sys":"hr"})(StreamReader(external_sync=True))
         
-        self.submodules.arbiter = ClockDomainsRenamer({"sys":"hr"})(Arbiter([writer_pix.bus, reader_boson.bus, reader.bus, writer.bus], hyperram.bus))
-        #self.submodules.arbiter = Arbiter([reader.bus, writer.bus], hyperram.bus)
-        #self.submodules.p2p = InterconnectPointToPoint(reader.bus, hyperram.bus)   
+        self.submodules.writer = writer = StreamWriter()
+        self.submodules.reader = reader = StreamReader()
+        self.submodules.writer_pix = writer_pix = StreamWriter(external_sync=True)
+        self.submodules.reader_boson = reader_boson = StreamReader(external_sync=True)
+        
+        self.submodules.arbiter = Arbiter([writer_pix.bus, reader_boson.bus, reader.bus, writer.bus], hyperram.bus)
 
-        self.writer_addr = CSRStorage(21)
-        self.writer_enable = CSR(1)
-        self.writer_len = CSRStorage(21)
-
-        self.reader_addr = CSRStorage(21)
-        self.reader_enable = CSR(1)
-        self.reader_len = CSRStorage(21)
+        
         self.reader_blank = CSRStorage(1)
-
-
-        self.writer_pix_addr = CSRStorage(21)
-        self.writer_pix_enable = CSR(1)
-        self.writer_pix_len = CSRStorage(21)
-
-
-        self.reader_boson_addr = CSRStorage(21)
-        self.reader_boson_enable = CSR(1)
-        self.reader_boson_len = CSRStorage(21)
 
         # CPU addressable logic 
         self.clear = CSR(1)
         self.submodules.source = CSRSource()
         self.submodules.sink = CSRSink()
 
-        self.loadn = CSRStorage()
-        self.move = CSRStorage()
-        self.direction = CSRStorage()
+
+
+        self.io_loadn = CSRStorage()
+        self.io_move = CSRStorage()
+        self.io_direction = CSRStorage()
+        self.clk_loadn = CSRStorage()
+        self.clk_move = CSRStorage()
+        self.clk_direction = CSRStorage()
 
         self.comb += [
-            hyperram.loadn.eq(self.loadn.storage),
-            hyperram.move.eq(self.move.storage),
-            hyperram.direction.eq(self.direction.storage),
+            hyperram.dly_io.loadn.eq(self.io_loadn.storage),
+            hyperram.dly_io.move.eq(self.io_move.storage),
+            hyperram.dly_io.direction.eq(self.io_direction.storage),
+
+            hyperram.dly_clk.loadn.eq(self.clk_loadn.storage),
+            hyperram.dly_clk.move.eq(self.clk_move.storage),
+            hyperram.dly_clk.direction.eq(self.clk_direction.storage),
         ]
         
-
-
-
         self.pixels = Endpoint(EndpointDescription([("data", 32)]))
         self.pixels_reset = Signal()
 
         self.boson = Endpoint(EndpointDescription([("data", 32)]))
         self.boson_sync = Signal()
 
-        # Patch values across clock domains
-        #self.specials += [
-        #    MultiReg(self.writer_addr.storage, writer.start_address, "sys"),
-        #    MultiReg(self.writer_len.storage, writer.transfer_size, "sys"),
-        #    MultiReg(self.reader_addr.storage, reader.start_address, "sys"),
-        #    MultiReg(self.reader_len.storage, reader.transfer_size, "sys"),
-        #]
+        self.submodules.writer_pix_restart = writer_pix_restart = PulseSynchronizer("video", "sys")
 
-        self.sync += [
-            writer.start_address.eq(self.writer_addr.storage),
-            writer.transfer_size.eq(self.writer_len.storage),
-            reader.start_address.eq(self.reader_addr.storage),
-            reader.transfer_size.eq(self.reader_len.storage),
-            writer_pix.start_address.eq(self.writer_pix_addr.storage),
-            writer_pix.transfer_size.eq(self.writer_pix_len.storage),
-
-            reader_boson.start_address.eq(self.reader_boson_addr.storage),
-            reader_boson.transfer_size.eq(self.reader_boson_len.storage),
-        ]
-
-        self.submodules.writer_en = writer_en = PulseSynchronizer("sys", "hr")
-        self.submodules.reader_en = reader_en = PulseSynchronizer("sys", "hr")
-        self.submodules.writer_pix_en = writer_pix_en = PulseSynchronizer("sys", "hr")
-        self.submodules.writer_pix_restart = writer_pix_restart = PulseSynchronizer("sys", "hr")
-
-        self.submodules.reader_boson_en = reader_boson_en = PulseSynchronizer("sys", "hr")
-
+        
 
         self.comb += [
-            writer_en.i.eq(self.writer_enable.re),
-            writer.enable.eq(writer_en.o),
-            reader_en.i.eq(self.reader_enable.re),
-            reader.enable.eq(reader_en.o),
-
-            writer_pix_en.i.eq(self.writer_pix_enable.re),
-            writer_pix.enable.eq(writer_pix_en.o),
-
             writer_pix_restart.i.eq(self.pixels_reset),
             writer_pix.start.eq(writer_pix_restart.o),
-
-            reader_boson_en.i.eq(self.reader_boson_enable.re),
-            reader_boson.enable.eq(reader_boson_en.o),
         ]
 
        
 
-        self.submodules.sink_fifo = sink_fifo = ResetInserter(["sys", "hr"])(
-                ClockDomainsRenamer({'write':"hr", 'read':"sys"})(AsyncFIFO([("data", 32)], 4, buffered=False))
+        self.submodules.sink_fifo = sink_fifo = ResetInserter()(
+                SyncFIFO([("data", 32)], 4)
             )
-        self.submodules.source_fifo = source_fifo = ResetInserter(["sys", "hr"])(
-                ClockDomainsRenamer({'write':"sys", 'read':"hr"})(AsyncFIFO([("data", 32)], 4, buffered=False))
-            )
-
-        self.submodules.pix_fifo = pix_fifo = ResetInserter(["sys", "hr"])(
-                ClockDomainsRenamer({'write':"hr", 'read':"sys"})(AsyncFIFO([("data", 32)], 512, buffered=False))
+        self.submodules.source_fifo = source_fifo = ResetInserter()(
+                SyncFIFO([("data", 32)], 4)
             )
 
+        self.submodules.pix_fifo = pix_fifo = ResetInserter(["sys", "video"])(
+                ClockDomainsRenamer({'write':"sys", 'read':"video"})(AsyncFIFO([("data", 32)], 512, buffered=True))
+            )
 
-        self.submodules.boson_fifo = boson_fifo = ResetInserter(["boson_rx", "hr"])(
-                ClockDomainsRenamer({'write':'boson_rx', 'read':"hr"})(AsyncFIFO([("data", 32)], 512, buffered=False))
+
+        self.submodules.boson_fifo = boson_fifo = ResetInserter(["boson_rx", "sys"])(
+                ClockDomainsRenamer({'write':'boson_rx', 'read':"sys"})(AsyncFIFO([("data", 32)], 512, buffered=True))
             )
 
 
         self.submodules.boson_stats = Monitor(boson_fifo.sink, clock_domain="boson_rx", with_tokens=True, with_overflows=True)
-        self.submodules.hdmi_stats = Monitor(pix_fifo.source, clock_domain="sys", with_tokens=True, with_underflows=True)
+        self.submodules.hdmi_stats = Monitor(pix_fifo.source, clock_domain="video", with_tokens=True, with_underflows=True)
 
-        self.submodules.ram_ps = ram_ps = PulseSynchronizer("sys", "hr")
-        self.submodules.boson_ps = boson_ps = PulseSynchronizer("sys", "hr")
-
+        
         self.submodules.dummy_source = dummySource()
 
         boson_sync_ = Signal()
@@ -181,30 +131,24 @@ class StreamableHyperRAM(Module, AutoCSR):
             sink_fifo.source.connect(self.sink.sink),
 
             
-            sink_fifo.reset_sys.eq(self.clear.re),
-            source_fifo.reset_sys.eq(self.clear.re),
+            sink_fifo.reset.eq(self.clear.re),
+            source_fifo.reset.eq(self.clear.re),
 
             self.boson.connect(boson_fifo.sink),
             boson_fifo.source.connect(reader_boson.sink),
 
-            boson_ps.i.eq(self.boson_sync & ~boson_sync_),
-            reader_boson.start.eq(boson_ps.o),
+            reader_boson.start.eq(self.boson_sync & ~boson_sync_),
 
             #boson_rst.eq(boson_cnt != 0),
             boson_fifo.reset_boson_rx.eq(~self.boson_sync),
-            boson_fifo.reset_hr.eq(~self.boson_sync),
+            boson_fifo.reset_sys.eq(~self.boson_sync),
 
 
 
-            ram_ps.i.eq(self.clear.re),
 
-            sink_fifo.reset_hr.eq(ram_ps.o),
-            source_fifo.reset_hr.eq(ram_ps.o),
-
-
-
+          
             pix_fifo.reset_sys.eq(0),
-            pix_fifo.reset_hr.eq(0),
+            pix_fifo.reset_video.eq(0),
 
             # Pixel interface
             writer_pix.source.connect(pix_fifo.sink),

@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include <crc.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -41,30 +42,45 @@ uint8_t buffer[64];
 
 
 void set_io_delay(int cnt){
-	test_io_loadn_write(0);
-	test_io_loadn_write(1);
-	test_io_direction_write(0);
+	hyperram_io_loadn_write(0);
+	hyperram_io_loadn_write(1);
+	hyperram_io_direction_write(0);
 
 	/* 25ps of delay per tap.
 	   Each rising edge adds to the io delay */
 	for(int i = 0; i < cnt; i++){ 
-		test_io_move_write(1);
-		test_io_move_write(0);
+		hyperram_io_move_write(1);
+		hyperram_io_move_write(0);
 	}
 }
 
 void set_clk_delay(int cnt){
-	test_clk_loadn_write(0);
-	test_clk_loadn_write(1);
-	test_clk_direction_write(0);
+	hyperram_clk_loadn_write(0);
+	hyperram_clk_loadn_write(1);
+	hyperram_clk_direction_write(0);
 
 	/* 25ps of delay per tap.
 	   Each rising edge adds to the io delay */
 	for(int i = 0; i < cnt; i++){ 
-		test_clk_move_write(1);
-		test_clk_move_write(0);
+		hyperram_clk_move_write(1);
+		hyperram_clk_move_write(0);
 	}
 }
+
+
+void screen_blank(){
+	hyperram_reader_reset_write(1);
+	hyperram_reader_start_address_write(0);
+	hyperram_reader_transfer_size_write(1080*1920);
+	hyperram_reader_blank_write(1);
+
+	hyperram_reader_enable_write(1);
+
+	msleep(100);
+	
+	hyperram_reader_blank_write(0);
+}
+
 
 
 int main(int i, char **c)
@@ -86,13 +102,13 @@ int main(int i, char **c)
 
 	printf("   - Digital Video Interface for Boson -\n");
 	
-// 	printf("\n (c) Copyright 2019-2020 GetLabs \n");
-// 	printf(" fw built: "__DATE__ " " __TIME__ " \n\n");
+ 	printf("\n (c) Copyright 2019-2020 GetLabs \n");
+ 	printf(" fw built: "__DATE__ " " __TIME__ " \n\n");
 
-// 	printf("   Firmware git sha1: "DIVA_GIT_SHA1"\n");
-// 	printf("      Migen git sha1: "MIGEN_GIT_SHA1"\n");
-// 	printf("      LiteX git sha1: "LITEX_GIT_SHA1"\n");
-// 	printf("\n");
+ 	printf("   Firmware git sha1: "DIVA_GIT_SHA1"\n");
+ 	printf("      Migen git sha1: "MIGEN_GIT_SHA1"\n");
+ 	printf("      LiteX git sha1: "LITEX_GIT_SHA1"\n");
+ 	printf("\n");
 	
 
 // 	printf("--=============== SoC ==================--\n");
@@ -118,32 +134,43 @@ int main(int i, char **c)
 
     printf("\n--========== HyperRAM Initialization ============--\n");
 	set_io_delay(0);
-	set_clk_delay(127);
+	set_clk_delay(120);
 	hyperram_init();
 
 
 	
-	memtest((unsigned int*)HYPERRAM_BASE);
 	printf("\n");
+	screen_blank();
 
     printf("--============= Stats: ================--\n");
 
 	uint32_t line = 0;
 
-	volatile uint32_t* ptr = HYPERRAM_BASE;
-	*ptr = 0xAA55AA55;
+	hyperram_writer_pix_start_address_write(0);
+	hyperram_writer_pix_transfer_size_write(640*720);
+	hyperram_writer_pix_burst_size_write(1024);
+	hyperram_writer_pix_enable_write(1);
 
-	printf("Test read: %08x %08x %08x", *ptr++,*ptr++,*ptr++);
+	hyperram_reader_boson_start_address_write(0);
+	hyperram_reader_boson_transfer_size_write(640*512);
+	hyperram_reader_boson_burst_size_write(1024);
+	hyperram_reader_boson_enable_write(1);
 	
-
-	uint32_t colour = 0xFF22410;
     while(1) {
-		
+		hyperram_hdmi_stats_reset_write(1);
+		hyperram_boson_stats_reset_write(1);
+		msleep(1000);		
+		hyperram_hdmi_stats_latch_write(1);
+		hyperram_boson_stats_latch_write(1);
+		x = 0;
+		y = 37;
+		printf("HDMI: t:%u u:%u        \n", hyperram_hdmi_stats_tokens_read(), hyperram_hdmi_stats_underflows_read());
+		x = 0;
+		y = 38;
+		printf("Boson: t:%u o:%u         ", hyperram_boson_stats_tokens_read(), hyperram_boson_stats_overflows_read());
 
 		
-		putsnonl("DiVA> ");
-		readstr(buffer, 64);
-		do_command(buffer);
+		
 	}
 	return 0;
 }

@@ -52,7 +52,7 @@ class YCrCbConvert(Module):
             sink.ready.eq(source.ready)
         ]
 
-        self.sync += [
+        self.sync.boson_rx += [
             source.valid.eq(valid),
             source.data.eq(rgb)
         ]
