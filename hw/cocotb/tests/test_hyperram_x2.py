@@ -128,11 +128,9 @@ class WbGpio(object):
             yield Timer(100, "ns")
         
         else:    
-            latency = 14
+            latency = 22
             for i in range(latency):
                 yield Edge(self.hyperbus.clock)
-                if latency-i < 3:
-                    self.dut.hyperRAM_rwds = 0
 
             bits = ""
 
@@ -145,7 +143,7 @@ class WbGpio(object):
             #self.log.info("data: %s" % "{0:#0{1}x}".format(dq_reg.integer, 10))
             
 
-            yield Timer(100, 'ns')
+            yield Timer(500, 'ns')
             
             #raise TestFailure("Bad data")
 

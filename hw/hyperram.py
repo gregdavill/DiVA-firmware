@@ -102,7 +102,7 @@ class HyperRAM(Module):
         # Data Out Shift Register (for write) -------------------------------------------------
         self.sync += [
             sr.eq(Cat(phy.dq.i, sr[:32])),
-            sr_rwds[-4:].eq(sr_rwds),
+            sr_rwds.eq(Cat(phy.rwds.i, sr_rwds[:4])),
         ]
 
         # Data in Shift Register
@@ -117,7 +117,7 @@ class HyperRAM(Module):
         self.comb += [
             bus.dat_r.eq(Cat(phy.dq.i[-16:], sr[:16])), # To Wishbone
             phy.dq.o.eq(sr[-32:]),  # To HyperRAM
-        #    phy.rwds_out.eq(sr_rwds[-2:]) # To HyperRAM
+            phy.rwds.o.eq(sr_rwds[-4:]) # To HyperRAM
         ]
 
         # Command generation -----------------------------------------------------------------------
@@ -135,6 +135,8 @@ class HyperRAM(Module):
         # Sequencer --------------------------------------------------------------------------------
         self.submodules.fsm = fsm = FSM(reset_state="IDLE")
 
+        
+
         fsm.act("IDLE", If(bus.cyc & bus.stb, NextValue(cs, 1), NextState("CA-SEND")))
         fsm.act("CA-SEND", NextValue(clk, 1), NextValue(phy.dq.oe, 1), NextValue(sr,Cat(Signal(16),ca)), NextState("CA-WAIT"))
         fsm.act("CA-WAIT", NextState("LATENCY-WAIT"))
@@ -142,20 +144,20 @@ class HyperRAM(Module):
         fsm.act("LATENCY-WAIT0", NextState("LATENCY-WAIT1"))
         fsm.act("LATENCY-WAIT1", NextState("LATENCY-WAIT2"))
         fsm.act("LATENCY-WAIT2", NextState("LATENCY-WAIT3"))
-        fsm.act("LATENCY-WAIT3", NextState("LATENCY-WAIT4"))
-        fsm.act("LATENCY-WAIT4", NextState("LATENCY-WAIT5"))
-        fsm.act("LATENCY-WAIT5", NextValue(phy.dq.oe, self.bus.we), NextState("READ-WRITE"))
+        fsm.act("LATENCY-WAIT3", NextValue(phy.dq.oe, self.bus.we), NextValue(phy.rwds.oe,self.bus.we), NextState("READ-WRITE"))
         fsm.act("READ-WRITE", NextState("CLK-OFF"),
                 NextValue(phy.dq.oe,self.bus.we),                 # Write/Read data byte: 2 clk
                 NextValue(sr[:32],0),
-                NextValue(sr[32:],Cat(self.bus.dat_w[16:32],self.bus.dat_w[0:16])),
-                NextValue(phy.rwds.o,~bus.sel[0:4]))
+                NextValue(sr[32:],self.bus.dat_w),
+                NextValue(sr_rwds[:4],0),
+                NextValue(sr_rwds[4:],~bus.sel[0:4]),
+                )
         
         fsm.act("CLK-OFF", NextValue(clk, 0), NextState("CLEANUP"))
         fsm.act("CLEANUP", NextValue(cs, 0), NextValue(phy.rwds.oe, 0), NextValue(phy.dq.oe, 0), NextState("ACK"))
         
         fsm.act("ACK", 
-            If(phy.rwds.i[3], 
+            If(phy.rwds.i[3] | self.bus.we, 
                 bus.ack.eq(1), NextState("HOLD-WAIT")))
         
         fsm.act("HOLD-WAIT", NextState("HOLD-WAIT0"))
@@ -165,6 +167,7 @@ class HyperRAM(Module):
         self.dbg = [
             bus,
             sr,
+            sr_rwds,
             cs,
             clk,
             phy.dq.i,
@@ -242,6 +245,19 @@ class HyperBusPHY(Module):
 
         self.specials += [
             Instance("ODDRX2F",
+                i_D0=clk_en,
+                i_D1=0,
+                i_D2=clk_en,
+                i_D3=0,
+                i_SCLK=ClockSignal("hr"),
+                i_ECLK=ClockSignal("hr2x_90"),
+                i_RST=ResetSignal("hr"),
+                o_Q=pads.dbg0
+            )
+        ]
+
+        self.specials += [
+            Instance("ODDRX2F",
                 i_D0=~clk_en,
                 i_D1=1,
                 i_D2=~clk_en,
@@ -252,6 +268,19 @@ class HyperBusPHY(Module):
                 o_Q=pads.clk_n
             )
         ]
+
+        self.specials += [
+                Instance("ODDRX2F",
+                    i_D3=self.dq.o[0],
+                    i_D2=self.dq.o[8],
+                    i_D1=self.dq.o[16],
+                    i_D0=self.dq.o[24],
+                    i_SCLK=ClockSignal("hr"),
+                    i_ECLK=ClockSignal("hr2x"),
+                    i_RST=ResetSignal("hr"),
+                    o_Q=pads.dbg1
+                )
+            ]
 
         # DQ_out
         for i in range(8):
@@ -292,8 +321,6 @@ class HyperBusPHY(Module):
                     i_DIRECTION=self.direction,
                     o_Z=dq_in)
             ]
-
-        self.comb += pads.dbg0.eq(self.rwds.i[0] |self.rwds.i[1] |self.rwds.i[2] |self.rwds.i[3])
         
         # RWDS_out
         self.specials += [
