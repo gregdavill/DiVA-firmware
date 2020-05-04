@@ -7,7 +7,8 @@ from litex.soc.interconnect.wishbone import InterconnectShared, Arbiter, SRAM, I
 from migen.genlib.cdc import PulseSynchronizer, MultiReg, BusSynchronizer
 
 
-from hyperram import HyperRAM
+
+from hyperram_x2 import HyperRAMX2
 
 class CSRSource(Module, AutoCSR):
     def __init__(self):
@@ -36,8 +37,7 @@ class StreamableHyperRAM(Module, AutoCSR):
         #self.bus = cpu_bus = Interface()
 
 
-        self.submodules.hyperram = hyperram = HyperRAM(hyperram_pads)
-        
+        self.submodules.hyperram = hyperram = HyperRAMX2(hyperram_pads)
         
         self.submodules.writer = writer = StreamWriter()
         self.submodules.reader = reader = StreamReader()
@@ -46,6 +46,8 @@ class StreamableHyperRAM(Module, AutoCSR):
         
         self.submodules.arbiter = Arbiter([writer_pix.bus, reader_boson.bus, reader.bus, writer.bus], hyperram.bus)
 
+        
+        self.dbg = hyperram.dbg + reader_boson.dbg
         
         self.reader_blank = CSRStorage(1)
 
@@ -98,12 +100,12 @@ class StreamableHyperRAM(Module, AutoCSR):
             )
 
         self.submodules.pix_fifo = pix_fifo = ResetInserter(["sys", "video"])(
-                ClockDomainsRenamer({'write':"sys", 'read':"video"})(AsyncFIFO([("data", 32)], 512, buffered=True))
+                ClockDomainsRenamer({'write':"sys", 'read':"video"})(AsyncFIFO([("data", 32)], 1024, buffered=False))
             )
 
 
         self.submodules.boson_fifo = boson_fifo = ResetInserter(["boson_rx", "sys"])(
-                ClockDomainsRenamer({'write':'boson_rx', 'read':"sys"})(AsyncFIFO([("data", 32)], 512, buffered=True))
+                ClockDomainsRenamer({'write':'boson_rx', 'read':"sys"})(AsyncFIFO([("data", 32)], 1024, buffered=False))
             )
 
 
@@ -168,7 +170,6 @@ def write_stream(stream, dat):
 
 #from migen.genlib.cdc import MultiReg
 
-from hyperram import HyperBusPHY
 
 class TestWriter(unittest.TestCase):
 

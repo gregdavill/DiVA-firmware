@@ -7,7 +7,7 @@ from litex.soc.cores.clock import *
 
 import os, shutil
 
-from hyperram import HyperRAM
+from hyperram_x2 import HyperRAMX2
 
 
 from migen import Module, Signal, ClockDomain
@@ -69,22 +69,27 @@ class HyperRAMTest(Module):
         self.clock_domains.cd_hr2x = ClockDomain()
         self.clock_domains.cd_hr2x_90 = ClockDomain()
         self.clock_domains.cd_hr = ClockDomain()
+        self.clock_domains.cd_hr_90 = ClockDomain()
 
         clk_hr = Signal()
+        clk_hr_90 = Signal()
         self.comb += self.cd_hr2x.clk.eq(platform.request("clock_2x_in"))
         self.comb += self.cd_hr2x_90.clk.eq(platform.request("clock_2x_in_90"))
 
         self.sync.hr2x += clk_hr.eq(~clk_hr)
+        self.sync.hr2x_90 += clk_hr_90.eq(~clk_hr_90)
 
         self.comb += self.cd_sys.clk.eq(clk_hr)
         self.comb += self.cd_hr.clk.eq(clk_hr)
+
+        self.comb += self.cd_hr_90.clk.eq(clk_hr)
 
         self.comb += platform.request("clock").eq(clk_hr)
         self.comb += self.cd_hr2x.rst.eq(reset)
         
 
 
-        hr = HyperRAM(platform.request("hyperRAM"))
+        hr = HyperRAMX2(platform.request("hyperRAM"))
         self.submodules += hr
 
         self.comb += hr.bus.connect_to_pads(platform.request("wishbone"), mode="slave")
@@ -143,14 +148,20 @@ def add_fsm_state_names():
     import migen.genlib.fsm as fsm
 
     def my_lower_controls(self):
-        self.state_name = Signal(len(max(self.encoding, key=len)) * 8,
-                                 reset=int.from_bytes(
-                                     self.reset_state.encode(),
-                                     byteorder="big"))
-        self.next_state_name = Signal(len(max(self.encoding, key=len)) * 8,
-                                      reset=int.from_bytes(
-                                          self.reset_state.encode(),
-                                          byteorder="big"))
+        self.state_name = Signal()
+        self.next_state_name = Signal()
+        try:
+            self.state_name = Signal(len(max(self.encoding, key=len)) * 8,
+                                    reset=int.from_bytes(
+                                        self.reset_state.encode(),
+                                        byteorder="big"))
+            self.next_state_name = Signal(len(max(self.encoding, key=len)) * 8,
+                                        reset=int.from_bytes(
+                                            self.reset_state.encode(),
+                                            byteorder="big"))
+        except:
+            ...
+
         self.comb += self.next_state_name.eq(self.state_name)
         self.sync += self.state_name.eq(self.next_state_name)
         return My_LowerNext(self.next_state, self.next_state_name,
@@ -166,7 +177,7 @@ if __name__ == "__main__":
     design = HyperRAMTest(platform)
 
 
-    add_fsm_state_names()
+    #add_fsm_state_names()
     platform.build(design, build_dir='build', run=False)
 
     #os.system('iverilog hyperram_tb.v build_test/top.v -o build_lcd/a.out')

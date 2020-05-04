@@ -148,12 +148,12 @@ int main(int i, char **c)
 
 	hyperram_writer_pix_start_address_write(0);
 	hyperram_writer_pix_transfer_size_write(640*720);
-	hyperram_writer_pix_burst_size_write(1024);
+	hyperram_writer_pix_burst_size_write(256);
 	hyperram_writer_pix_enable_write(1);
 
 	hyperram_reader_boson_start_address_write(0);
 	hyperram_reader_boson_transfer_size_write(640*512);
-	hyperram_reader_boson_burst_size_write(1024);
+	hyperram_reader_boson_burst_size_write(256);
 	hyperram_reader_boson_enable_write(1);
 	
     while(1) {

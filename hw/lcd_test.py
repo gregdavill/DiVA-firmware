@@ -40,7 +40,6 @@ from litex.soc.interconnect import wishbone
 
 from litex.soc.cores.gpio import GPIOOut
 from rgb_led import RGB
-from hyperram import HyperRAM
 
 from streamable_hyperram import StreamableHyperRAM
 
@@ -96,12 +95,20 @@ class _CRG(Module, AutoCSR):
         self.comb += self.cd_sys.clk.eq(self.cd_hr.clk)
         self.comb += self.cd_init.clk.eq(clk48)
 
-        pixel_clk = 74.5e6
+        pixel_clk = 74e6
+        #pixel_clk = sys_clk_freq
+
+        self.clock_domains.cd_usb_12 = ClockDomain()
+        self.clock_domains.cd_usb_48 = ClockDomain()
 
         self.submodules.video_pll = video_pll = ECP5PLL()
         video_pll.register_clkin(clk48, 48e6)
         video_pll.create_clkout(self.cd_video,    pixel_clk,  margin=1e-2)
+        #video_pll.create_clkout(self.cd_usb_12, 12e6)
+        #video_pll.create_clkout(self.cd_usb_48, 48e6)
         video_pll.create_clkout(self.cd_video_shift,  pixel_clk*5, margin=1e-2)
+
+        #self.comb += self.cd_video.clk.eq(ClockSignal("sys"))
 
         stop = Signal()
         reset = Signal()
@@ -216,7 +223,7 @@ class DiVA_SoC(SoCCore):
         #self.add_wb_slave(self.mem_map["hyperram"], hyperram.bus)
         #self.add_memory_region("hyperram", self.mem_map["hyperram"], 0x800000)
 
-        self.submodules.boson = Boson(platform, platform.request("boson"))
+        self.submodules.boson = Boson(platform, platform.request("boson"), sys_clk_freq)
         self.submodules.YCrCb = ClockDomainsRenamer({"sys":"boson_rx"})(YCrCbConvert())
 
 
@@ -247,10 +254,31 @@ class DiVA_SoC(SoCCore):
             self.hyperram.pixels.connect(terminal.source),
             self.hyperram.pixels_reset.eq(vsync_r & ~terminal.vsync),
 
-            self.boson.source.connect(self.YCrCb.sink),
-            self.YCrCb.source.connect(self.hyperram.boson),
+            #self.boson.source.connect(self.YCrCb.sink),
+            #self.YCrCb.source.connect(self.hyperram.boson),
+            self.boson.source.connect(self.hyperram.boson),
             self.hyperram.boson_sync.eq(self.boson.sync_out)
         ]
+
+        analyser = False
+        if analyser:
+            # USB with Clock-Domain-Crossing support
+            import os
+            import sys
+            os.system("git clone https://github.com/gregdavill/valentyusb -b hw_cdc_eptri")
+            sys.path.append("valentyusb")
+
+            import valentyusb.usbcore.io as usbio
+            import valentyusb.usbcore.cpu.cdc_eptri as cdc_eptri
+            usb_pads = self.platform.request("usb")
+            usb_iobuf = usbio.IoBuf(usb_pads.d_p, usb_pads.d_n, usb_pads.pullup)
+            self.submodules.uart_usb = cdc_eptri.CDCUsb(usb_iobuf)
+            
+
+            self.submodules.bridge = WishboneStreamingBridge(self.uart_usb, sys_clk_freq)
+            self.add_wb_master(self.bridge.wishbone)
+
+            self.submodules.analyzer = LiteScopeAnalyzer(hyperram.dbg, 256)
 
         # Add git version into firmware 
         def get_git_revision():

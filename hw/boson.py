@@ -138,7 +138,6 @@ flirInitPackets = Array([
     #flirFrame(2, 0x00100000,[0x01, 0x00,0x00,0x00,0x01]), # set test pattern?
     #flirFrame(3, 0x00000013, [0x00,0x00,0x00,0x00]), # enable test ramp
 
-    flirFrame(110, 0x0000000B,[0x00,0x00,0x00,0x00]), # Averager: disable (60Hz)
     flirFrame(12, 0x0006000F,[0x00,0x00,0x00,0x00]), # colour
 
     flirFrame(19, 0x00060004,[0x00,0x00,0x00,0x00]), # Analog off
@@ -153,6 +152,7 @@ flirInitPackets = Array([
     flirFrame(91, 0x000B0001,[0x00,0x00,0x00,0x01]), # Enable Colouriser
     
     flirFrame(100, 0x0006000F,[0x00,0x00,0x00,0x02]), # colour
+    flirFrame(110, 0x0000000B,[0x00,0x00,0x00,0x00]), # Averager: disable (60Hz)
 
 
     flirFrame(120, 0x00050007), # FFC
@@ -180,9 +180,9 @@ flirLUTPackets = Array([
 
 
 class BosonConfig(Module):
-    def __init__(self, pads):
+    def __init__(self, pads, clk_freq):
         baudrate=921600
-        tuning_word = int((baudrate/82.5e6)*2**32)
+        tuning_word = int((baudrate/clk_freq)*2**32)
 
         self.button = button = Signal()
         self.submodules.tx = tx = RS232PHYTX(pads, tuning_word)
@@ -190,13 +190,13 @@ class BosonConfig(Module):
 
         self.submodules.fsm = fsm = FSM(reset_state="STARTUP")
 
-        fsmCounter = Signal(max=int((82.5e6)*60), reset=int((82.5e6)*(300e-3)))
+        fsmCounter = Signal(max=int((clk_freq)*60), reset=int((clk_freq)*(300e-3)))
         currentPacket = Signal(max=12, reset=0)
         currentByte = Signal(max=64, reset=1)
 
 
         fsm.act("STARTUP",
-            NextValue(fsmCounter, int((82.5e6)*(3.5))),
+            NextValue(fsmCounter, int((clk_freq)*(4))),
             NextState("WAIT"),
         )
 
@@ -216,7 +216,7 @@ class BosonConfig(Module):
                     NextState("DONE"),
                 ).Else(
                     NextValue(currentPacket, currentPacket + 1),
-                    NextValue(fsmCounter, int((82.5e6)*(200e-3))),
+                    NextValue(fsmCounter, int((clk_freq)*(200e-3))),
                     NextState("WAIT"),
                 ),
                 NextValue(currentByte, 1),
@@ -244,7 +244,7 @@ class BosonConfig(Module):
             # done
             If(~button, 
                 NextState("DONE"),
-                NextValue(fsmCounter, int((82.5e6)*(25e-3))),
+                NextValue(fsmCounter, int((clk_freq)*(25e-3))),
             ),            
         )
 
@@ -339,7 +339,7 @@ class boson_clk(Module):
 
 
 class Boson(Module):
-    def __init__(self, platform, pads):
+    def __init__(self, platform, pads, clk_freq):
         
 
         
@@ -354,7 +354,7 @@ class Boson(Module):
         self.specials += reg_sync
 
 
-        self.submodules.conf = ClockDomainsRenamer("sys")(BosonConfig(pads))
+        self.submodules.conf = ClockDomainsRenamer("sys")(BosonConfig(pads, clk_freq))
 
         button = platform.request("button")
 

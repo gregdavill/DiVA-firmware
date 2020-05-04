@@ -44,6 +44,6 @@ include $(shell cocotb-config --makefiles)/Makefile.inc
 include $(shell cocotb-config --makefiles)/Makefile.sim
 
 
-$(PWD)/../generate/build/dut.v: ../generate/hyperram_test.py ../../hyperram.py
+$(PWD)/../generate/build/dut.v: ../generate/hyperram_test.py ../../hyperram_x2.py
 	cd ../generate; \
 	PYTHONPATH=../.. python3 ../generate/hyperram_test.py

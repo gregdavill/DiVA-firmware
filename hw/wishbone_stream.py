@@ -65,6 +65,28 @@ class StreamWriter(Module, AutoCSR):
         self.start = Signal()
 
         enabled = Signal()
+
+        overflow = Signal()
+        underflow = Signal()
+        self.comb += [
+            overflow.eq(source.ready & ~source.valid),
+            underflow.eq(~source.ready & source.valid),
+        ]
+
+        self.dbg = [
+            tx_cnt,
+            last_address,
+            busy,
+            active,
+            burst_cnt,
+            burst_end,
+            self.start,
+            source.valid,
+            source.ready,    
+            source.data,
+            overflow,
+            underflow,
+        ]
     
 
         self.comb += [
@@ -162,6 +184,28 @@ class StreamReader(Module, AutoCSR):
         self.start = Signal()
 
         enabled = Signal()
+
+        overflow = Signal()
+        underflow = Signal()
+        self.comb += [
+            overflow.eq(sink.ready & ~sink.valid),
+            underflow.eq(~sink.ready & sink.valid),
+        ]
+
+        self.dbg = [
+            tx_cnt,
+            last_address,
+            busy,
+            active,
+            burst_cnt,
+            burst_end,
+            self.start,
+            sink.valid,
+            sink.ready,    
+            sink.data,
+            overflow,
+            underflow,
+        ]
 
         self.comb += [
             bus.sel.eq(0xF),
