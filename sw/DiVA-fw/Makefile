@@ -1,9 +1,9 @@
 include ../include/generated/variables.mak
 include $(SOC_DIRECTORY)/software/common.mak
 
-CFLAGS += -fpack-struct -O3
+CFLAGS += -fpack-struct -O3 -Iinclude
 
-OBJECTS=isr.o main.o time.o hyperram.o console.o
+OBJECTS=main.o time.o hyperram.o console.o hdmi_edid.o i2c.o
 
 all: DiVA-fw.bin size
 
@@ -22,7 +22,7 @@ DiVA-fw.elf: $(DIVA-FW_DIRECTORY)/linker.ld $(OBJECTS)
 
 %.elf: 
 	$(LD) $(LDFLAGS) -L$(BUILDINC_DIRECTORY)/generated -T $(DIVA-FW_DIRECTORY)/linker.ld -N -o $@ \
-		../libbase/crt0-$(CPU)-ctr.o \
+		../libbase/crt0-ctr.o \
 		$(OBJECTS) \
 		-L../libbase \
 		-L../libcompiler_rt \

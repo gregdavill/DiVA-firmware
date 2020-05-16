@@ -24,9 +24,19 @@ _io = [
         IOStandard("LVCMOS33")
     ),
             
+    ("hdmi_i2c", 0,
+        Subsignal("sda", Pins("M16")),
+        Subsignal("scl", Pins("M17")),
+    ),
     ("hdmi", 0,
         Subsignal("p", Pins("J18 G18 K17 F17"), IOStandard("LVCMOS33D"), Misc("SLEWRATE=SLOW")),
         #Subsignal("n", Pins("K18 H17 L18 F16"), IOStandard("LVCMOS33"), Misc("SLEWRATE=SLOW")),
+    ),
+
+
+    ("i2c", 0,
+        Subsignal("sda", Pins("N15")),
+        Subsignal("scl", Pins("N16")),
     ),
 
     ("hyperRAM", 0,

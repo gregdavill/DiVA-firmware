@@ -48,6 +48,7 @@ from wishbone_stream import StreamReader, StreamWriter, dummySink, dummySource
 from boson import Boson
 from YCrCb import YCrCbConvert
 
+from sw_i2c import I2C
 
 from litex.soc.interconnect import stream
 
@@ -183,6 +184,8 @@ class DiVA_SoC(SoCCore):
         "hyperram"   :  12,
         "terminal"   :  13,
         "analyzer"   :  14,
+        "hdmi_i2c"   :  15,
+        "i2c"        :  16,
     }
     csr_map.update(SoCCore.csr_map)
 
@@ -202,10 +205,13 @@ class DiVA_SoC(SoCCore):
         
         sys_clk_freq = int(82.5e6)
         SoCCore.__init__(self, platform, clk_freq=sys_clk_freq,
-                          cpu_type='serv', with_uart=True, uart_name='stub',
+                          cpu_type='serv', with_uart=True, uart_name='stream',
                           csr_data_width=32,
                           ident="HyperRAM Test SoC", ident_version=True, wishbone_timeout_cycles=128,
                           integrated_rom_size=16*1024)
+
+        # Fake a UART stream, to enable easy firmware reuse.
+        self.comb += self.uart.source.ready.eq(1)
     
         # crg
         self.submodules.crg = _CRG(platform, sys_clk_freq)
@@ -231,6 +237,11 @@ class DiVA_SoC(SoCCore):
         ## HDMI output 
         hdmi_pins = platform.request('hdmi')
         self.submodules.hdmi = hdmi =  HDMI(platform, hdmi_pins)
+        self.submodules.hdmi_i2c = I2C(platform.request("hdmi_i2c"))
+
+
+        # I2C
+        self.submodules.i2c = I2C(platform.request("i2c"))
 
         ## Create VGA terminal
         self.submodules.terminal = terminal = ClockDomainsRenamer({'vga':'video'})(Terminal())
@@ -254,9 +265,9 @@ class DiVA_SoC(SoCCore):
             self.hyperram.pixels.connect(terminal.source),
             self.hyperram.pixels_reset.eq(vsync_r & ~terminal.vsync),
 
-            #self.boson.source.connect(self.YCrCb.sink),
-            #self.YCrCb.source.connect(self.hyperram.boson),
-            self.boson.source.connect(self.hyperram.boson),
+            self.boson.source.connect(self.YCrCb.sink),
+            self.YCrCb.source.connect(self.hyperram.boson),
+            #self.boson.source.connect(self.hyperram.boson),
             self.hyperram.boson_sync.eq(self.boson.sync_out)
         ]
 

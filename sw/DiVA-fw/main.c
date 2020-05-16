@@ -11,6 +11,9 @@
 #include <generated/mem.h>
 #include <generated/git.h>
 
+void isr(void){
+
+}
 
 uint8_t x = 0;
 uint8_t y = 0;
@@ -89,7 +92,7 @@ int main(int i, char **c)
 
 	console_set_write_hook(terminal_write);
 
-	rgb_div_m_write(60000*5);
+	rgb_div_m_write(300000);
     rgb_config_write(2);
 
 	printf("     ______    ___   __   __   _______ \n");
@@ -108,7 +111,6 @@ int main(int i, char **c)
  	printf("   Firmware git sha1: "DIVA_GIT_SHA1"\n");
  	printf("      Migen git sha1: "MIGEN_GIT_SHA1"\n");
  	printf("      LiteX git sha1: "LITEX_GIT_SHA1"\n");
- 	printf("\n");
 	
 
 // 	printf("--=============== SoC ==================--\n");
@@ -132,15 +134,15 @@ int main(int i, char **c)
 // 	printf("\n");
 
 
-    printf("\n--========== HyperRAM Initialization ============--\n");
+    printf("--========== HyperRAM Initialization ============--\n");
 	set_io_delay(0);
 	set_clk_delay(120);
 	hyperram_init();
 
-
-	
-	printf("\n");
 	screen_blank();
+
+	hdmi_out0_i2c_init();
+	hdmi_out0_print_edid();
 
     printf("--============= Stats: ================--\n");
 
@@ -152,7 +154,7 @@ int main(int i, char **c)
 	hyperram_writer_pix_enable_write(1);
 
 	hyperram_reader_boson_start_address_write(0);
-	hyperram_reader_boson_transfer_size_write(640*512);
+	hyperram_reader_boson_transfer_size_write(640*512-64);
 	hyperram_reader_boson_burst_size_write(256);
 	hyperram_reader_boson_enable_write(1);
 	

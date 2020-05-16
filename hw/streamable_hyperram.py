@@ -139,7 +139,7 @@ class StreamableHyperRAM(Module, AutoCSR):
             self.boson.connect(boson_fifo.sink),
             boson_fifo.source.connect(reader_boson.sink),
 
-            reader_boson.start.eq(self.boson_sync & ~boson_sync_),
+            reader_boson.start.eq(~self.boson_sync & boson_sync_),
 
             #boson_rst.eq(boson_cnt != 0),
             boson_fifo.reset_boson_rx.eq(~self.boson_sync),

@@ -216,7 +216,7 @@ class BosonConfig(Module):
                     NextState("DONE"),
                 ).Else(
                     NextValue(currentPacket, currentPacket + 1),
-                    NextValue(fsmCounter, int((clk_freq)*(200e-3))),
+                    NextValue(fsmCounter, int((clk_freq)*(500e-3))),
                     NextState("WAIT"),
                 ),
                 NextValue(currentByte, 1),
@@ -296,11 +296,13 @@ class boson_rx(Module):
         ]
 
         self.comb += [
-            vsync_falling.eq(~pads.vsync & vsync_)
+            vsync_falling.eq(~pads.vsync & vsync_),
         ]
 
 
         self.sync += [
+        #    source.data.eq(pads.data),
+        #    source.valid.eq(pads.valid)
 
             luminance_delay.eq(pads.data[0:8]),
             data[0:8].eq(luminance_delay),
