@@ -3,7 +3,7 @@ include $(SOC_DIRECTORY)/software/common.mak
 
 CFLAGS += -fpack-struct -O3 -Iinclude
 
-OBJECTS=main.o time.o hyperram.o console.o hdmi_edid.o i2c.o
+OBJECTS=main.o time.o hyperram.o console.o hdmi_edid.o i2c.o eeprom.o
 
 all: DiVA-fw.bin size
 

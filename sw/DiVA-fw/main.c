@@ -141,8 +141,13 @@ int main(int i, char **c)
 
 	screen_blank();
 
-	hdmi_out0_i2c_init();
-	hdmi_out0_print_edid();
+eeprom_init();
+eeprom_print();
+
+eeprom_write();
+
+//	hdmi_out0_i2c_init();
+//	hdmi_out0_print_edid();
 
     printf("--============= Stats: ================--\n");
 
