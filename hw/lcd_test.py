@@ -246,7 +246,7 @@ class DiVA_SoC(SoCCore):
             self.submodules.bridge = Stream2Wishbone(self.uart_usb, sys_clk_freq)
             self.add_wb_master(self.bridge.wishbone)
 
-            self.submodules.analyzer = LiteScopeAnalyzer(hyperram.dbg, 32)
+            #self.submodules.analyzer = LiteScopeAnalyzer(hyperram.dbg, 32)
 
         # Add git version into firmware 
         def get_git_revision():

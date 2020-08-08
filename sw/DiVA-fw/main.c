@@ -77,7 +77,6 @@ int main(int i, char **c)
 	printf("\n--========== HyperRAM DONE ============--\n");
 
 
-
 	uint32_t line = 0;
 	
     while(1) {

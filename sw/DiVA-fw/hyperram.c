@@ -49,14 +49,14 @@ void set_clk_delay(int cnt){
 	Test memory location by writing a value and attempting read-back.
 	Try twice to avoid situation where memory is read-only and set from a previous test.
 */
-static int basic_memtest(volatile uint32_t* addr){
+static int basic_memtest(void){
 
 	*((volatile uint32_t*)HYPERRAM_BASE) = 0xFF55AACD;
 	if(*((volatile uint32_t*)HYPERRAM_BASE) != 0xFF55AACD)
 		return 0;
 //
-	*((volatile uint32_t*)HYPERRAM_BASE) = 0x00112233;
-	if(*((volatile uint32_t*)HYPERRAM_BASE) != 0x00112233)
+	*((volatile uint32_t*)HYPERRAM_BASE) = 0xA3112233;
+	if(*((volatile uint32_t*)HYPERRAM_BASE) != 0xA3112233)
 		return 0;
 	
 	return 1;
@@ -66,14 +66,16 @@ static int basic_memtest(volatile uint32_t* addr){
 void hyperram_init(){
 	int window = 0;
 	int clk_del = 0;
+	int io_del = 0;
 
 	while(1){
 		set_clk_delay(clk_del);
+		set_io_delay(io_del);
 		int i = 0;
-		printf("%u |", clk_del);
-		for(i = 0; i < 72; i++){
+		printf("%u,%u |", clk_del, io_del);
+		for(i = 0; i < 32; i++){
 
-			int pass = basic_memtest(0);
+			int pass = basic_memtest();
 
 			// Shift our PLL
 			crg_phase_sel_write(0);
@@ -87,7 +89,7 @@ void hyperram_init(){
 				window++;
 			}
 			else if(pass != 1){
-				if(window > 2){
+				if(window >=5){
 					break;
 				}else {
 					window = 0;
@@ -95,8 +97,8 @@ void hyperram_init(){
 			}
 
 		}
-		printf("| %d \r", window );
-		if(window >= 4){
+		printf("| %d    \r", window );
+		if(window >= 5){
 			for(i = 0; i < window/2; i++){
 				// Shift our PLL up
 				crg_phase_sel_write(0);
@@ -106,7 +108,11 @@ void hyperram_init(){
 			}
 			return;
 		}
-		clk_del += 1;
+		window = 0;
+		clk_del = (clk_del + 1) & 0x7F;
+		if(clk_del == 0){
+			io_del = (io_del + 1) & 0x7F;
+		}
 	}
 }
 

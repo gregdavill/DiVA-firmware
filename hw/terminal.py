@@ -122,15 +122,15 @@ class Terminal(Module, AutoCSR):
 
 
         # VGA timings
-        H_SYNC_PULSE  = 40
+        H_SYNC_PULSE  = 128
         H_BACK_PORCH  = 88 + H_SYNC_PULSE
         H_DATA        = WIDTH + H_BACK_PORCH
-        H_FRONT_PORCH = 128 + H_DATA
+        H_FRONT_PORCH = 40 + H_DATA
 
-        V_SYNC_PULSE  = 5
+        V_SYNC_PULSE  = 4
         V_BACK_PORCH  = 23 + V_SYNC_PULSE
         V_DATA        = HEIGHT + V_BACK_PORCH
-        V_FRONT_PORCH = 40 + V_DATA
+        V_FRONT_PORCH = 1 + V_DATA
 
         pixel_counter = Signal(14)
         line_counter  = Signal(14)
