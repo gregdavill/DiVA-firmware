@@ -80,7 +80,7 @@ class HyperRAMX2(Module):
         ]
 
         self.comb += [
-            bus.dat_r.eq(Cat(phy.dq.i[-16:], sr_in[:16])), # To Wishbone
+            bus.dat_r.eq(phy.dq.i[:32]), # To Wishbone
             phy.dq.o.eq(sr_out[-32:]),  # To HyperRAM
             phy.rwds.o.eq(sr_rwds_out[-4:]) # To HyperRAM
         ]
@@ -128,19 +128,22 @@ class HyperRAMX2(Module):
                 If(bus.cti != 0b010,
                     NextValue(clk, 0), NextState("CLEANUP"))),
             If(~self.bus.cyc | (timeout_counter > 20),
-                NextState("CLK-OFF")
+                NextState("CLK-OFF"),
+                bus.err.eq(1), bus.ack.eq(1)
             ))
         
         fsm.act("CLK-OFF", NextValue(clk, 0), NextState("CLEANUP"))
         fsm.act("CLEANUP", NextValue(cs, 0), NextValue(phy.rwds.oe, 0), NextValue(phy.dq.oe, 0), NextState("HOLD-WAIT"))
         fsm.act("HOLD-WAIT", NextValue(sr_out, 0), NextValue(sr_rwds_out, 0), NextState("WAIT"))
-        fsm.delayed_enter("WAIT", "IDLE", 1) 
+        fsm.delayed_enter("WAIT", "IDLE", 2) 
         
         # Signals that can be an ILA for debugging
         self.dbg = [
             bus,
+            sr_out,
             sr_in,
+            sr_rwds_in,
+            sr_rwds_out,
             cs,
             clk,
         ]
-

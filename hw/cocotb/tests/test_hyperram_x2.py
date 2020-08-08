@@ -1,7 +1,7 @@
 # Simple tests for hyperRAM
 import cocotb
 import logging
-from cocotb import SimLog
+from cocotb.log import SimLog
 from cocotb.triggers import RisingEdge, Edge, Timer, ClockCycles, FallingEdge
 from cocotb.result import TestError
 from cocotb.triggers import Timer
@@ -33,7 +33,7 @@ class WbGpio(object):
         self.log.setLevel(self.LOGLEVEL)
 
         self._clock_thread = cocotb.fork(self.custom_clock(self.dut.clock_2x_in, 10, 0))
-        self._clock_90_thread = cocotb.fork(self.custom_clock(self.dut.clock_2x_in_90, 10, 5))
+        self._clock_90_thread = cocotb.fork(self.custom_clock(self.dut.clock_2x_in_90, 10, 15))
 
         self.wbs = WishboneMaster(dut, "wishbone", dut.clock,
                           width=32,   # size of data bus
@@ -105,7 +105,7 @@ class WbGpio(object):
         self.log.info(" - Address:         %s" % "{0:#0{1}x}".format(address, 10))
 
         if read_writen == 1:
-            latency = 22
+            latency = 20
             for i in range(latency):
                 yield Edge(self.hyperbus.clock)
                 if latency-i < 4:
@@ -127,7 +127,7 @@ class WbGpio(object):
             self.dut.hyperRAM_dq = BinaryValue('zzzzzzzz')
         
         else:    
-            latency = 22
+            latency = 18
             for i in range(latency):
                 yield Edge(self.hyperbus.clock)
 

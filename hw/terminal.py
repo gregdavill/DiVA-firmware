@@ -105,8 +105,8 @@ class Terminal(Module, AutoCSR):
         ]
 
         # Display resolution
-        WIDTH  = 1280
-        HEIGHT = 720
+        WIDTH  = 800
+        HEIGHT = 600
 
         # Offset to font data in RAM
         FONT_ADDR = 80 * 40
@@ -122,22 +122,25 @@ class Terminal(Module, AutoCSR):
 
 
         # VGA timings
-        H_SYNC_PULSE  = 128
-        H_BACK_PORCH  = 192 + H_SYNC_PULSE
+        H_SYNC_PULSE  = 40
+        H_BACK_PORCH  = 88 + H_SYNC_PULSE
         H_DATA        = WIDTH + H_BACK_PORCH
-        H_FRONT_PORCH = 64 + H_DATA
+        H_FRONT_PORCH = 128 + H_DATA
 
         V_SYNC_PULSE  = 5
-        V_BACK_PORCH  = 20 + V_SYNC_PULSE
+        V_BACK_PORCH  = 23 + V_SYNC_PULSE
         V_DATA        = HEIGHT + V_BACK_PORCH
-        V_FRONT_PORCH = 3 + V_DATA
+        V_FRONT_PORCH = 40 + V_DATA
 
         pixel_counter = Signal(14)
         line_counter  = Signal(14)
 
         self.comb += [
-            source.ready.eq((~blank) & (pixel_counter < (H_DATA - 320)) & (pixel_counter >= H_BACK_PORCH + 320))
+            source.ready.eq((~blank) & (pixel_counter < (H_BACK_PORCH + 160 + 640)) & (pixel_counter >= H_BACK_PORCH + 160))
         ]
+
+        self.enable = CSRStorage(1, reset=1)
+
         # Read address in text RAM
         text_addr = Signal(16)
 
@@ -189,7 +192,7 @@ class Terminal(Module, AutoCSR):
             If((line_counter >= V_BACK_PORCH) & (line_counter < V_DATA),
                 If((pixel_counter >= H_BACK_PORCH) & (pixel_counter < (H_DATA)),
                     blank.eq(0),
-                    If(fbyte[7],
+                    If(fbyte[7] & self.enable.storage,
                         red.eq(fgcolor[16:24]),
                         green.eq(fgcolor[8:16]),
                         blue.eq(fgcolor[0:8])

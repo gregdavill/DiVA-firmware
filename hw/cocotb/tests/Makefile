@@ -33,7 +33,7 @@ PWD=$(shell pwd)
 
 export PYTHONPATH := $(PWD)/../model:$(PYTHONPATH)
 
-VERILOG_SOURCES = $(PWD)/../generate/build/dut.v $(PWD)/../hdl/cocotb-tb.v \
+VERILOG_SOURCES = $(PWD)/../generate/build/sim.v $(PWD)/../hdl/cocotb-tb.v \
 					$(PWD)/../model/ODDRX2F.v $(PWD)/../model/IDDRX2F.v $(PWD)/../model/DELAYF.v
 TOPLEVEL := tb
 MODULE   := test_hyperram_x2

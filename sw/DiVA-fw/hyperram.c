@@ -17,23 +17,33 @@
 
 
 
-void write_hyperram(uint32_t dat){
-	hyperram_reader_start_address_write(0);
-	hyperram_reader_transfer_size_write(1);
-	hyperram_reader_enable_write(1);
+void set_io_delay(int cnt){
+	hyperram_io_loadn_write(0);
+	hyperram_io_loadn_write(1);
+	hyperram_io_direction_write(0);
 
-	//hyperram_source_data_write(dat);
-	hyperram_source_data_write(dat);
+	/* 25ps of delay per tap.
+	   Each rising edge adds to the io delay */
+	for(int i = 0; i < cnt; i++){ 
+		hyperram_io_move_write(1);
+		hyperram_io_move_write(0);
+	}
 }
 
-uint32_t read_hyperram(void){
-	hyperram_writer_start_address_write(0);
-	hyperram_writer_transfer_size_write(1);
-	hyperram_writer_enable_write(1);
+void set_clk_delay(int cnt){
+	hyperram_clk_loadn_write(0);
+	hyperram_clk_loadn_write(1);
+	hyperram_clk_direction_write(0);
 
-	//hyperram_sink_data_read();
-	return hyperram_sink_data_read();
+	/* 25ps of delay per tap.
+	   Each rising edge adds to the io delay */
+	for(int i = 0; i < cnt; i++){ 
+		hyperram_clk_move_write(1);
+		hyperram_clk_move_write(0);
+	}
 }
+
+
 
 /* 
 	Test memory location by writing a value and attempting read-back.
@@ -41,25 +51,13 @@ uint32_t read_hyperram(void){
 */
 static int basic_memtest(volatile uint32_t* addr){
 
-	hyperram_clear_write(1);
-	
-	write_hyperram(0xFF55AACD);
-	if(read_hyperram() != 0xFF55AACD)
+	*((volatile uint32_t*)HYPERRAM_BASE) = 0xFF55AACD;
+	if(*((volatile uint32_t*)HYPERRAM_BASE) != 0xFF55AACD)
 		return 0;
-
-	hyperram_clear_write(1);
-	
-	write_hyperram(0x00112233);
-	if(read_hyperram() != 0x00112233)
-		return 0;
-
-	//*((volatile uint32_t*)HYPERRAM_BASE) = 0xFF55AACD;
-	//if(*((volatile uint32_t*)HYPERRAM_BASE) != 0xFF55AACD)
-	//	return 0;
 //
-	//*((volatile uint32_t*)HYPERRAM_BASE) = 0x00112233;
-	//if(*((volatile uint32_t*)HYPERRAM_BASE) != 0x00112233)
-	//	return 0;
+	*((volatile uint32_t*)HYPERRAM_BASE) = 0x00112233;
+	if(*((volatile uint32_t*)HYPERRAM_BASE) != 0x00112233)
+		return 0;
 	
 	return 1;
 }
@@ -67,42 +65,48 @@ static int basic_memtest(volatile uint32_t* addr){
 
 void hyperram_init(){
 	int window = 0;
-	int i = 0;
-	printf("|");
-	for(i = 0; i < 128; i++){
+	int clk_del = 0;
 
-		int pass = basic_memtest(0);
+	while(1){
+		set_clk_delay(clk_del);
+		int i = 0;
+		printf("%u |", clk_del);
+		for(i = 0; i < 72; i++){
 
-		// Shift our PLL
-		crg_phase_sel_write(0);
-		crg_phase_dir_write(1);
-		crg_phase_step_write(0);
-		crg_phase_step_write(1);
+			int pass = basic_memtest(0);
 
-
-	    printf("%c", pass > 0 ? '0' : '-');
-
-		if(pass == 1){
-			window++;
-		}
-		else if(pass != 1){
-			if(window > 2){
-				break;
-			}else {
-				window = 0;
-			}
-		}
-
-	}
-	printf("| %x \n", window );
-	if(window > 2){
-		for(i = 0; i < window/2; i++){
-			// Shift our PLL up
+			// Shift our PLL
 			crg_phase_sel_write(0);
-			crg_phase_dir_write(0);
+			crg_phase_dir_write(1);
 			crg_phase_step_write(0);
 			crg_phase_step_write(1);
+
+			printf("%c", pass > 0 ? '0' : '-');
+
+			if(pass == 1){
+				window++;
+			}
+			else if(pass != 1){
+				if(window > 2){
+					break;
+				}else {
+					window = 0;
+				}
+			}
+
 		}
+		printf("| %d \r", window );
+		if(window >= 4){
+			for(i = 0; i < window/2; i++){
+				// Shift our PLL up
+				crg_phase_sel_write(0);
+				crg_phase_dir_write(0);
+				crg_phase_step_write(0);
+				crg_phase_step_write(1);
+			}
+			return;
+		}
+		clk_del += 1;
 	}
 }
 

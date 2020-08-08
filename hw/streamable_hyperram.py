@@ -35,27 +35,22 @@ class CSRSink(Module, AutoCSR):
 class StreamableHyperRAM(Module, AutoCSR):
     def __init__(self, hyperram_pads):
         #self.bus = cpu_bus = Interface()
-
+        
 
         self.submodules.hyperram = hyperram = HyperRAMX2(hyperram_pads)
         
-        self.submodules.writer = writer = StreamWriter()
-        self.submodules.reader = reader = StreamReader()
-        self.submodules.writer_pix = writer_pix = StreamWriter(external_sync=True)
-        self.submodules.reader_boson = reader_boson = StreamReader(external_sync=True)
+        #self.submodules.writer = writer = StreamWriter()
+        #self.submodules.reader = reader = StreamReader()
+        #self.submodules.writer_pix = writer_pix = StreamWriter(external_sync=True)
+        #self.submodules.reader_boson = reader_boson = StreamReader(external_sync=True)
         
-        self.submodules.arbiter = Arbiter([writer_pix.bus, reader_boson.bus, reader.bus, writer.bus], hyperram.bus)
+        #self.submodules.arbiter = Arbiter([writer_pix.bus, reader_boson.bus, reader.bus, writer.bus, cpu_bus], hyperram.bus)
+        #self.submodules.arbiter = Arbiter([cpu_bus], hyperram.bus)
 
-        
-        self.dbg = hyperram.dbg + reader_boson.dbg
-        
-        self.reader_blank = CSRStorage(1)
-
+        self.bus = hyperram.bus
+        self.dbg = hyperram.dbg
         # CPU addressable logic 
-        self.clear = CSR(1)
-        self.submodules.source = CSRSource()
-        self.submodules.sink = CSRSink()
-
+        
 
 
         self.io_loadn = CSRStorage()
@@ -74,88 +69,7 @@ class StreamableHyperRAM(Module, AutoCSR):
             hyperram.dly_clk.move.eq(self.clk_move.storage),
             hyperram.dly_clk.direction.eq(self.clk_direction.storage),
         ]
-        
-        self.pixels = Endpoint(EndpointDescription([("data", 32)]))
-        self.pixels_reset = Signal()
-
-        self.boson = Endpoint(EndpointDescription([("data", 32)]))
-        self.boson_sync = Signal()
-
-        self.submodules.writer_pix_restart = writer_pix_restart = PulseSynchronizer("video", "sys")
-
-        
-
-        self.comb += [
-            writer_pix_restart.i.eq(self.pixels_reset),
-            writer_pix.start.eq(writer_pix_restart.o),
-        ]
-
-       
-
-        self.submodules.sink_fifo = sink_fifo = ResetInserter()(
-                SyncFIFO([("data", 32)], 4)
-            )
-        self.submodules.source_fifo = source_fifo = ResetInserter()(
-                SyncFIFO([("data", 32)], 4)
-            )
-
-        self.submodules.pix_fifo = pix_fifo = ResetInserter(["sys", "video"])(
-                ClockDomainsRenamer({'write':"sys", 'read':"video"})(AsyncFIFO([("data", 32)], 1024, buffered=False))
-            )
-
-
-        self.submodules.boson_fifo = boson_fifo = ResetInserter(["boson_rx", "sys"])(
-                ClockDomainsRenamer({'write':'boson_rx', 'read':"sys"})(AsyncFIFO([("data", 32)], 1024, buffered=False))
-            )
-
-
-        self.submodules.boson_stats = Monitor(boson_fifo.sink, clock_domain="boson_rx", with_tokens=True, with_overflows=True)
-        self.submodules.hdmi_stats = Monitor(pix_fifo.source, clock_domain="video", with_tokens=True, with_underflows=True)
-
-        
-        self.submodules.dummy_source = dummySource()
-
-        boson_sync_ = Signal()
-        self.sync += [
-            boson_sync_.eq(self.boson_sync)
-        ]
-
-        self.comb += [
-            If(self.reader_blank.storage,
-                self.dummy_source.source.connect(source_fifo.sink),
-            ).Else(
-                self.source.source.connect(source_fifo.sink),
-            ),
-                source_fifo.source.connect(reader.sink),
-
-
-            writer.source.connect(sink_fifo.sink),
-            sink_fifo.source.connect(self.sink.sink),
-
-            
-            sink_fifo.reset.eq(self.clear.re),
-            source_fifo.reset.eq(self.clear.re),
-
-            self.boson.connect(boson_fifo.sink),
-            boson_fifo.source.connect(reader_boson.sink),
-
-            reader_boson.start.eq(~self.boson_sync & boson_sync_),
-
-            #boson_rst.eq(boson_cnt != 0),
-            boson_fifo.reset_boson_rx.eq(~self.boson_sync),
-            boson_fifo.reset_sys.eq(~self.boson_sync),
-
-
-
-
-          
-            pix_fifo.reset_sys.eq(0),
-            pix_fifo.reset_video.eq(0),
-
-            # Pixel interface
-            writer_pix.source.connect(pix_fifo.sink),
-            pix_fifo.source.connect(self.pixels),
-        ]
+     
 
     
 # -=-=-=-= tests -=-=-=-=

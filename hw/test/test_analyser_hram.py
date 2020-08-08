@@ -23,58 +23,21 @@ for i in range(256):
 print("fpga_id: " + fpga_id)
 
 
-wb.regs.test_loadn.write(1)
-wb.regs.test_direction.write(1)
 
-
-#wb.regs.crg_phase_load.write(0)
-#wb.regs.crg_phase_load.write(1)
-
-
-wb.regs.crg_phase_sel.write(0)
-wb.regs.crg_phase_dir.write(0)
-
+#while(1):
+#    wb.regs.crg_phase_sel.write(0)
+#    wb.regs.crg_phase_dir.write(0)
+#    wb.regs.crg_phase_step.write(1)
+#    wb.regs.crg_phase_step.write(0)
+#
+#    wb.write(0x10000000,0xA5a5a5a5)
+#    wb.read(0x10000000)
 
 analyzer = LiteScopeAnalyzerDriver(wb.regs, "analyzer", debug=True)
-analyzer.configure_trigger(cond={"hyperram_bus_cyc": 1,"hyperram_bus_we": 0},)
-analyzer.run(offset=10 , length=128)
-
-for _ in range(128):
-    ...
-    wb.regs.test_move.write(0)
-    wb.regs.test_move.write(1)
-
-for i in range(1):
-    ...
-    #wb.regs.test_move.write(0)
-    #wb.regs.test_move.write(1)
-    #wb.regs.crg_phase_step.write(1)
-    #wb.regs.crg_phase_step.write(0)
-
-    #wb.write(0x10000000, 0xDEADBEEF)
-    #print("{0:#0{1}x}".format(wb.read(0x10000000),10))
-    #wb.read(0x10000000)
-    #    print('.')
-#wb.regs.reader0_burst_size.write(64)
-#wb.regs.reader0_start_address.write(0x10000000>>2)
-#while True:
-#wb.regs.reader0_enable.write(1)
-
-#while wb.regs.reader0_busy.read() == 1:
-#    ...
-
-wb.regs.reader_transfer_size.write(7)
-wb.regs.reader_start_address.write(0x10000000 >> 2)
-wb.regs.reader_enable.write(1)
-
-
-wb.regs.writer_transfer_size.write(32)
-wb.regs.writer_start_address.write(0x10000000 >> 2)
-wb.regs.writer_enable.write(1)
-
-
-
-#
+analyzer.configure_trigger(cond={"hyperramx2_bus_cyc": 1,"hyperramx2_bus_we": 0},)
+analyzer.run(offset=10 , length=32)
+analyzer.run()
+wb.read(0x10000000)
 analyzer.wait_done()
 analyzer.upload()
 analyzer.save("dump.vcd")

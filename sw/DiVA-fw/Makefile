@@ -22,7 +22,7 @@ DiVA-fw.elf: $(DIVA-FW_DIRECTORY)/linker.ld $(OBJECTS)
 
 %.elf: 
 	$(LD) $(LDFLAGS) -L$(BUILDINC_DIRECTORY)/generated -T $(DIVA-FW_DIRECTORY)/linker.ld -N -o $@ \
-		../libbase/crt0-ctr.o \
+		../libbase/crt0.o \
 		$(OBJECTS) \
 		-L../libbase \
 		-L../libcompiler_rt \

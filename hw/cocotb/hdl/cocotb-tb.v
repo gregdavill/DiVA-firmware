@@ -25,7 +25,7 @@ module tb(
 	input [4095:0] test_name
 );
 
-dut dut (
+sim sim (
 	.clock_2x_in(clock_2x_in),
 	.clock_2x_in_90(clock_2x_in_90),
 	.clock(clock),

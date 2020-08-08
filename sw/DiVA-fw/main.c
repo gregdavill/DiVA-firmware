@@ -39,50 +39,7 @@ void terminal_write(char c){
 
 
 
-uint8_t buffer[64];
 
-
-
-
-void set_io_delay(int cnt){
-	hyperram_io_loadn_write(0);
-	hyperram_io_loadn_write(1);
-	hyperram_io_direction_write(0);
-
-	/* 25ps of delay per tap.
-	   Each rising edge adds to the io delay */
-	for(int i = 0; i < cnt; i++){ 
-		hyperram_io_move_write(1);
-		hyperram_io_move_write(0);
-	}
-}
-
-void set_clk_delay(int cnt){
-	hyperram_clk_loadn_write(0);
-	hyperram_clk_loadn_write(1);
-	hyperram_clk_direction_write(0);
-
-	/* 25ps of delay per tap.
-	   Each rising edge adds to the io delay */
-	for(int i = 0; i < cnt; i++){ 
-		hyperram_clk_move_write(1);
-		hyperram_clk_move_write(0);
-	}
-}
-
-
-void screen_blank(){
-	hyperram_reader_reset_write(1);
-	hyperram_reader_start_address_write(0);
-	hyperram_reader_transfer_size_write(1080*1920);
-	hyperram_reader_blank_write(1);
-
-	hyperram_reader_enable_write(1);
-
-	msleep(100);
-	
-	hyperram_reader_blank_write(0);
-}
 
 
 
@@ -91,8 +48,10 @@ int main(int i, char **c)
 
 
 	console_set_write_hook(terminal_write);
+	
+	terminal_enable_write(1);
 
-	rgb_div_m_write(300000);
+	rgb_div_m_write(400000);
     rgb_config_write(2);
 
 	printf("     ______    ___   __   __   _______ \n");
@@ -111,73 +70,18 @@ int main(int i, char **c)
  	printf("   Firmware git sha1: "DIVA_GIT_SHA1"\n");
  	printf("      Migen git sha1: "MIGEN_GIT_SHA1"\n");
  	printf("      LiteX git sha1: "LITEX_GIT_SHA1"\n");
-	
-
-// 	printf("--=============== SoC ==================--\n");
-// 	printf("CPU:        ");
-// #ifdef __vexriscv__
-// 	printf("SERV");
-// #else
-// 	printf("Unknown");
-// #endif
-// 	printf(" @ %dMHz\n", CONFIG_CLOCK_FREQUENCY/1000000);
-// 	printf("ROM:        %dKB\n", ROM_SIZE/1024);
-// 	printf("SRAM:       %dKB\n", SRAM_SIZE/1024);
-// #ifdef CONFIG_L2_SIZE
-// 	printf("L2:        %dKB\n", CONFIG_L2_SIZE/1024);
-// #endif
-// #ifdef MAIN_RAM_SIZE
-// 	printf("MAIN-RAM:   %dKB\n", MAIN_RAM_SIZE/1024);
-// #endif
-
-// 	printf("HYPERRAM:   %dKB\n", (0x800000)/1024);
-// 	printf("\n");
-
 
     printf("--========== HyperRAM Initialization ============--\n");
-	set_io_delay(0);
-	set_clk_delay(120);
+
 	hyperram_init();
+	printf("\n--========== HyperRAM DONE ============--\n");
 
-	screen_blank();
 
-eeprom_init();
-eeprom_print();
-
-eeprom_write();
-
-//	hdmi_out0_i2c_init();
-//	hdmi_out0_print_edid();
-
-    printf("--============= Stats: ================--\n");
 
 	uint32_t line = 0;
-
-	hyperram_writer_pix_start_address_write(0);
-	hyperram_writer_pix_transfer_size_write(640*720);
-	hyperram_writer_pix_burst_size_write(256);
-	hyperram_writer_pix_enable_write(1);
-
-	hyperram_reader_boson_start_address_write(0);
-	hyperram_reader_boson_transfer_size_write(640*512-64);
-	hyperram_reader_boson_burst_size_write(256);
-	hyperram_reader_boson_enable_write(1);
 	
     while(1) {
-		hyperram_hdmi_stats_reset_write(1);
-		hyperram_boson_stats_reset_write(1);
-		msleep(1000);		
-		hyperram_hdmi_stats_latch_write(1);
-		hyperram_boson_stats_latch_write(1);
-		x = 0;
-		y = 37;
-		printf("HDMI: t:%u u:%u        \n", hyperram_hdmi_stats_tokens_read(), hyperram_hdmi_stats_underflows_read());
-		x = 0;
-		y = 38;
-		printf("Boson: t:%u o:%u         ", hyperram_boson_stats_tokens_read(), hyperram_boson_stats_overflows_read());
-
-		
-		
 	}
+	
 	return 0;
 }

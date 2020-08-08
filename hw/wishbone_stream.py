@@ -130,7 +130,7 @@ class StreamWriter(Module, AutoCSR):
                 )
             ),
             If(self.enable.re,
-                enabled.eq(~enabled)
+                enabled.eq(self.enable.r[0])
             )
 
         ]
@@ -252,7 +252,7 @@ class StreamReader(Module, AutoCSR):
                 )
             ),
             If(self.enable.re,
-                enabled.eq(~enabled)
+                enabled.eq(self.enable.r[0])
             )
         ]
 

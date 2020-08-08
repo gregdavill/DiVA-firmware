@@ -85,7 +85,7 @@ class HyperBusSubordinate(HyperBus):
         while True:
 
             # Handle reset condition
-            while str(self._reset) == "z":
+            while str(self._reset.value) == "z":
                 yield Timer(1, "ns")
             while self.in_reset:
                 yield FallingEdge(self._reset)
@@ -100,8 +100,8 @@ class HyperBusSubordinate(HyperBus):
             while int(self.bus.cs) == 0:
                 trig = yield [Edge(self.clock), Edge(self.bus.cs)]
                 if trig == Edge(self.clock):
-                    dq   = str(self.bus.dq)
-                    rwds = str(self.bus.rwds)
+                    dq   = str(self.bus.dq.value)
+                    rwds = str(self.bus.rwds.value)
                     values_recv = {"dq": dq, "rwds": rwds}
                     self.log.debug("data: %s" % values_recv) 
                     self._recv(values_recv)
