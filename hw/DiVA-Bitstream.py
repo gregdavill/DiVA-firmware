@@ -203,9 +203,8 @@ class DiVA_SoC(SoCCore):
         
         # HyperRAM
         if sim:
-            ...
-            #self.submodules.hyperram = hyperram = wishbone.SRAM(0x8000)
-            #self.register_mem("hyperram", self.mem_map['hyperram'], hyperram.bus, size=0x800000)
+            self.submodules.hyperram = hyperram = wishbone.SRAM(0x80000)
+            self.register_mem("hyperram", self.mem_map['hyperram'], hyperram.bus, size=0x800000)
 
         else:
             self.submodules.hyperram = hyperram = StreamableHyperRAM(platform.request("hyperRAM"))
@@ -335,6 +334,23 @@ def main():
     if args.sim:
         ...
         builder.build(run=False)
+
+
+        # Verilator build
+        build_script = os.path.join(builder.output_dir, "gateware", "verilator_build.sh")
+        with open(build_script, 'w') as f:
+            print("""verilator --top-module sim -O3 -I/home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_shift.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_rf_top.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_params.vh --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_rf_ram.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_bufreg.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_alu.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_ctrl.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_decode.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_rf_ram_if.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_top.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_state.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_csr.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_rf_if.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_mem_if.v --cc /home/greg/Projects/DiVA-firmware/hw/build/gateware/sim.v
+cd obj_dir 
+make -f Vsim.mk
+cd ..
+g++ -I obj_dir -I/usr/local/share/verilator/include /usr/local/share/verilator/include/verilated.cpp ../../verilator_sim_driver.cc -lSDL2 obj_dir/Vsim__ALL.a -std=c++14 -o sim""",
+                file=f)
+
+        cwd = os.getcwd()
+        os.chdir(os.path.join(builder.output_dir, "gateware"))
+
+        if subprocess.call(['bash', build_script]) != 0:
+            raise OSError("Subprocess failed")
 
 
     else:

@@ -35,20 +35,17 @@ _connectors = []
 
 
 class Platform(SimPlatform):
-    def __init__(self, toolchain="cxxrtl"):
-        #SimPlatform.__init__(self,
-        #                     "sim",
-        #                     _io,
-        #                     _connectors,
-        #                     toolchain="verilator")
-
-        #def __init__(self, *args, name="sim", toolchain="cxxrtl", **kwargs):
-        GenericPlatform.__init__(self, 'sim', _io, _connectors, name='sim')
-        self.sim_requested = []
+    def __init__(self, toolchain="verilator"):
         if toolchain == "cxxrtl":
             self.toolchain = SimCxxrtlToolchain()
+            GenericPlatform.__init__(self, 'sim', _io, _connectors, name='sim')
+            self.sim_requested = []
         else:
-            raise ValueError("Unknown toolchain")
+            SimPlatform.__init__(self,
+                             "sim",
+                             _io,
+                             _connectors,
+                             toolchain=toolchain)
 
     def create_programmer(self):
         raise ValueError("programming is not supported")
