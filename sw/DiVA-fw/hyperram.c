@@ -15,7 +15,7 @@
 #include <generated/git.h>
 
 
-
+#if 0
 
 void set_io_delay(int cnt){
 	hyperram_io_loadn_write(0);
@@ -116,4 +116,11 @@ void hyperram_init(){
 	}
 }
 
+#else
 
+
+void hyperram_init(){
+	return;
+}
+
+#endif

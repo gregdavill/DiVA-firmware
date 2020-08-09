@@ -1,4 +1,4 @@
-# This file is Copyright (c) 2017 Serge 'q3k' Bazanski <serge@bazanski.pl>
+# This file is Copyright (c) 2020 Gregory Davill <greg.davill@gmail.com>
 # License: BSD
 
 from litex.build.generic_platform import *

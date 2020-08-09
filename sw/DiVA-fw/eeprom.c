@@ -2,6 +2,8 @@
 
 #include "i2c.h"
 
+#if 0
+
 static I2C i2c;
 static int debug_enabled = 0;
 
@@ -74,3 +76,4 @@ void eeprom_write(void) {
     i2c_stop_cond(&i2c);
 }
 
+#endif

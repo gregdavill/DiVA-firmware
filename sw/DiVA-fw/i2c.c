@@ -1,4 +1,3 @@
-
 #include "i2c.h"
 
 /* I2C bit banging */

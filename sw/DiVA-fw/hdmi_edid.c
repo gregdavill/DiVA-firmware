@@ -2,6 +2,8 @@
 
 #include "i2c.h"
 
+#if 0
+
 I2C hdmi_out0_i2c;
 int hdmi_out0_debug_enabled = 0;
 
@@ -66,3 +68,4 @@ void hdmi_out0_print_edid(void) {
     i2c_stop_cond(&hdmi_out0_i2c);
 }
 
+#endif

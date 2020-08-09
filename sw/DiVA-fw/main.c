@@ -51,8 +51,8 @@ int main(int i, char **c)
 	
 	terminal_enable_write(1);
 
-	rgb_div_m_write(400000);
-    rgb_config_write(2);
+	//rgb_div_m_write(400000);
+    //rgb_config_write(2);
 
 	printf("     ______    ___   __   __   _______ \n");
 	printf("    |      |  |___| |  | |  | |   _   |\n");

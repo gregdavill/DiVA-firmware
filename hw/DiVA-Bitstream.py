@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
+
+# This file is Copyright (c) 2020 Gregory Davill <greg.davill@gmail.com>
+# License: BSD
+
 import sys
 import argparse
 import optparse
 import subprocess
 
 from migen import *
-import orangecrab
+import bosonHDMI_r0d2
 
 
 from math import log2, ceil
@@ -54,6 +58,9 @@ from sw_i2c import I2C
 from litex.soc.interconnect import stream
 
 from migen.genlib.misc import timeline
+
+
+from sim import Platform
 
 #from hyperRAM.hyperbus_fast import HyperRAM
 #from dma.dma import StreamWriter, StreamReader, dummySink, dummySource
@@ -158,78 +165,93 @@ class DiVA_SoC(SoCCore):
     mem_map.update(SoCCore.mem_map)
 
     interrupt_map = {
+
     }
     interrupt_map.update(SoCCore.interrupt_map)
 
-    def __init__(self):
+    def __init__(self, sim=False):
 
-        self.platform = platform = orangecrab.Platform()
+        if sim:
+            self.platform = platform = Platform()
+        else:
+            self.platform = platform = bosonHDMI_r0d2.Platform()
         
         sys_clk_freq = 82.5e6
         SoCCore.__init__(self, platform, clk_freq=sys_clk_freq,
                           cpu_type='serv', with_uart=True, uart_name='stream',
                           csr_data_width=32,
-                          ident="HyperRAM Test SoC", ident_version=True, wishbone_timeout_cycles=512,
+                          ident="HyperRAM Test SoC", ident_version=True, wishbone_timeout_cycles=64,
                           integrated_rom_size=16*1024)
 
         # Fake a UART stream, to enable easy firmware reuse.
         self.comb += self.uart.source.ready.eq(1)
     
         # crg
-        self.submodules.crg = _CRG(platform, sys_clk_freq)
+        if sim:
+            clk = platform.request("clk")
+            rst = platform.request("rst")
+            self.clock_domains.cd_sys = ClockDomain()
+            self.comb += self.cd_sys.clk.eq(clk)
 
-        self.submodules.rgb = RGB(platform.request("rgb_led"))
+            self.comb += self.cd_sys.rst.eq(rst)
+            
+        else:
+            self.submodules.crg = _CRG(platform, sys_clk_freq)
+
+        if not sim:
+            self.submodules.rgb = RGB(platform.request("rgb_led"))
         
         # HyperRAM
-        self.submodules.hyperram = hyperram = StreamableHyperRAM(platform.request("hyperRAM"))
-        self.register_mem("hyperram", self.mem_map['hyperram'], hyperram.bus, size=0x800000)
-        
+        if sim:
+            ...
+            #self.submodules.hyperram = hyperram = wishbone.SRAM(0x8000)
+            #self.register_mem("hyperram", self.mem_map['hyperram'], hyperram.bus, size=0x800000)
+
+        else:
+            self.submodules.hyperram = hyperram = StreamableHyperRAM(platform.request("hyperRAM"))
+            self.register_mem("hyperram", self.mem_map['hyperram'], hyperram.bus, size=0x800000)
+
         #self.submodules.boson = Boson(platform, platform.request("boson"), sys_clk_freq)
         #self.submodules.YCrCb = ClockDomainsRenamer({"sys":"boson_rx"})(YCrCbConvert())
 
-
-
         ## HDMI output 
-        hdmi_pins = platform.request('hdmi')
-        self.submodules.hdmi = hdmi =  HDMI(platform, hdmi_pins)
-        self.submodules.hdmi_i2c = I2C(platform.request("hdmi_i2c"))
+        if not sim:
+            hdmi_pins = platform.request('hdmi')
+            self.submodules.hdmi = hdmi =  HDMI(platform, hdmi_pins)
+            self.submodules.hdmi_i2c = I2C(platform.request("hdmi_i2c"))
 
 
-        # I2C
-        self.submodules.i2c = I2C(platform.request("i2c"))
+            # I2C
+            self.submodules.i2c = I2C(platform.request("i2c"))
 
         ## Create VGA terminal
-        self.submodules.terminal = terminal = ClockDomainsRenamer({'vga':'video'})(Terminal())
+        if sim:
+            self.submodules.terminal = terminal = ClockDomainsRenamer({'vga':'sys'})(Terminal(platform.request("video")))
+        else:
+            self.submodules.terminal = terminal = ClockDomainsRenamer({'vga':'video'})(Terminal())
         self.register_mem("terminal", self.mem_map["terminal"], terminal.bus, size=0x100000)
 
 
-        vsync_r = Signal()
-        self.sync.video += [
-            vsync_r.eq(terminal.vsync)
-        ]
+        #vsync_r = Signal()
+        #self.sync.video += [
+        #    vsync_r.eq(terminal.vsync)
+        #]
 
         ## Connect VGA pins
-        self.comb += [
-            hdmi.vsync.eq(terminal.vsync),
-            hdmi.hsync.eq(terminal.hsync),
-            hdmi.blank.eq(terminal.blank),
-            hdmi.r.eq(terminal.red),
-            hdmi.g.eq(terminal.green),
-            hdmi.b.eq(terminal.blue),
-
-            #self.hyperram.pixels.connect(terminal.source),
-            #self.hyperram.pixels_reset.eq(vsync_r & ~terminal.vsync),
-
-            #self.boson.source.connect(self.YCrCb.sink),
-            #self.YCrCb.source.connect(self.hyperram.boson),
-            #self.boson.source.connect(self.hyperram.boson),
-            #self.hyperram.boson_sync.eq(self.boson.sync_out)
-        ]
+        if not sim:
+            self.comb += [
+                hdmi.vsync.eq(terminal.vsync),
+                hdmi.hsync.eq(terminal.hsync),
+                hdmi.blank.eq(terminal.blank),
+                hdmi.r.eq(terminal.red),
+                hdmi.g.eq(terminal.green),
+                hdmi.b.eq(terminal.blue),
+            ]
 
         
 
         analyser = True
-        if analyser:
+        if analyser and not sim:
             # USB with Clock-Domain-Crossing support
             import os
             import sys
@@ -297,63 +319,74 @@ def main():
         "--update-firmware", default=False, action='store_true',
         help="compile firmware and update existing gateware"
     )
+    parser.add_argument(
+        "--sim", default=False, action='store_true',
+        help="simulate"
+    )
     args = parser.parse_args()
 
-    soc = DiVA_SoC()
+    soc = DiVA_SoC(sim=args.sim)
     builder = Builder(soc, output_dir="build", csr_csv="build/csr.csv")
 
     # Build firmware
     soc.PackageFirmware(builder)
         
-    # Check if we have the correct files
-    firmware_file = os.path.join(builder.output_dir, "software", "DiVA-fw", "DiVA-fw.bin")
-    firmware_data = get_mem_data(firmware_file, soc.cpu.endianness)
-    firmware_init = os.path.join(builder.output_dir, "software", "DiVA-fw", "DiVA-fw.init")
-    CreateFirmwareInit(firmware_data, firmware_init)
-    
-    rand_rom = os.path.join(builder.output_dir, "gateware", "rand.data")
 
-    input_config = os.path.join(builder.output_dir, "gateware", f"{soc.platform.name}.config")
-    output_config = os.path.join(builder.output_dir, "gateware", f"{soc.platform.name}_patched.config")
-    
-    # If we don't have a random file, create one, and recompile gateware
-    if (os.path.exists(rand_rom) == False) or (args.update_firmware == False):
-        os.makedirs(os.path.join(builder.output_dir,'gateware'), exist_ok=True)
-        os.makedirs(os.path.join(builder.output_dir,'software'), exist_ok=True)
-
-        os.system(f"ecpbram  --generate {rand_rom} --seed {0} --width {32} --depth {soc.integrated_rom_size}")
-
-        # patch random file into BRAM
-        data = []
-        with open(rand_rom, 'r') as inp:
-            for d in inp.readlines():
-                data += [int(d, 16)]
-        soc.initialize_rom(data)
-
-        # Build gateware
-        vns = builder.build(nowidelut=False)
-        soc.do_exit(vns)    
+    if args.sim:
+        ...
+        builder.build(run=False)
 
 
-    # Insert Firmware into Gateware
-    os.system(f"ecpbram  --input {input_config} --output {output_config} --from {rand_rom} --to {firmware_init}")
+    else:
+        # Check if we have the correct files
+        firmware_file = os.path.join(builder.output_dir, "software", "DiVA-fw", "DiVA-fw.bin")
+        firmware_data = get_mem_data(firmware_file, soc.cpu.endianness)
+        firmware_init = os.path.join(builder.output_dir, "software", "DiVA-fw", "DiVA-fw.init")
+        CreateFirmwareInit(firmware_data, firmware_init)
+        
+        rand_rom = os.path.join(builder.output_dir, "gateware", "rand.data")
+        
+        input_config = os.path.join(builder.output_dir, "gateware", f"{soc.platform.name}.config")
+        output_config = os.path.join(builder.output_dir, "gateware", f"{soc.platform.name}_patched.config")
+        
+        # If we don't have a random file, create one, and recompile gateware
+        if (os.path.exists(rand_rom) == False) or (args.update_firmware == False):
+            os.makedirs(os.path.join(builder.output_dir,'gateware'), exist_ok=True)
+            os.makedirs(os.path.join(builder.output_dir,'software'), exist_ok=True)
 
-    # create a compressed bitstream
-    output_bit = os.path.join(builder.output_dir, "gateware", "DiVA.bit")
-    os.system(f"ecppack --input {output_config} --compress --freq 38.8 --bit {output_bit}")
+            os.system(f"ecpbram  --generate {rand_rom} --seed {0} --width {32} --depth {soc.integrated_rom_size}")
 
-    # Add DFU suffix
-    os.system(f"dfu-suffix -p 1209 -d 5bf0 -a {output_bit}")
+            # patch random file into BRAM
+            data = []
+            with open(rand_rom, 'r') as inp:
+                for d in inp.readlines():
+                    data += [int(d, 16)]
+            soc.initialize_rom(data)
 
-    print(
-    f"""DiVA build complete!  Output files:
-    
-    Bitstream file. (Compressed, Higher CLK)  Load this into FLASH.
-        {builder.output_dir}/gateware/DiVA.bit
-    
-    Source Verilog file.  Useful for debugging issues.
-        {builder.output_dir}/gateware/top.v
-    """)
+            # Build gateware
+            vns = builder.build(nowidelut=False)
+            soc.do_exit(vns)    
+
+
+        # Insert Firmware into Gateware
+        os.system(f"ecpbram  --input {input_config} --output {output_config} --from {rand_rom} --to {firmware_init}")
+
+        # create a compressed bitstream
+        output_bit = os.path.join(builder.output_dir, "gateware", "DiVA.bit")
+        os.system(f"ecppack --input {output_config} --compress --freq 38.8 --bit {output_bit}")
+
+        # Add DFU suffix
+        os.system(f"dfu-suffix -p 1209 -d 5bf0 -a {output_bit}")
+
+        print(
+        f"""DiVA build complete!  Output files:
+        
+        Bitstream file. (Compressed, Higher CLK)  Load this into FLASH.
+            {builder.output_dir}/gateware/DiVA.bit
+        
+        Source Verilog file.  Useful for debugging issues.
+            {builder.output_dir}/gateware/top.v
+        """)
 
 
 
