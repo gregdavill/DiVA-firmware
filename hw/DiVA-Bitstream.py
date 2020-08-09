@@ -86,14 +86,9 @@ class _CRG(Module, AutoCSR):
         self.clock_domains.cd_hr_90 = ClockDomain()
         self.clock_domains.cd_hr2x = ClockDomain()
         self.clock_domains.cd_hr2x_90 = ClockDomain()
-        self.clock_domains.cd_hr2x_ = ClockDomain()
-        self.clock_domains.cd_hr2x_90_ = ClockDomain()
 
         self.clock_domains.cd_init = ClockDomain()
         
-        #pixel_clock = (16e6)
-
-        self.stop = Signal()
 
         # # #
 
@@ -188,7 +183,7 @@ class DiVA_SoC(SoCCore):
         SoCCore.__init__(self, platform, clk_freq=sys_clk_freq,
                           cpu_type='serv', with_uart=True, uart_name='stream',
                           csr_data_width=32,
-                          ident="HyperRAM Test SoC", ident_version=True, wishbone_timeout_cycles=64,
+                          ident="HyperRAM Test SoC", ident_version=True, wishbone_timeout_cycles=512,
                           integrated_rom_size=16*1024)
 
         # Fake a UART stream, to enable easy firmware reuse.
@@ -217,8 +212,9 @@ class DiVA_SoC(SoCCore):
         self.register_mem("terminal", self.mem_map["terminal"], terminal.bus, size=0x100000)
 
         # User inputs
-        btn = platform.request("btn")
-        self.submodules.btn = GPIOIn(Cat(btn.a, btn.b))
+        if sim:
+            btn = platform.request("btn")
+            self.submodules.btn = GPIOIn(Cat(btn.a, btn.b))
 
         if not sim:
             self.submodules.rgb = RGB(platform.request("rgb_led"))
@@ -233,7 +229,7 @@ class DiVA_SoC(SoCCore):
 
         # connect something to these streams
         ds = dummySource()
-        fifo = ClockDomainsRenamer({"read":"sys","write":"sys"})(AsyncFIFO([("data", 32)], depth=16))
+        fifo = ClockDomainsRenamer({"read":"sys","write":"sys"})(AsyncFIFO([("data", 32)], depth=512))
         self.submodules += ds
         self.submodules += fifo
         self.comb += [
@@ -261,27 +257,35 @@ class DiVA_SoC(SoCCore):
 
 
 
-        fifo0 = ClockDomainsRenamer({"read":"sys","write":"sys"})(AsyncFIFO([("data", 32)], depth=256))
-        
+        fifo0 = ClockDomainsRenamer({"read":"video","write":"sys"})(AsyncFIFO([("data", 32)], depth=512))
+        ds0 = dummySource()
+        self.submodules += ds0
         self.submodules += fifo0
         self.comb += [
             writer.source.connect(fifo0.sink),
             fifo0.source.connect(terminal.source),
-            fifo0.source.ready.eq(terminal.source.ready & ~terminal.ce)
         ]
+        if sim:
+            self.comb += fifo0.source.ready.eq(terminal.source.ready & ~terminal.ce)
 
 
         # enable
         vsync_pulse = Signal()
         vsync_reg = Signal()
         
-        self.sync += [
+        from migen.genlib.cdc import MultiReg, PulseSynchronizer
+
+        self.sync.video += [
             vsync_reg.eq(terminal.vsync),
             vsync_pulse.eq(~vsync_reg & terminal.vsync)
         ]
+        vsync_ps = PulseSynchronizer("video", "sys")
+        self.submodules += vsync_ps
+        self.comb += vsync_ps.i.eq(vsync_pulse)
+        #self.comb += reset.eq(vsync_ps.o)
 
-        self.comb += writer.start.eq(vsync_pulse)
-        self.comb += reader.start.eq(vsync_pulse)
+        self.comb += writer.start.eq(vsync_ps.o)
+        self.comb += reader.start.eq(vsync_ps.o)
 
         #vsync_r = Signal()
         #self.sync.video += [
@@ -319,7 +323,7 @@ class DiVA_SoC(SoCCore):
             self.submodules.bridge = Stream2Wishbone(self.uart_usb, sys_clk_freq)
             self.add_wb_master(self.bridge.wishbone)
 
-            #self.submodules.analyzer = LiteScopeAnalyzer(hyperram.dbg, 32)
+            #self.submodules.analyzer = LiteScopeAnalyzer(hyperram.dbg, 64)
 
         # Add git version into firmware 
         def get_git_revision():
@@ -432,7 +436,7 @@ clang++ -I obj_dir -flto -I/usr/local/share/verilator/include -I/usr/include/SDL
             soc.initialize_rom(data)
 
             # Build gateware
-            vns = builder.build(nowidelut=False)
+            vns = builder.build(nowidelut=True)
             soc.do_exit(vns)    
 
 

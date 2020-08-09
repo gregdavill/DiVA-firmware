@@ -20,19 +20,6 @@ class CSRSource(Module, AutoCSR):
             source.data.eq(self.data.r)
         ]
 
-class EmitterSource(Module):
-    def __init__(self):
-        self.source = source = Endpoint(EndpointDescription([("data", 32)]))
-        data = Signal(32)
-        
-        self.sync += [
-            source.valid.eq(1),
-            source.data.eq(data),
-
-            If(source.ready,
-                data.eq(data + 1)
-            )
-        ]
 
 class CSRSink(Module, AutoCSR):
     def __init__(self):

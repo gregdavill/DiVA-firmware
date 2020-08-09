@@ -127,7 +127,7 @@ class HyperRAMX2(Module):
                 bus.ack.eq(1),
                 If(bus.cti != 0b010,
                     NextValue(clk, 0), NextState("CLEANUP"))),
-            If(~self.bus.cyc | (timeout_counter > 20),
+            If(~self.bus.cyc | (timeout_counter > 30),
                 NextState("CLK-OFF"),
                 bus.err.eq(1), bus.ack.eq(1)
             ))
@@ -135,7 +135,7 @@ class HyperRAMX2(Module):
         fsm.act("CLK-OFF", NextValue(clk, 0), NextState("CLEANUP"))
         fsm.act("CLEANUP", NextValue(cs, 0), NextValue(phy.rwds.oe, 0), NextValue(phy.dq.oe, 0), NextState("HOLD-WAIT"))
         fsm.act("HOLD-WAIT", NextValue(sr_out, 0), NextValue(sr_rwds_out, 0), NextState("WAIT"))
-        fsm.delayed_enter("WAIT", "IDLE", 2) 
+        fsm.delayed_enter("WAIT", "IDLE", 8) 
         
         # Signals that can be an ILA for debugging
         self.dbg = [
@@ -146,4 +146,5 @@ class HyperRAMX2(Module):
             sr_rwds_out,
             cs,
             clk,
+            timeout_counter,
         ]

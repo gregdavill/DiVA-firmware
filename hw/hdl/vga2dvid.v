@@ -77,7 +77,7 @@ output wire [1:0] out_blue,
 output wire [1:0] out_clock
 );
 
-parameter C_shift_clock_synchronizer=1'b0;
+parameter C_shift_clock_synchronizer=1'b1;
 parameter C_parallel=1'b1;
 parameter C_serial=1'b1;
 parameter C_ddr=1'b0;

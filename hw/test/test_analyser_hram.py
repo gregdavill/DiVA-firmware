@@ -33,11 +33,22 @@ print("fpga_id: " + fpga_id)
 #    wb.write(0x10000000,0xA5a5a5a5)
 #    wb.read(0x10000000)
 
+wb.regs.writer_enable.write(0)
+wb.regs.writer_burst_size.write(16)
+wb.regs.writer_transfer_size.write(800*2)
+
+for i in range(8):
+    wb.write(0x10000000 + i*4, i)
+
+
+
+wb.regs.writer_enable.write(1)
+
 analyzer = LiteScopeAnalyzerDriver(wb.regs, "analyzer", debug=True)
-analyzer.configure_trigger(cond={"hyperramx2_bus_cyc": 1,"hyperramx2_bus_we": 0},)
-analyzer.run(offset=10 , length=32)
+analyzer.configure_trigger(cond={"hyperram_hyperramx2_bus_cyc": 1,"hyperram_hyperramx2_bus_we": 0},)
+analyzer.run(offset=2 , length=32)
 analyzer.run()
-wb.read(0x10000000)
+
 analyzer.wait_done()
 analyzer.upload()
 analyzer.save("dump.vcd")

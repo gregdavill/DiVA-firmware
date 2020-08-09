@@ -29,7 +29,7 @@ _io = [
         Subsignal("scl", Pins("M17")),
     ),
     ("hdmi", 0,
-        Subsignal("p", Pins("J18 G18 K17 F17"), IOStandard("LVCMOS33D"), Misc("SLEWRATE=SLOW")),
+        Subsignal("p", Pins("J18 G18 K17 F17"), IOStandard("LVCMOS33D"), Misc("SLEWRATE=FAST"), Misc("DRIVE=10")),
         #Subsignal("n", Pins("K18 H17 L18 F16"), IOStandard("LVCMOS33"), Misc("SLEWRATE=SLOW")),
     ),
 

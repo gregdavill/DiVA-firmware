@@ -114,7 +114,7 @@ printf("\n");
 
 //    printf(" HyperRAM Init..");
 
-//	hyperram_init();
+	hyperram_init();
 //	printf(" DONE \n");
 
 
@@ -128,24 +128,26 @@ printf("\n");
 	reader_reset_write(1);
 	reader_start_address_write(0);
 	reader_transfer_size_write(800*600);
-	reader_burst_size_write(200);
+	reader_burst_size_write(128);
 	reader_enable_write(1);
 
 	writer_reset_write(1);
 	writer_start_address_write(0);
 	writer_transfer_size_write(800*600);
-	writer_burst_size_write(200);
+	writer_burst_size_write(128);
 	writer_enable_write(1);
 
 	
     while(1) {
 		y = _y;
 		printf("Counter %u \n", line++);
+		/*
 		printf("Button_A %u \n", btn_in_read() & 0x1);
 		printf("Button_B %u \n", btn_in_read() & 0x2);
 
 		if(btn_in_read() & 0x2)
 			reader_enable_write(1);
+			*/
 	}
 	
 	return 0;

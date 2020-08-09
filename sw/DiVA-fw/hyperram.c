@@ -15,7 +15,7 @@
 #include <generated/git.h>
 
 
-#if 0
+#ifdef CSR_HYPERRAM_BASE
 
 void set_io_delay(int cnt){
 	hyperram_io_loadn_write(0);
@@ -89,7 +89,7 @@ void hyperram_init(){
 				window++;
 			}
 			else if(pass != 1){
-				if(window >=5){
+				if(window >=6){
 					break;
 				}else {
 					window = 0;

@@ -8,31 +8,6 @@ class HDMI(Module):
         platform.add_source('hdl/vga.v')
         platform.add_source('hdl/tmds_encoder.v')
 
-        vga_r, vga_g, vga_b = Signal(8), Signal(8), Signal(8)
-        vga_hsync, vga_vsync, vga_blank = Signal(), Signal(), Signal()
-        
-        self.specials += Instance(
-            'vga',
-            p_C_resolution_x=      1920,
-            p_C_hsync_front_porch= 88,
-            p_C_hsync_pulse=       44,
-            p_C_hsync_back_porch=  133, # our adjustment for 75 MHz pixel clock
-            p_C_resolution_y=      1080,
-            p_C_vsync_front_porch= 4,
-            p_C_vsync_pulse=       5,
-            p_C_vsync_back_porch=  46, # our adjustment for 75 MHz pixel clock
-            p_C_bits_x=            12,
-            p_C_bits_y=            11,
-            i_clk_pixel=ClockSignal('video'),
-            i_test_picture=0,
-            o_vga_r=vga_r,
-            o_vga_g=vga_g,
-            o_vga_b=vga_b,
-            o_vga_hsync=vga_hsync,
-            o_vga_vsync=vga_vsync,
-            o_vga_blank=vga_blank
-        )
-
         self.r = vga_r = Signal(8)
         self.g = vga_g = Signal(8)
         self.b = vga_b = Signal(8)

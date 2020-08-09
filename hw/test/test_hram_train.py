@@ -42,7 +42,7 @@ def clk_delay(c):
 
 
 io_delay(0)
-clk_delay(30)
+clk_delay(0)
 
 i = 0
 
@@ -57,8 +57,8 @@ while(1):
 
     print(f"{hex(value)}")
 
-    #if value != 0:
-    #    break
+    if value != 0:
+        break
 
 
 # # #
