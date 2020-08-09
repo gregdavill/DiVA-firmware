@@ -136,7 +136,7 @@ class Terminal(Module, AutoCSR):
         line_counter  = Signal(14)
 
         self.comb += [
-            source.ready.eq((~blank) & (pixel_counter < (H_BACK_PORCH + 160 + 640)) & (pixel_counter >= H_BACK_PORCH + 160))
+            source.ready.eq(~blank)
         ]
 
         self.enable = CSRStorage(1, reset=1)
@@ -197,7 +197,7 @@ class Terminal(Module, AutoCSR):
                         green.eq(fgcolor[8:16]),
                         blue.eq(fgcolor[0:8])
                     ).Else(
-                        If(source.valid & source.ready,
+                        If(source.valid,
                             red.eq(source.data[16:24]),
                             green.eq(source.data[8:16]),
                             blue.eq(source.data[0:8])
@@ -236,7 +236,7 @@ class Terminal(Module, AutoCSR):
                 If(fx == 7,
                     # Set background color and everything for the next 8 pixels
                     bgcolor.eq(0x000000),
-                    fgcolor.eq(0x00aaaa),
+                    fgcolor.eq(0xFFFFFF),
                     fbyte.eq(next_byte)
                 ),
             ),

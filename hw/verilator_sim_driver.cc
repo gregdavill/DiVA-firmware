@@ -4,12 +4,14 @@
 #include "SDL2/SDL.h"
 #include "Vsim.h"
 #include "verilated.h"
+#include <verilated_vcd_c.h>
 
 int main(int argc, char **argv)
 {
 
     // Initialize Verilators variables
 	Verilated::commandArgs(argc, argv);
+    Verilated::traceEverOn(true);
 
 	// Create an instance of our module under test
 	Vsim *tb = new Vsim;
@@ -27,12 +29,19 @@ int main(int argc, char **argv)
 
     // Set this to 0 to disable vsync
     unsigned int flags = 0;
+    unsigned int m_tickcount = 1;
+
+    VerilatedVcdC* m_trace = new VerilatedVcdC;
+    tb->trace(m_trace, 99);
+    m_trace->open("trace.vcd");
+
+    bool exit = false;
 
     if(SDL_Init(SDL_INIT_VIDEO) != 0) {
         fprintf(stderr, "Could not init SDL: %s\n", SDL_GetError());
         return 1;
     }
-    SDL_Window *screen = SDL_CreateWindow("cxxrtl",
+    SDL_Window *screen = SDL_CreateWindow("verilator",
             SDL_WINDOWPOS_UNDEFINED,
             SDL_WINDOWPOS_UNDEFINED,
             width, height,
@@ -50,8 +59,8 @@ int main(int argc, char **argv)
     SDL_Texture* framebuffer = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, width, height);
 
 
-    tb->rst = 1;
 
+    tb->rst = 1;
     tb->clk = 1;
     tb->eval();
     tb->clk = 0;
@@ -59,21 +68,36 @@ int main(int argc, char **argv)
     
     tb->rst = 0;
 
-    for (int i = 0; i < 50; i++) {
+    int frame = 4000;
+
+    for (int i = 0; i < 10000; i++) {
         size_t ctr = 0;
         int old_vs = 0;
         // Render one frame
         while (true) {
+            if(i == frame)
+            m_tickcount++;
             // Inofficial cxxrtl hack that improves performance
+            if(i == frame)
+            m_trace->dump(10*m_tickcount-2);
             tb->clk = 1;
             tb->eval();
+
+            if(i == frame)
+            m_trace->dump(10*m_tickcount);
             tb->clk = 0;
             tb->eval();
+            if(i == frame)
+            m_trace->dump(10*m_tickcount+5);
+            //if(i == frame)
+            if(tb->sim__DOT__main_terminal_ce == 0){
+                continue;
+            }
 
             if (ctr < width * height * bpp) {
-                pixels[ctr++] = (uint8_t) tb->video_red;
-                pixels[ctr++] = (uint8_t) tb->video_green;
                 pixels[ctr++] = (uint8_t) tb->video_blue;
+                pixels[ctr++] = (uint8_t) tb->video_green;
+                pixels[ctr++] = (uint8_t) tb->video_red;
             }
 
             // Break when vsync goes low again
@@ -87,12 +111,29 @@ int main(int argc, char **argv)
         SDL_RenderPresent(renderer);
 
         SDL_Event event;
-        if (SDL_PollEvent(&event)) {
-            if (event.type == SDL_KEYDOWN)
-                break;
+        while (SDL_PollEvent(&event)) {
+            std::cout << event.type << std::endl;
+            if (event.type == SDL_KEYDOWN){
+                if(event.key.keysym.sym == SDLK_q){
+                    exit = true;
+                    break;
+                }
+                if(event.key.keysym.sym == SDLK_LEFT)
+                    tb->btn_a = true;
+                if(event.key.keysym.sym == SDLK_RIGHT)
+                    tb->btn_b = true;
+            }
+            if (event.type == SDL_KEYUP){
+                if(event.key.keysym.sym == SDLK_LEFT)
+                    tb->btn_a = false;
+                if(event.key.keysym.sym == SDLK_RIGHT)
+                    tb->btn_b = false;
+            }
         }
 
-        // SDL_Delay(10);
+        if(exit)
+            break;
+        //SDL_Delay(10);
 
         frames++;
 
@@ -105,6 +146,8 @@ int main(int argc, char **argv)
         }
     }
 
+
+    m_trace->flush();
 
     SDL_DestroyWindow(screen);
     SDL_Quit();

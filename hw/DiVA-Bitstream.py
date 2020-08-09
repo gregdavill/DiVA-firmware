@@ -43,12 +43,17 @@ from litex.soc.integration.builder import *
 
 from litex.soc.interconnect import wishbone
 
-from litex.soc.cores.gpio import GPIOOut
+from litex.soc.cores.gpio import GPIOOut, GPIOIn
 from rgb_led import RGB
 
 from streamable_hyperram import StreamableHyperRAM
 
 from wishbone_stream import StreamReader, StreamWriter, dummySink, dummySource
+
+
+
+from litex.soc.interconnect.stream import Endpoint, EndpointDescription, SyncFIFO, AsyncFIFO, Monitor
+
 
 from boson import Boson
 from YCrCb import YCrCbConvert
@@ -155,6 +160,9 @@ class DiVA_SoC(SoCCore):
         "analyzer"   :  14,
         "hdmi_i2c"   :  15,
         "i2c"        :  16,
+        "btn"        :  18,
+        "reader"     :  19,
+        "writer"     :  20,
     }
     csr_map.update(SoCCore.csr_map)
 
@@ -193,22 +201,49 @@ class DiVA_SoC(SoCCore):
             self.clock_domains.cd_sys = ClockDomain()
             self.comb += self.cd_sys.clk.eq(clk)
 
-            self.comb += self.cd_sys.rst.eq(rst)
-            
+            self.comb += self.cd_sys.rst.eq(rst)            
+
         else:
             self.submodules.crg = _CRG(platform, sys_clk_freq)
+     
+        ## Create VGA terminal
+        if sim:
+            self.submodules.terminal = terminal = CEInserter()(ClockDomainsRenamer({'vga':'sys'})(Terminal(platform.request("video"))))
+            ce = Signal()
+            self.sync += ce.eq(~ce)
+            self.comb += terminal.ce.eq(ce)
+        else:
+            self.submodules.terminal = terminal = ClockDomainsRenamer({'vga':'video'})(Terminal())
+        self.register_mem("terminal", self.mem_map["terminal"], terminal.bus, size=0x100000)
+
+        # User inputs
+        btn = platform.request("btn")
+        self.submodules.btn = GPIOIn(Cat(btn.a, btn.b))
 
         if not sim:
             self.submodules.rgb = RGB(platform.request("rgb_led"))
         
         # HyperRAM
-        if sim:
-            self.submodules.hyperram = hyperram = wishbone.SRAM(0x80000)
-            self.register_mem("hyperram", self.mem_map['hyperram'], hyperram.bus, size=0x800000)
+        hyperram_pads = None if sim else platform.request("hyperRAM")
+        self.submodules.writer = writer = StreamWriter(external_sync=True)
+        self.submodules.reader = reader = StreamReader(external_sync=True)
 
-        else:
-            self.submodules.hyperram = hyperram = StreamableHyperRAM(platform.request("hyperRAM"))
-            self.register_mem("hyperram", self.mem_map['hyperram'], hyperram.bus, size=0x800000)
+        self.submodules.hyperram = hyperram = StreamableHyperRAM(hyperram_pads, devices=[reader, writer], sim=sim)
+        self.register_mem("hyperram", self.mem_map['hyperram'], hyperram.bus, size=0x800000)
+
+        # connect something to these streams
+        ds = dummySource()
+        fifo = ClockDomainsRenamer({"read":"sys","write":"sys"})(AsyncFIFO([("data", 32)], depth=16))
+        self.submodules += ds
+        self.submodules += fifo
+        self.comb += [
+            ds.source.connect(fifo.sink),
+            fifo.source.connect(reader.sink)
+        ]
+
+        
+        
+
 
         #self.submodules.boson = Boson(platform, platform.request("boson"), sys_clk_freq)
         #self.submodules.YCrCb = ClockDomainsRenamer({"sys":"boson_rx"})(YCrCbConvert())
@@ -223,13 +258,30 @@ class DiVA_SoC(SoCCore):
             # I2C
             self.submodules.i2c = I2C(platform.request("i2c"))
 
-        ## Create VGA terminal
-        if sim:
-            self.submodules.terminal = terminal = ClockDomainsRenamer({'vga':'sys'})(Terminal(platform.request("video")))
-        else:
-            self.submodules.terminal = terminal = ClockDomainsRenamer({'vga':'video'})(Terminal())
-        self.register_mem("terminal", self.mem_map["terminal"], terminal.bus, size=0x100000)
 
+
+
+        fifo0 = ClockDomainsRenamer({"read":"sys","write":"sys"})(AsyncFIFO([("data", 32)], depth=256))
+        
+        self.submodules += fifo0
+        self.comb += [
+            writer.source.connect(fifo0.sink),
+            fifo0.source.connect(terminal.source),
+            fifo0.source.ready.eq(terminal.source.ready & ~terminal.ce)
+        ]
+
+
+        # enable
+        vsync_pulse = Signal()
+        vsync_reg = Signal()
+        
+        self.sync += [
+            vsync_reg.eq(terminal.vsync),
+            vsync_pulse.eq(~vsync_reg & terminal.vsync)
+        ]
+
+        self.comb += writer.start.eq(vsync_pulse)
+        self.comb += reader.start.eq(vsync_pulse)
 
         #vsync_r = Signal()
         #self.sync.video += [
@@ -339,11 +391,11 @@ def main():
         # Verilator build
         build_script = os.path.join(builder.output_dir, "gateware", "verilator_build.sh")
         with open(build_script, 'w') as f:
-            print("""verilator --top-module sim -O3 -I/home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_shift.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_rf_top.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_params.vh --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_rf_ram.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_bufreg.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_alu.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_ctrl.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_decode.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_rf_ram_if.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_top.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_state.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_csr.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_rf_if.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_mem_if.v --cc /home/greg/Projects/DiVA-firmware/hw/build/gateware/sim.v
+            print("""verilator --trace --compiler clang -j 4 --top-module sim -Os -I/home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_shift.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_rf_top.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_params.vh --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_rf_ram.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_bufreg.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_alu.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_ctrl.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_decode.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_rf_ram_if.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_top.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_state.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_csr.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_rf_if.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_mem_if.v --cc /home/greg/Projects/DiVA-firmware/hw/build/gateware/sim.v
 cd obj_dir 
 make -f Vsim.mk
 cd ..
-g++ -I obj_dir -I/usr/local/share/verilator/include /usr/local/share/verilator/include/verilated.cpp ../../verilator_sim_driver.cc -lSDL2 obj_dir/Vsim__ALL.a -std=c++14 -o sim""",
+clang++ -I obj_dir -flto -I/usr/local/share/verilator/include -I/usr/include/SDL2  /usr/local/share/verilator/include/verilated.cpp /usr/local/share/verilator/include/verilated_vcd_c.cpp ../../verilator_sim_driver.cc -O3 -lSDL2 obj_dir/Vsim__ALL.a -fno-exceptions -std=c++14 -o sim""",
                 file=f)
 
         cwd = os.getcwd()

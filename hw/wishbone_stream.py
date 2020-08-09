@@ -22,16 +22,45 @@ class dummySource(Module):
         self.source = source = Endpoint(data_stream_description(32))
         counter = Signal(32)
 
+        frame = Signal(32)
+        v_ctr = Signal(32)
+        h_ctr = Signal(32)
+        r = Signal(8)
+        g = Signal(8)
+        b = Signal(8)
+
+
         self.comb += [
             source.valid.eq(1),
-            source.data.eq(counter),   
+            source.data.eq(Cat(r,g,b,Signal(8))),   
         ]
 
         self.sync += [
-            counter.eq(0),
-            #If(source.ready,
-            #    counter.eq(counter + 1)
-            #)
+            If(source.ready,
+                h_ctr.eq(h_ctr + 1),
+                If(h_ctr >= 800-1,
+                    h_ctr.eq(0),
+                    v_ctr.eq(v_ctr + 1),
+                    If(v_ctr >= 600-1,
+                        v_ctr.eq(0),
+                        frame.eq(frame + 1)
+                    )
+                )
+            )
+        ]
+
+        speed = 1
+
+        frame_tri = (Mux(frame[8], ~frame[:8], frame[:8]))
+        frame_tri2 = (Mux(frame[9], ~frame[1:9], frame[1:9]))
+
+        X = Mux(v_ctr[6], h_ctr + frame[speed:], h_ctr - frame[speed:])
+        Y = v_ctr
+        self.sync += [
+
+            r.eq(frame_tri[1:]),
+            g.eq(v_ctr * Mux(X & Y, 255, 0)),
+            b.eq(~(frame_tri2 + (X ^ Y)) * 255)
         ]
 
 class dummySink(Module):
@@ -72,22 +101,6 @@ class StreamWriter(Module, AutoCSR):
             overflow.eq(source.ready & ~source.valid),
             underflow.eq(~source.ready & source.valid),
         ]
-
-        self.dbg = [
-            tx_cnt,
-            last_address,
-            busy,
-            active,
-            burst_cnt,
-            burst_end,
-            self.start,
-            source.valid,
-            source.ready,    
-            source.data,
-            overflow,
-            underflow,
-        ]
-    
 
         self.comb += [
             bus.sel.eq(0xF),

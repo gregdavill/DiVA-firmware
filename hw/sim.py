@@ -22,12 +22,17 @@ _io = [
     ("rst", 0, Pins(1)),
 
     ("video", 0,
-    Subsignal("red", Pins(8)),
-    Subsignal("green", Pins(8)),
-    Subsignal("blue", Pins(8)),
-    Subsignal("hsync",  Pins(1)),
-    Subsignal("vsync",    Pins(1)),
+        Subsignal("red", Pins(8)),
+        Subsignal("green", Pins(8)),
+        Subsignal("blue", Pins(8)),
+        Subsignal("hsync",  Pins(1)),
+        Subsignal("vsync",    Pins(1)),
     ),
+
+    ("btn", 0,
+        Subsignal("a", Pins(1)),
+        Subsignal("b", Pins(1)),
+    )
 ]
 
 _connectors = []
