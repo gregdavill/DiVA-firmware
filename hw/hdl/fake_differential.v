@@ -15,10 +15,10 @@ module fake_differential
     parameter C_ddr = 1'b0; // 0:SDR 1:DDR
 
     wire [1:0] tmds[3:0];
-    assign tmds[3] = in_clock;
-    assign tmds[2] = in_red;
-    assign tmds[1] = ~in_green;
-    assign tmds[0] = in_blue;
+    assign tmds[3] = ~in_clock;
+    assign tmds[2] = ~in_red;
+    assign tmds[1] = in_green;
+    assign tmds[0] = ~in_blue;
 
     // register stage to improve timing of the fake differential
     reg [1:0] R_tmds_p[3:0];

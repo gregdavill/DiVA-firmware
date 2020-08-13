@@ -44,7 +44,7 @@ def clk_delay(c):
 io_delay(0)
 clk_delay(0)
 
-i = 0
+i = 0xFFAABBCC
 
 while(1):
     wb.regs.crg_phase_sel.write(0)

@@ -9,6 +9,7 @@ import optparse
 import subprocess
 
 from migen import *
+import bosonHDMI_r0d3
 import bosonHDMI_r0d2
 
 
@@ -103,6 +104,8 @@ class _CRG(Module, AutoCSR):
         self.specials += [
             AsyncResetSynchronizer(self.cd_sys, ~pll.locked),
             AsyncResetSynchronizer(self.cd_init, ~pll.locked),
+            AsyncResetSynchronizer(self.cd_hr2x, ~pll.locked),
+            AsyncResetSynchronizer(self.cd_hr2x_90, ~pll.locked),
         ]
 
         self.comb += self.cd_sys.clk.eq(self.cd_hr.clk)
@@ -116,9 +119,9 @@ class _CRG(Module, AutoCSR):
 
         self.submodules.video_pll = video_pll = ECP5PLL()
         video_pll.register_clkin(clk48, 48e6)
-        video_pll.create_clkout(self.cd_video,    pixel_clk,  margin=1e-2)
+        video_pll.create_clkout(self.cd_video,    pixel_clk,  margin=0)
         video_pll.create_clkout(self.cd_usb_12,    12e6,  margin=0)
-        video_pll.create_clkout(self.cd_video_shift,  pixel_clk*5, margin=1e-2)
+        video_pll.create_clkout(self.cd_video_shift,  pixel_clk*5, margin=0)
 
 
         self.comb += self.cd_usb_48.clk.eq(clk48)
@@ -177,7 +180,7 @@ class DiVA_SoC(SoCCore):
         if sim:
             self.platform = platform = Platform()
         else:
-            self.platform = platform = bosonHDMI_r0d2.Platform()
+            self.platform = platform = bosonHDMI_r0d3.Platform()
         
         sys_clk_freq = 82.5e6
         SoCCore.__init__(self, platform, clk_freq=sys_clk_freq,
@@ -229,12 +232,13 @@ class DiVA_SoC(SoCCore):
 
         # connect something to these streams
         ds = dummySource()
-        fifo = ClockDomainsRenamer({"read":"sys","write":"sys"})(AsyncFIFO([("data", 32)], depth=512))
+        fifo = ClockDomainsRenamer({"read":"video","write":"sys"})(AsyncFIFO([("data", 32)], depth=8))
         self.submodules += ds
         self.submodules += fifo
         self.comb += [
             ds.source.connect(fifo.sink),
-            fifo.source.connect(reader.sink)
+#            fifo.source.connect(reader.sink)
+            fifo.source.connect(terminal.source)
         ]
 
         
@@ -257,13 +261,13 @@ class DiVA_SoC(SoCCore):
 
 
 
-        fifo0 = ClockDomainsRenamer({"read":"video","write":"sys"})(AsyncFIFO([("data", 32)], depth=512))
+        fifo0 = ClockDomainsRenamer({"read":"video","write":"sys"})(AsyncFIFO([("data", 32)], depth=8))
         ds0 = dummySource()
         self.submodules += ds0
         self.submodules += fifo0
         self.comb += [
-            writer.source.connect(fifo0.sink),
-            fifo0.source.connect(terminal.source),
+            #writer.source.connect(fifo0.sink),
+            #fifo0.source.connect(terminal.source),
         ]
         if sim:
             self.comb += fifo0.source.ready.eq(terminal.source.ready & ~terminal.ce)
@@ -318,12 +322,20 @@ class DiVA_SoC(SoCCore):
             usb_pads = self.platform.request("usb")
             usb_iobuf = usbio.IoBuf(usb_pads.d_p, usb_pads.d_n, usb_pads.pullup)
             self.submodules.uart_usb = cdc_eptri.CDCUsb(usb_iobuf)
+
+            # Select ECP5 as USB target
+            if hasattr(usb_pads, "sw_sel"):
+                self.comb += usb_pads.sw_sel.eq(1)
+            
+            # Enable USB
+            if hasattr(usb_pads, "sw_oe"):
+                self.comb += usb_pads.sw_oe.eq(0)
             
 
             self.submodules.bridge = Stream2Wishbone(self.uart_usb, sys_clk_freq)
             self.add_wb_master(self.bridge.wishbone)
 
-            #self.submodules.analyzer = LiteScopeAnalyzer(hyperram.dbg, 64)
+            self.submodules.analyzer = LiteScopeAnalyzer(hyperram.dbg, 64)
 
         # Add git version into firmware 
         def get_git_revision():
@@ -380,7 +392,7 @@ def main():
     )
     args = parser.parse_args()
 
-    soc = DiVA_SoC(sim=args.sim)
+    soc = DiVA_SoC()
     builder = Builder(soc, output_dir="build", csr_csv="build/csr.csv")
 
     # Build firmware

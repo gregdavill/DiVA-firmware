@@ -18,9 +18,11 @@ _io = [
     ),
 
     ("usb", 0,
-        Subsignal("d_p", Pins("G15")),
+        Subsignal("d_p", Pins("G16")),
         Subsignal("d_n", Pins("K15")),
-        Subsignal("pullup", Pins("G16")),
+        Subsignal("pullup", Pins("H16")),
+        Subsignal("sw_sel", Pins("F15")),
+        Subsignal("sw_oe", Pins("G15")),
         IOStandard("LVCMOS33")
     ),
             
@@ -28,9 +30,11 @@ _io = [
         Subsignal("sda", Pins("M16")),
         Subsignal("scl", Pins("M17")),
     ),
+    ("hdmi_cec", 0,
+        Subsignal("cec", Pins("L15")),
+    ),
     ("hdmi", 0,
-        Subsignal("p", Pins("J18 G18 K17 F17"), IOStandard("LVCMOS33D"), Misc("SLEWRATE=FAST"), Misc("DRIVE=8")),
-        #Subsignal("n", Pins("K18 H17 L18 F16"), IOStandard("LVCMOS33"), Misc("SLEWRATE=SLOW")),
+        Subsignal("p", Pins("F17 G18 J18 K17"), IOStandard("LVCMOS33D"), Misc("SLEWRATE=SLOW")),
     ),
 
 
@@ -40,12 +44,12 @@ _io = [
     ),
 
     ("hyperRAM", 0,
-        Subsignal("rst_n",     Pins("F4"),       IOStandard("LVCMOS18"),Misc("SLEWRATE=SLOW")),    
-        Subsignal("clk_p",     Pins("G4"),       IOStandard("LVCMOS18"),Misc("SLEWRATE=SLOW")),
-        Subsignal("clk_n",     Pins("H4"),       IOStandard("LVCMOS18"),Misc("SLEWRATE=SLOW")),
-        Subsignal("cs_n",      Pins("F3"),       IOStandard("LVCMOS18"),Misc("SLEWRATE=SLOW")),
-        Subsignal("dq",        Pins("K4 L4 J3 K3 L1 M3 N4 N3"),     IOStandard("LVCMOS18"),Misc("SLEWRATE=SLOW")),
-        Subsignal("rwds",       Pins("H3"),      IOStandard("LVCMOS18"),Misc("SLEWRATE=SLOW")),
+        Subsignal("rst_n",     Pins("F4"),       IOStandard("LVCMOS18"),Misc("SLEWRATE=FAST")),    
+        Subsignal("clk_p",     Pins("G4"),       IOStandard("LVCMOS18"),Misc("SLEWRATE=FAST")),
+        Subsignal("clk_n",     Pins("H4"),       IOStandard("LVCMOS18"),Misc("SLEWRATE=FAST")),
+        Subsignal("cs_n",      Pins("F3"),       IOStandard("LVCMOS18"),Misc("SLEWRATE=FAST")),
+        Subsignal("dq",        Pins("K4 L4 J3 K3 L1 M3 N4 N3"),     IOStandard("LVCMOS18"),Misc("SLEWRATE=FAST")),
+        Subsignal("rwds",      Pins("H3"),       IOStandard("LVCMOS18"),Misc("SLEWRATE=FAST")),
     ),
 
     ("boson", 0,
@@ -63,8 +67,8 @@ _io = [
     ),    
 
     ("button", 0,
-        Subsignal("a", Pins("F2"),IOStandard("LVCMOS33"),Misc("PULLMODE=UP")),
-        Subsignal("b", Pins("J1"),IOStandard("LVCMOS33"),Misc("PULLMODE=UP")),
+        Subsignal("a", Pins("F2"),IOStandard("LVCMOS18"),Misc("PULLMODE=UP")),
+        Subsignal("b", Pins("J1"),IOStandard("LVCMOS18"),Misc("PULLMODE=UP")),
     ),
 
     ("spiflash", 0,

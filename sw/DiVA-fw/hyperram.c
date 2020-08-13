@@ -65,7 +65,7 @@ static int basic_memtest(void){
 
 void hyperram_init(){
 	int window = 0;
-	int clk_del = 0;
+	int clk_del = 110;
 	int io_del = 0;
 
 	while(1){
@@ -73,23 +73,24 @@ void hyperram_init(){
 		set_io_delay(io_del);
 		int i = 0;
 		printf("%u,%u |", clk_del, io_del);
-		for(i = 0; i < 32; i++){
+		for(i = 0; i < 64; i++){
 
 			int pass = basic_memtest();
 
 			// Shift our PLL
 			crg_phase_sel_write(0);
-			crg_phase_dir_write(1);
+			crg_phase_dir_write(0);
 			crg_phase_step_write(0);
 			crg_phase_step_write(1);
 
-			printf("%c", pass > 0 ? '0' : '-');
+			if(i & 1)
+				printf("%c", pass > 0 ? '0' : '-');
 
 			if(pass == 1){
 				window++;
 			}
 			else if(pass != 1){
-				if(window >=6){
+				if(window >=5){
 					break;
 				}else {
 					window = 0;
@@ -102,7 +103,7 @@ void hyperram_init(){
 			for(i = 0; i < window/2; i++){
 				// Shift our PLL up
 				crg_phase_sel_write(0);
-				crg_phase_dir_write(0);
+				crg_phase_dir_write(1);
 				crg_phase_step_write(0);
 				crg_phase_step_write(1);
 			}
