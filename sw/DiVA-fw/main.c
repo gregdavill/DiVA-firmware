@@ -80,8 +80,10 @@ int main(int i, char **c)
 
 //    printf(" HyperRAM Init..");
 
+	printf("--==========-- \e[1mHyperRAM Init\e[0m ===========--\n");
 	hyperram_init();
 	printf("\n");
+	prbs_memtest(HYPERRAM_BASE, HYPERRAM_SIZE);
 
 
 

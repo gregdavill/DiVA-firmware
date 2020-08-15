@@ -82,30 +82,35 @@ class StreamWriter(Module, AutoCSR):
         self.bus  = bus = wishbone.Interface()
         self.source = source = Endpoint(data_stream_description(32))
 
-        tx_cnt = Signal(21)
+        tx_cnt = Signal(32)
         last_address = Signal()
         busy = Signal()
+        done = Signal()
+        evt_done = Signal()
         active = Signal()
         burst_end = Signal()
-        burst_cnt = Signal(21)
+        burst_cnt = Signal(32)
         
         self.start_address = CSRStorage(32)
-        self.transfer_size = CSRStorage(21)
-
+        self.transfer_size = CSRStorage(32)
         self.burst_size = CSRStorage(32, reset=256)
+
+        self.done = CSRStatus()
 
         self.enable = CSR()
         self.reset = CSR()
 
+
         self.start = Signal()
 
         enabled = Signal()
-
         overflow = Signal()
         underflow = Signal()
         self.comb += [
             overflow.eq(source.ready & ~source.valid),
             underflow.eq(~source.ready & source.valid),
+
+            self.done.status.eq(done)
         ]
 
         self.comb += [
@@ -150,6 +155,13 @@ class StreamWriter(Module, AutoCSR):
             ),
             If(self.enable.re,
                 enabled.eq(self.enable.r[0])
+            ),
+            
+            If(self.reset.re,
+                done.eq(0),
+            ),
+            If(evt_done,
+                done.eq(1),
             )
 
         ]
@@ -171,10 +183,14 @@ class StreamWriter(Module, AutoCSR):
             If(burst_end & bus.ack & active,
                 NextState("IDLE"),
                 If(last_address,
+                    evt_done.eq(1),
                     NextValue(busy,0),
                 )
             ),
-
+            If(self.reset.re,
+                NextValue(busy, 0),
+                NextState("IDLE")
+            )
         )
 
         self.comb += active.eq(fsm.ongoing("ACTIVE") & source.ready)
@@ -188,27 +204,31 @@ class StreamReader(Module, AutoCSR):
         tx_cnt = Signal(32)
         last_address = Signal()
         busy = Signal()
+        done = Signal()
+        evt_done = Signal()
         active = Signal()
         burst_end = Signal()
-        burst_cnt = Signal(21)
+        burst_cnt = Signal(32)
         
         self.start_address = CSRStorage(32)
-        self.transfer_size = CSRStorage(21)
-
+        self.transfer_size = CSRStorage(32)
         self.burst_size = CSRStorage(32, reset=256)
-        
+
+        self.done = CSRStatus()
+
         self.enable = CSR()
         self.reset = CSR()
 
         self.start = Signal()
 
         enabled = Signal()
-
         overflow = Signal()
         underflow = Signal()
         self.comb += [
             overflow.eq(sink.ready & ~sink.valid),
             underflow.eq(~sink.ready & sink.valid),
+
+            self.done.status.eq(done)
         ]
 
         self.dbg = [
@@ -272,6 +292,13 @@ class StreamReader(Module, AutoCSR):
             ),
             If(self.enable.re,
                 enabled.eq(self.enable.r[0])
+            ),
+
+            If(self.reset.re,
+                done.eq(0),
+            ),
+            If(evt_done,
+                done.eq(1),
             )
         ]
 
@@ -292,9 +319,14 @@ class StreamReader(Module, AutoCSR):
             If(burst_end & bus.ack & active,
                 NextState("IDLE"),
                 If(last_address,
-                    NextValue(busy,0)
+                    NextValue(busy,0),
+                    evt_done.eq(1),
                 )
             ),
+            If(self.reset.re,
+                NextValue(busy, 0),
+                NextState("IDLE")
+            )
         )
 
         self.comb += active.eq(fsm.ongoing("ACTIVE") & sink.valid)

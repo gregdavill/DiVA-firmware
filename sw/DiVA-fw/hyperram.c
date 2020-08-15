@@ -131,6 +131,71 @@ void hyperram_init(){
 	
 }
 
+
+
+void prbs_memtest(uint32_t base, uint32_t len){
+		uint32_t start;
+		uint32_t end;
+
+		/* init timer */
+	timer0_en_write(0);
+	timer0_reload_write(0);
+	timer0_load_write(0xffffffff);
+	timer0_en_write(1);
+
+	uint32_t burst = 680;
+
+	prbs_source_reset_write(1);
+
+	reader1_reset_write(1);
+	reader1_burst_size_write(burst);
+	reader1_transfer_size_write(len/4);
+	reader1_start_address_write(base>>2);
+
+
+	/* write speed */
+	timer0_update_value_write(1);
+	start = timer0_value_read();
+
+	reader1_enable_write(1);
+	while(reader1_done_read() == 0);
+
+	timer0_update_value_write(1);
+	end = timer0_value_read();
+
+	uint32_t rate = (CONFIG_CLOCK_FREQUENCY*10)/((start-end)/8);
+	printf("Write Speed: %u.%u MBytes/s ( %u cycles )\n", rate / 10, rate % 10, start-end);
+
+	writer1_reset_write(1);
+	writer1_burst_size_write(burst);
+	writer1_transfer_size_write(len/4);
+	writer1_start_address_write(base>>2);
+	prbs_sink_reset_write(1);
+
+
+	/* write speed */
+	timer0_update_value_write(1);
+	start = timer0_value_read();
+
+	writer1_enable_write(1);
+	while(writer1_done_read() == 0);
+
+	timer0_update_value_write(1);
+	end = timer0_value_read();
+	
+	rate = (CONFIG_CLOCK_FREQUENCY*10)/((start-end)/8);
+	printf("Read Speed:  %u.%u MBytes/s ( %u cycles )\n", rate / 10, rate % 10, start-end);
+	
+	printf("Memtest: ");
+	if(prbs_sink_good_read() == writer1_transfer_size_read()){
+		printf("%uKB ( 0x%x )...OK\n", 4*prbs_sink_good_read()/1024, 4*prbs_sink_good_read());
+	}else {
+		printf("Not OK. :(\n Good: 0x%x (%uKB) [%x], Bad: 0x%x\n", prbs_sink_good_read(),4*prbs_sink_good_read()/1024, writer1_transfer_size_read(),prbs_sink_bad_read());
+	}
+}
+
+
+
 #else
 
 

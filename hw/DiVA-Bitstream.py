@@ -69,6 +69,7 @@ from migen.genlib.misc import timeline
 from sim import Platform
 
 from edge_detect import EdgeDetect
+from prbs_stream import prbsSink, prbsSource
 
 #from hyperRAM.hyperbus_fast import HyperRAM
 #from dma.dma import StreamWriter, StreamReader, dummySink, dummySource
@@ -184,6 +185,10 @@ class DiVA_SoC(SoCCore):
         "btn"        :  18,
         "reader"     :  19,
         "writer"     :  20,
+        "reader1"    :  21,
+        "writer1"    :  22,
+        "prbs_sink"  :  23,
+        "prbs_source":  24
     }
     csr_map.update(SoCCore.csr_map)
 
@@ -250,7 +255,10 @@ class DiVA_SoC(SoCCore):
         self.submodules.writer = writer = StreamWriter(external_sync=True)
         self.submodules.reader = reader = StreamReader(external_sync=True)
 
-        self.submodules.hyperram = hyperram = StreamableHyperRAM(hyperram_pads, devices=[reader, writer], sim=sim)
+        self.submodules.writer1 = writer1 = StreamWriter()
+        self.submodules.reader1 = reader1 = StreamReader()
+
+        self.submodules.hyperram = hyperram = StreamableHyperRAM(hyperram_pads, devices=[reader, writer, reader1, writer1], sim=sim)
         self.register_mem("hyperram", self.mem_map['hyperram'], hyperram.bus, size=0x800000)
 
         # connect something to these streams
@@ -263,10 +271,6 @@ class DiVA_SoC(SoCCore):
             ds.source.connect(fifo.sink),
             fifo.source.connect(reader.sink)
         ]
-
-        
-        
-
 
         #self.submodules.boson = Boson(platform, platform.request("boson"), sys_clk_freq)
         #self.submodules.YCrCb = ClockDomainsRenamer({"sys":"boson_rx"})(YCrCbConvert())
@@ -295,6 +299,15 @@ class DiVA_SoC(SoCCore):
         if sim:
             self.comb += fifo0.source.ready.eq(terminal.source.ready & ~terminal.ce)
 
+
+        # prbs tester
+        self.submodules.prbs_sink = prbsSink()
+        self.submodules.prbs_source = prbsSource()
+
+        self.comb += [
+            self.prbs_source.source.connect(self.reader1.sink),
+            self.writer1.source.connect(self.prbs_sink.sink),
+        ]
 
         # enable
         self.submodules.vsync_rise = vsync_rise = EdgeDetect(mode="rise", input_cd="video", output_cd="sys")
