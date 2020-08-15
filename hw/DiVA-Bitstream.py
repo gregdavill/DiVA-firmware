@@ -253,13 +253,13 @@ class DiVA_SoC(SoCCore):
 
         # connect something to these streams
         ds = dummySource()
-        fifo = ClockDomainsRenamer({"read":"video","write":"sys"})(AsyncFIFO([("data", 32)], depth=8))
+        #fifo = ClockDomainsRenamer({"read":"sys","write":"sys"})(SyncFIFO([("data", 32)], depth=512))
+        fifo = SyncFIFO([("data", 32)], depth=32)
         self.submodules += ds
         self.submodules += fifo
         self.comb += [
             ds.source.connect(fifo.sink),
-#            fifo.source.connect(reader.sink)
-            fifo.source.connect(terminal.source)
+            fifo.source.connect(reader.sink)
         ]
 
         
@@ -282,13 +282,13 @@ class DiVA_SoC(SoCCore):
 
 
 
-        fifo0 = ClockDomainsRenamer({"read":"video","write":"sys"})(AsyncFIFO([("data", 32)], depth=8))
+        fifo0 = ClockDomainsRenamer({"read":"video","write":"sys"})(AsyncFIFO([("data", 32)], depth=512))
         ds0 = dummySource()
         self.submodules += ds0
         self.submodules += fifo0
         self.comb += [
-            #writer.source.connect(fifo0.sink),
-            #fifo0.source.connect(terminal.source),
+            writer.source.connect(fifo0.sink),
+            fifo0.source.connect(terminal.source),
         ]
         if sim:
             self.comb += fifo0.source.ready.eq(terminal.source.ready & ~terminal.ce)

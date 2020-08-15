@@ -79,7 +79,7 @@ int main(int i, char **c)
 //    printf(" HyperRAM Init..");
 
 	hyperram_init();
-//	printf(" DONE \n");
+	printf("\n");
 
 
 
@@ -92,13 +92,13 @@ int main(int i, char **c)
 	reader_reset_write(1);
 	reader_start_address_write(0);
 	reader_transfer_size_write(800*600);
-	reader_burst_size_write(128);
+	reader_burst_size_write(512);
 	reader_enable_write(1);
 
 	writer_reset_write(1);
 	writer_start_address_write(0);
 	writer_transfer_size_write(800*600);
-	writer_burst_size_write(128);
+	writer_burst_size_write(512);
 	writer_enable_write(1);
 
 	
