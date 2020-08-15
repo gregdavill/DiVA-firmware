@@ -1,7 +1,7 @@
 # This file is Copyright (c) 2020 Gregory Davill <greg.davill@gmail.com>
 # License: BSD
 
-from migen import Module, Record, Signal, TSTriple, Instance, ClockSignal, ResetSignal, If, Cat
+from migen import Module, Record, Signal, TSTriple, Instance, ClockSignal, ResetSignal
 
 from migen.genlib.cdc import MultiReg
 
@@ -54,56 +54,27 @@ class HyperBusPHY(Module):
 
 
         # Shift non DDR signals to match the FF's inside DDR modules.
-        self.specials += MultiReg(self.cs, pads.cs_n, n=2)
+        self.specials += MultiReg(self.cs, pads.cs_n, n=3)
 
-        self.specials += MultiReg(self.rwds.oe, rwds.oe, n=2)
-        self.specials += MultiReg(self.dq.oe, dq.oe, n=2)
+        self.specials += MultiReg(self.rwds.oe, rwds.oe, n=3)
+        self.specials += MultiReg(self.dq.oe, dq.oe, n=3)
         
         # mask off clock when no CS
         clk_en = Signal()
         self.comb += clk_en.eq(self.clk_enable & ~self.cs)
 
-        load_next = Signal(reset=0)
-        dq_reg = Signal(32)
-        rwds_reg = Signal(4)
-
-        
-        self.dq_in_reg = dq_in_reg = Signal(64)
-        dq_in_ = Signal(16)
-        rwds_in_reg = Signal(8)
-        rwds_in_ = Signal(2)
-
-        clk_en_reg = Signal()
-
-        self.sync += [
-                clk_en_reg.eq(clk_en),
-        ]
-        
-        self.sync.hr2x += [
-            If(ClockSignal("sys"),
-                dq_reg.eq(self.dq.o),
-                rwds_reg.eq(self.rwds.o),
-
-                self.rwds.i.eq(rwds_in_reg[4:8]),
-                self.dq.i.eq(Cat(dq_in_reg[16:24],dq_in_reg[40:48],dq_in_reg[32:40],dq_in_reg[56:64])),
-            ).Else(
-                dq_reg[16:32].eq(dq_reg[0:16]),
-                rwds_reg[2:4].eq(rwds_reg[0:2]),
-            ),
-
-            rwds_in_reg.eq(Cat(rwds_in_, rwds_in_reg[:8])),
-            dq_in_reg.eq(Cat(dq_in_, dq_in_reg[:48])),
-        ]
-
         #clk_out
         clkp = Signal()
         clkn = Signal()
         self.specials += [
-            Instance("ODDRX1F",
-                i_D1=0,
-                i_D0=clk_en_reg,
-                i_SCLK=ClockSignal("hr2x_90"),
-                i_RST=ResetSignal("hr2x_90"),
+            Instance("ODDRX2F",
+                i_D3=clk_en,
+                i_D2=0,
+                i_D1=clk_en,
+                i_D0=0,
+                i_SCLK=ClockSignal("hr_90"),
+                i_ECLK=ClockSignal("hr2x_90"),
+                i_RST=ResetSignal("hr"),
                 o_Q=clkp),
             Instance("DELAYF",
                     p_DEL_MODE="USER_DEFINED",
@@ -116,11 +87,14 @@ class HyperBusPHY(Module):
         ]
         
         self.specials += [
-            Instance("ODDRX1F",
-                i_D1=1,
-                i_D0=~clk_en_reg,
-                i_SCLK=ClockSignal("hr2x_90"),
-                i_RST=ResetSignal("hr2x_90"),
+            Instance("ODDRX2F",
+                i_D3=~clk_en,
+                i_D2=1,
+                i_D1=~clk_en,
+                i_D0=1,
+                i_SCLK=ClockSignal("hr_90"),
+                i_ECLK=ClockSignal("hr2x_90"),
+                i_RST=ResetSignal("hr"),
                 o_Q=clkn),
             Instance("DELAYF",
                     p_DEL_MODE="USER_DEFINED",
@@ -134,66 +108,77 @@ class HyperBusPHY(Module):
 
         # DQ_out
         for i in range(8):
-            dq_out = Signal()
             self.specials += [
-                Instance("ODDRX1F",
-                    i_D0=dq_reg[24+i],
-                    i_D1=dq_reg[16+i],
-                    i_SCLK=ClockSignal("hr2x"),
-                    i_RST=ResetSignal("hr2x"),
-                    o_Q=dq_out
-                ),
-                Instance("DELAYF",
-                    p_DEL_MODE="USER_DEFINED",
-                    p_DEL_VALUE=0, # (25ps per tap)
-                    i_A=dq_out,
-                    i_LOADN=self.dly_io.loadn,
-                    i_MOVE=self.dly_io.move,
-                    i_DIRECTION=self.dly_io.direction,
-                    o_Z=dq.o[i])
+                Instance("ODDRX2F",
+                    i_D3=self.dq.o[i],
+                    i_D2=self.dq.o[8+i],
+                    i_D1=self.dq.o[16+i],
+                    i_D0=self.dq.o[24+i],
+                    i_SCLK=ClockSignal("hr"),
+                    i_ECLK=ClockSignal("hr2x"),
+                    i_RST=ResetSignal("hr"),
+                    o_Q=dq.o[i]
+                )
             ]
     
 
         # DQ_in
         for i in range(8):
+            dq_in = Signal()
             self.specials += [
-                Instance("IDDRX1F",
-                    i_D=dq.i[i],
-                    i_SCLK=ClockSignal("hr2x"),
-                    i_RST= ResetSignal("hr2x"),
-                    o_Q0=dq_in_[0+i],
-                    o_Q1=dq_in_[8+i]
-                )
+                Instance("IDDRX2F",
+                    i_D=dq_in,
+                    i_SCLK=ClockSignal("hr"),
+                    i_ECLK=ClockSignal("hr2x"),
+                    i_RST= ResetSignal("hr"),
+                    o_Q3=self.dq.i[i],
+                    o_Q2=self.dq.i[i+8],
+                    o_Q1=self.dq.i[i+16],
+                    o_Q0=self.dq.i[i+24]
+                ),
+                Instance("DELAYF",
+                    p_DEL_MODE="USER_DEFINED",
+                    p_DEL_VALUE=0, # (25ps per tap)
+                    i_A=dq.i[i],
+                    i_LOADN=self.dly_io.loadn,
+                    i_MOVE=self.dly_io.move,
+                    i_DIRECTION=self.dly_io.direction,
+                    o_Z=dq_in)
             ]
         
         # RWDS_out
-        rwds_out = Signal()
         self.specials += [
-            Instance("ODDRX1F",
-                i_D0=self.rwds.o[3],
+            Instance("ODDRX2F",
+                i_D3=self.rwds.o[0],
+                i_D2=self.rwds.o[1],
                 i_D1=self.rwds.o[2],
-                i_SCLK=ClockSignal("hr2x"),
-                i_RST=ResetSignal("hr2x"),
-                o_Q=rwds_out
+                i_D0=self.rwds.o[3],
+                i_SCLK=ClockSignal("hr"),
+                i_ECLK=ClockSignal("hr2x"),
+                i_RST=ResetSignal("hr"),
+                o_Q=rwds.o
+            )
+        ]
+
+        # RWDS_in
+        rwds_in = Signal()
+        self.specials += [
+            Instance("IDDRX2F",
+                i_D=rwds_in,
+                i_SCLK=ClockSignal("hr"),
+                i_ECLK=ClockSignal("hr2x"),
+                i_RST= ResetSignal("hr"),
+                o_Q3=self.rwds.i[0],
+                o_Q2=self.rwds.i[1],
+                o_Q1=self.rwds.i[2],
+                o_Q0=self.rwds.i[3]
             ),
             Instance("DELAYF",
                     p_DEL_MODE="USER_DEFINED",
                     p_DEL_VALUE=0, # (25ps per tap)
-                    i_A=rwds_out,
+                    i_A=rwds.i,
                     i_LOADN=self.dly_io.loadn,
                     i_MOVE=self.dly_io.move,
                     i_DIRECTION=self.dly_io.direction,
-                    o_Z=rwds.o)
-        ]
-
-        # RWDS_in
-        self.specials += [
-            Instance("IDDRX1F",
-                i_D=rwds.i,
-                i_SCLK=ClockSignal("hr2x"),
-                i_RST= ResetSignal("hr2x"),
-                o_Q0=rwds_in_[0],
-                o_Q1=rwds_in_[1]
-            ),
-            
+                    o_Z=rwds_in)
         ]

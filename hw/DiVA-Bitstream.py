@@ -87,6 +87,8 @@ class _CRG(Module, AutoCSR):
         self.clock_domains.cd_hr_90 = ClockDomain()
         self.clock_domains.cd_hr2x = ClockDomain()
         self.clock_domains.cd_hr2x_90 = ClockDomain()
+        self.clock_domains.cd_hr2x_ = ClockDomain()
+        self.clock_domains.cd_hr2x_90_ = ClockDomain()
 
         self.clock_domains.cd_init = ClockDomain()
         
@@ -100,12 +102,8 @@ class _CRG(Module, AutoCSR):
         pll.register_clkin(clk48, 48e6)
         pll.create_clkout(self.cd_hr2x, sys_clk_freq*2, margin=0)
         pll.create_clkout(self.cd_hr2x_90, sys_clk_freq*2, phase=1, margin=0) # SW tunes this phase during init
-        pll.create_clkout(self.cd_hr, sys_clk_freq, margin=0) # SW tunes this phase during init
+        
         self.specials += [
-            AsyncResetSynchronizer(self.cd_sys, ~pll.locked),
-            AsyncResetSynchronizer(self.cd_init, ~pll.locked),
-            AsyncResetSynchronizer(self.cd_hr2x, ~pll.locked),
-            AsyncResetSynchronizer(self.cd_hr2x_90, ~pll.locked),
         ]
 
         self.comb += self.cd_sys.clk.eq(self.cd_hr.clk)
@@ -120,8 +118,8 @@ class _CRG(Module, AutoCSR):
         self.submodules.video_pll = video_pll = ECP5PLL()
         video_pll.register_clkin(clk48, 48e6)
         video_pll.create_clkout(self.cd_video,    pixel_clk,  margin=0)
-        video_pll.create_clkout(self.cd_usb_12,    12e6,  margin=0)
         video_pll.create_clkout(self.cd_video_shift,  pixel_clk*5, margin=0)
+        video_pll.create_clkout(self.cd_usb_12,    12e6,  margin=0)
 
 
         self.comb += self.cd_usb_48.clk.eq(clk48)
@@ -133,6 +131,29 @@ class _CRG(Module, AutoCSR):
         platform.add_period_constraint(clk48, period_ns(48e6))
         platform.add_period_constraint(self.cd_video.clk, period_ns(pixel_clk))
         platform.add_period_constraint(self.cd_video_shift.clk, period_ns(pixel_clk * 5))
+
+        self._slip_hr2x = CSRStorage()
+        self._slip_hr2x90 = CSRStorage()
+
+        # ECLK stuff 
+        self.specials += [
+            Instance("CLKDIVF",
+                p_DIV     = "2.0",
+                i_ALIGNWD = self._slip_hr2x.storage,
+                i_CLKI    = self.cd_hr2x.clk,
+                i_RST     = ~pll.locked,
+                o_CDIVX   = self.cd_hr.clk),
+
+            Instance("CLKDIVF",
+                p_DIV     = "2.0",
+                i_ALIGNWD = self._slip_hr2x90.storage,
+                i_CLKI    = self.cd_hr2x_90.clk,
+                i_RST     = ~pll.locked,
+                o_CDIVX   = self.cd_hr_90.clk),
+            #AsyncResetSynchronizer(self.cd_hr, reset),
+            #AsyncResetSynchronizer(self.cd_sys, reset)
+        ]
+
 
         self._phase_sel = CSRStorage(2)
         self._phase_dir = CSRStorage()

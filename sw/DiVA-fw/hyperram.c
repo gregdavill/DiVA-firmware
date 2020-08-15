@@ -65,14 +65,14 @@ static int basic_memtest(void){
 
 void hyperram_init(){
 	int window = 0;
-	int clk_del = 110;
+	int clk_del = 0;
 	int io_del = 0;
 
 	while(1){
-		set_clk_delay(clk_del);
+		set_clk_delay(clk_del >> 2);
 		set_io_delay(io_del);
 		int i = 0;
-		printf("%u,%u |", clk_del, io_del);
+		printf("%u,%u, %u |", clk_del >> 2, clk_del & 1 ? 1 : 0, clk_del & 2 ? 1 : 0);
 		for(i = 0; i < 64; i++){
 
 			int pass = basic_memtest();
@@ -90,7 +90,7 @@ void hyperram_init(){
 				window++;
 			}
 			else if(pass != 1){
-				if(window >=5){
+				if(window >=10){
 					break;
 				}else {
 					window = 0;
@@ -111,9 +111,12 @@ void hyperram_init(){
 		}
 		window = 0;
 		clk_del = (clk_del + 1) & 0x7F;
-		if(clk_del == 0){
-			io_del = (io_del + 1) & 0x7F;
-		}
+
+		crg_slip_hr2x90_write(clk_del & 1 ? 1 : 0);
+		crg_slip_hr2x_write(clk_del & 2 ? 1 : 0);
+
+		crg_slip_hr2x90_write(0);
+		crg_slip_hr2x_write(0);
 	}
 }
 
