@@ -136,7 +136,12 @@ class Terminal(Module, AutoCSR):
         line_counter  = Signal(14)
 
         self.comb += [
-            source.ready.eq(~blank)
+            source.ready.eq(0),
+            If((line_counter >= V_BACK_PORCH) & (line_counter < V_DATA),
+                If((pixel_counter >= H_BACK_PORCH) & (pixel_counter < (H_DATA)),
+                    source.ready.eq(1),
+                )
+            ),
         ]
 
         self.enable = CSRStorage(1, reset=1)

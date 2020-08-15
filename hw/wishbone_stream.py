@@ -22,6 +22,8 @@ class dummySource(Module):
         self.source = source = Endpoint(data_stream_description(32))
         counter = Signal(32)
 
+        self.clr = Signal()
+
         frame = Signal(32)
         v_ctr = Signal(32)
         h_ctr = Signal(32)
@@ -46,6 +48,11 @@ class dummySource(Module):
                         frame.eq(frame + 1)
                     )
                 )
+            ),
+
+            If(self.clr, 
+                v_ctr.eq(0),
+                h_ctr.eq(0)
             )
         ]
 
@@ -57,7 +64,6 @@ class dummySource(Module):
         X = Mux(v_ctr[6], h_ctr + frame[speed:], h_ctr - frame[speed:])
         Y = v_ctr
         self.sync += [
-
             r.eq(frame_tri[1:]),
             g.eq(v_ctr * Mux(X & Y, 255, 0)),
             b.eq(~(frame_tri2 + (X ^ Y)) * 255)

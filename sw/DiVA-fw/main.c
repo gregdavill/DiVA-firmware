@@ -40,7 +40,9 @@ void terminal_write(char c){
 
 
 
-
+int colour(int j){
+	return (1 << (j % 24));
+}
 
 
 int main(int i, char **c)
@@ -93,7 +95,7 @@ int main(int i, char **c)
 	reader_start_address_write(0);
 	reader_transfer_size_write(800*600);
 	reader_burst_size_write(512);
-	reader_enable_write(1);
+	reader_enable_write(0);
 
 	writer_reset_write(1);
 	writer_start_address_write(0);
@@ -112,7 +114,21 @@ int main(int i, char **c)
 		if(btn_in_read() & 0x2)
 			reader_enable_write(1);
 			*/
+		
+		uint32_t* ptr = (HYPERRAM_BASE);
+		for(int i = 0; i < 600; i++){
+			for(int j = 0; j < 800; j++){
+				int col = 0;
+				
+				if(j == (line % 800))
+					col = 0x00FFFFFF;
+
+				*ptr++ = col;
+			}	
+		}
 	}
 	
 	return 0;
 }
+
+

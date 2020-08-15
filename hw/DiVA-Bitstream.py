@@ -68,6 +68,8 @@ from migen.genlib.misc import timeline
 
 from sim import Platform
 
+from edge_detect import EdgeDetect
+
 #from hyperRAM.hyperbus_fast import HyperRAM
 #from dma.dma import StreamWriter, StreamReader, dummySink, dummySource
 
@@ -254,7 +256,7 @@ class DiVA_SoC(SoCCore):
         # connect something to these streams
         ds = dummySource()
         #fifo = ClockDomainsRenamer({"read":"sys","write":"sys"})(SyncFIFO([("data", 32)], depth=512))
-        fifo = SyncFIFO([("data", 32)], depth=32)
+        fifo = ResetInserter()(SyncFIFO([("data", 32)], depth=4))
         self.submodules += ds
         self.submodules += fifo
         self.comb += [
@@ -295,27 +297,16 @@ class DiVA_SoC(SoCCore):
 
 
         # enable
-        vsync_pulse = Signal()
-        vsync_reg = Signal()
-        
-        from migen.genlib.cdc import MultiReg, PulseSynchronizer
 
-        self.sync.video += [
-            vsync_reg.eq(terminal.vsync),
-            vsync_pulse.eq(~vsync_reg & terminal.vsync)
-        ]
-        vsync_ps = PulseSynchronizer("video", "sys")
-        self.submodules += vsync_ps
-        self.comb += vsync_ps.i.eq(vsync_pulse)
-        #self.comb += reset.eq(vsync_ps.o)
+        self.submodules.vsync_rise = vsync_rise = EdgeDetect(mode="rise", input_cd="video", output_cd="sys")
+        self.comb += vsync_rise.i.eq(terminal.vsync)
 
-        self.comb += writer.start.eq(vsync_ps.o)
-        self.comb += reader.start.eq(vsync_ps.o)
+        self.comb += writer.start.eq(vsync_rise.o)
+        self.comb += reader.start.eq(vsync_rise.o)
+        self.comb += ds.clr.eq(vsync_rise.o)
+        self.comb += fifo.reset.eq(vsync_rise.o)
 
-        #vsync_r = Signal()
-        #self.sync.video += [
-        #    vsync_r.eq(terminal.vsync)
-        #]
+       
 
         ## Connect VGA pins
         if not sim:
