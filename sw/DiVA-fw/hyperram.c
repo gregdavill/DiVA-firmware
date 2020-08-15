@@ -126,7 +126,7 @@ void hyperram_init(){
 	}
 
 	while(1){
-
+		reboot_ctrl_write(0xac);
 	}
 	
 }

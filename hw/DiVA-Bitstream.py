@@ -46,6 +46,7 @@ from litex.soc.interconnect import wishbone
 
 from litex.soc.cores.gpio import GPIOOut, GPIOIn
 from rgb_led import RGB
+from reboot import Reboot
 
 from streamable_hyperram import StreamableHyperRAM
 
@@ -188,7 +189,8 @@ class DiVA_SoC(SoCCore):
         "reader1"    :  21,
         "writer1"    :  22,
         "prbs_sink"  :  23,
-        "prbs_source":  24
+        "prbs_source":  24,
+        "reboot"     :  25,
     }
     csr_map.update(SoCCore.csr_map)
 
@@ -284,6 +286,8 @@ class DiVA_SoC(SoCCore):
 
             # I2C
             self.submodules.i2c = I2C(platform.request("i2c"))
+
+        self.submodules.reboot = Reboot(platform.request("rst_n"))
 
 
 
