@@ -297,7 +297,6 @@ class DiVA_SoC(SoCCore):
 
 
         # enable
-
         self.submodules.vsync_rise = vsync_rise = EdgeDetect(mode="rise", input_cd="video", output_cd="sys")
         self.comb += vsync_rise.i.eq(terminal.vsync)
 

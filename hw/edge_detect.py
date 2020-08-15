@@ -1,3 +1,5 @@
+# This file is Copyright (c) 2020 Gregory Davill <greg.davill@gmail.com>
+# License: BSD
 from migen import *
 
 from migen.genlib.cdc import PulseSynchronizer
