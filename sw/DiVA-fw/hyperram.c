@@ -68,7 +68,7 @@ void hyperram_init(){
 	int clk_del = 0;
 	int io_del = 0;
 
-	while(1){
+	while(clk_del < 128){
 		set_clk_delay(clk_del >> 2);
 		set_io_delay(io_del);
 		int i = 0;
@@ -90,7 +90,7 @@ void hyperram_init(){
 				window++;
 			}
 			else if(pass != 1){
-				if(window >=10){
+				if(window >= 6){
 					break;
 				}else {
 					window = 0;
@@ -110,7 +110,7 @@ void hyperram_init(){
 			return;
 		}
 		window = 0;
-		clk_del = (clk_del + 1) & 0x7F;
+		clk_del = (clk_del + 1);
 
 		crg_slip_hr2x90_write(clk_del & 1 ? 1 : 0);
 		crg_slip_hr2x_write(clk_del & 2 ? 1 : 0);
@@ -118,6 +118,17 @@ void hyperram_init(){
 		crg_slip_hr2x90_write(0);
 		crg_slip_hr2x_write(0);
 	}
+
+	printf("\n\n Error: RAM Init failed :(\n Restarting in... ");
+	for(int i = 0; i < 5; i++){
+		msleep(1000);
+		printf("\b%u",5-i);
+	}
+
+	while(1){
+
+	}
+	
 }
 
 #else
