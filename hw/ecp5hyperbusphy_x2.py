@@ -73,16 +73,16 @@ class HyperBusPHY(Module):
         rwds_in_reg = Signal(8)
         rwds_in_ = Signal(2)
 
-
-        
-        
         clk_en_reg = Signal()
+
+        self.sync += [
+                clk_en_reg.eq(clk_en),
+        ]
+        
         self.sync.hr2x += [
-            load_next.eq(~load_next),
             If(ClockSignal("sys"),
                 dq_reg.eq(self.dq.o),
                 rwds_reg.eq(self.rwds.o),
-                clk_en_reg.eq(clk_en),
 
                 self.rwds.i.eq(rwds_in_reg[4:8]),
                 self.dq.i.eq(Cat(dq_in_reg[16:24],dq_in_reg[40:48],dq_in_reg[32:40],dq_in_reg[56:64])),
@@ -95,16 +95,13 @@ class HyperBusPHY(Module):
             dq_in_reg.eq(Cat(dq_in_, dq_in_reg[:48])),
         ]
 
-        self.comb += [
-            ]
-
         #clk_out
         clkp = Signal()
         clkn = Signal()
         self.specials += [
             Instance("ODDRX1F",
-                i_D0=0,
-                i_D1=clk_en_reg,
+                i_D1=0,
+                i_D0=clk_en_reg,
                 i_SCLK=ClockSignal("hr2x_90"),
                 i_RST=ResetSignal("hr2x_90"),
                 o_Q=clkp),
@@ -120,8 +117,8 @@ class HyperBusPHY(Module):
         
         self.specials += [
             Instance("ODDRX1F",
-                i_D0=1,
-                i_D1=~clk_en_reg,
+                i_D1=1,
+                i_D0=~clk_en_reg,
                 i_SCLK=ClockSignal("hr2x_90"),
                 i_RST=ResetSignal("hr2x_90"),
                 o_Q=clkn),
