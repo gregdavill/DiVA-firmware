@@ -63,7 +63,7 @@ class VideoDebug(Module, AutoCSR):
                 ).Else(
                     vsync_high.eq(vsync_counter),
                     lines.eq(lines_counter),
-                    lines_counter.eq(0),
+                    lines_counter.eq(1),
                 ),
                 vsync_counter.eq(1)
             ),
