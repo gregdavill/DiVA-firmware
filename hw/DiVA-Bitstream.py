@@ -245,9 +245,8 @@ class DiVA_SoC(SoCCore):
         self.register_mem("terminal", self.mem_map["terminal"], terminal.bus, size=0x100000)
 
         # User inputs
-        if sim:
-            btn = platform.request("btn")
-            self.submodules.btn = GPIOIn(Cat(btn.a, btn.b))
+        btn = platform.request("button")
+        self.submodules.btn = GPIOIn(Cat(btn.a, btn.b))
 
         if not sim:
             self.submodules.rgb = RGB(platform.request("rgb_led"))
@@ -287,7 +286,7 @@ class DiVA_SoC(SoCCore):
             # I2C
             self.submodules.i2c = I2C(platform.request("i2c"))
 
-        self.submodules.reboot = Reboot(platform.request("rst_n"))
+        self.submodules.reboot = Reboot(platform.request("rst_n"), ext_rst=~btn.a)
 
 
 

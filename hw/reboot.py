@@ -2,7 +2,7 @@ from migen import Module, Signal, If, Instance
 from litex.soc.interconnect.csr import AutoCSR, CSRStorage
 
 class Reboot(Module, AutoCSR):
-    def __init__(self, rst):
+    def __init__(self, rst, ext_rst=None):
 
         self.ctrl = CSRStorage(8)
         
@@ -14,9 +14,14 @@ class Reboot(Module, AutoCSR):
         ]
 
         reset_latch = Signal(reset=0)
-        self.sync += [
-            reset_latch.eq(do_reset | reset_latch)
-        ]
+        if ext_rst is None:
+            self.sync += [
+                reset_latch.eq(do_reset | reset_latch)
+            ]
+        else:
+            self.sync += [
+                reset_latch.eq(do_reset | reset_latch | ext_rst)
+            ]
 
         self.comb += [
             rst.eq(~reset_latch)
