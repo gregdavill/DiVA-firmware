@@ -47,17 +47,6 @@ class VideoDebug(Module, AutoCSR):
         self.comb += h_edge.i.eq(hsync)
         self.sync.pixel += [
             vsync_counter.eq(vsync_counter + 1),
-            If(v_edge.o,
-                If(vsync,
-                    vsync_low.eq(vsync_counter)
-                ).Else(
-                    vsync_high.eq(vsync_counter),
-                    lines.eq(lines_counter),
-                    lines_counter.eq(0),
-                ),
-                vsync_counter.eq(0)
-            ),
-
             hsync_counter.eq(hsync_counter + 1),
             If(h_edge.o,
                 If(hsync,
@@ -66,8 +55,19 @@ class VideoDebug(Module, AutoCSR):
                     hsync_high.eq(hsync_counter),
                     lines_counter.eq(lines_counter + 1)
                 ),
-                hsync_counter.eq(0)
+                hsync_counter.eq(1)
             ),
+            If(v_edge.o,
+                If(vsync,
+                    vsync_low.eq(vsync_counter)
+                ).Else(
+                    vsync_high.eq(vsync_counter),
+                    lines.eq(lines_counter),
+                    lines_counter.eq(0),
+                ),
+                vsync_counter.eq(1)
+            ),
+
         ]
 
         # CSRs
