@@ -82,10 +82,8 @@ int main(int i, char **c)
 
 	printf("--==========-- \e[1mHyperRAM Init\e[0m ===========--\n");
 	hyperram_init();
-	printf("\n");
+	printf("\n");	
 	prbs_memtest(HYPERRAM_BASE, HYPERRAM_SIZE);
-
-
 
 
 
@@ -100,15 +98,20 @@ int main(int i, char **c)
 	reader_enable_write(1);
 
 
-	
-
-
-
 	writer_reset_write(1);
 	writer_start_address_write(0);
 	writer_transfer_size_write(800*600);
 	writer_burst_size_write(512);
 	writer_enable_write(1);
+	
+
+	framer_width_write(640);
+	framer_height_write(512);
+	
+	framer_x_start_write(400);
+	framer_y_start_write(300);
+	
+	
 
 	
     while(1) {
@@ -119,6 +122,12 @@ int main(int i, char **c)
 		
 		video_debug_latch_write(1);
 		printf("vsync LOW %u  HIGH %u   \n", video_debug_vsync_low_read(), video_debug_vsync_high_read());
+		printf("hsync LOW %u  HIGH %u   \n", video_debug_hsync_low_read(), video_debug_hsync_high_read());
+		printf("lines %u   \n", video_debug_lines_read());
+
+
+		framer_x_start_write(213 + ((line & 63)));
+		framer_y_start_write(27);
 
 
 		/*

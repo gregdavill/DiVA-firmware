@@ -74,6 +74,8 @@ from prbs_stream import PRBSSink, PRBSSource
 
 from simulated_video import SimulatedVideo
 from video_debug import VideoDebug
+from video_stream import VideoStream
+from framer import Framer
 
 #from hyperRAM.hyperbus_fast import HyperRAM
 #from dma.dma import StreamWriter, StreamReader, dummySink, dummySource
@@ -203,7 +205,8 @@ class DiVA_SoC(SoCCore):
         "prbs_sink"  :  23,
         "prbs_source":  24,
         "reboot"     :  25,
-        "video_debug":  26
+        "video_debug":  26,
+        "framer"     :  27,
     }
     csr_map.update(SoCCore.csr_map)
 
@@ -280,9 +283,18 @@ class DiVA_SoC(SoCCore):
         # Dummy video stream
         self.submodules.simulated_video = simulated_video = ClockDomainsRenamer({"pixel":"oscg_38M"})(SimulatedVideo())
         self.submodules.video_debug = video_debug = ClockDomainsRenamer({"pixel":"oscg_38M"})(VideoDebug(int(self.clk_freq)))
+        self.submodules.video_stream = video_stream = ClockDomainsRenamer({"pixel":"oscg_38M"})(VideoStream())
+        
+        self.submodules.framer = framer = Framer()
 
         self.comb += [
-            video_debug.vsync.eq(simulated_video.vsync)
+            video_debug.vsync.eq(simulated_video.vsync),
+            video_debug.hsync.eq(simulated_video.hsync),
+
+            video_stream.data_valid.eq(simulated_video.data_valid),
+            video_stream.red.eq(simulated_video.red),
+            video_stream.green.eq(simulated_video.green),
+            video_stream.blue.eq(simulated_video.blue),
         ]
 
         # connect something to these streams
@@ -293,7 +305,7 @@ class DiVA_SoC(SoCCore):
         self.submodules += fifo
         self.comb += [
             ds.source.connect(fifo.sink),
-            fifo.source.connect(reader.sink)
+            fifo.source.connect(reader.sink),
         ]
 
         #self.submodules.boson = Boson(platform, platform.request("boson"), sys_clk_freq)
@@ -349,12 +361,23 @@ class DiVA_SoC(SoCCore):
         ## Connect VGA pins
         if not sim:
             self.comb += [
+                # attach framer to video generator
+                framer.vsync.eq(terminal.vsync),
+                framer.hsync.eq(terminal.hsync),
+                
+
                 hdmi.vsync.eq(terminal.vsync),
                 hdmi.hsync.eq(terminal.hsync),
                 hdmi.blank.eq(terminal.blank),
-                hdmi.r.eq(terminal.red),
-                hdmi.g.eq(terminal.green),
-                hdmi.b.eq(terminal.blue),
+                If(framer.data_valid,
+                    hdmi.r.eq(framer.red),
+                    hdmi.g.eq(framer.green),
+                    hdmi.b.eq(framer.blue),
+                ).Else(
+                    hdmi.r.eq(terminal.red),
+                    hdmi.g.eq(terminal.green),
+                    hdmi.b.eq(terminal.blue),  
+                )
             ]
 
         
