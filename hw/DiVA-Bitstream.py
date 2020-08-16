@@ -57,6 +57,8 @@ from wishbone_stream import StreamReader, StreamWriter, dummySink, dummySource
 from litex.soc.interconnect.stream import Endpoint, EndpointDescription, SyncFIFO, AsyncFIFO, Monitor
 
 
+from migen.genlib.cdc import MultiReg, PulseSynchronizer
+
 from boson import Boson
 from YCrCb import YCrCbConvert
 
@@ -253,13 +255,7 @@ class DiVA_SoC(SoCCore):
             self.submodules.crg = _CRG(platform, sys_clk_freq)
      
         ## Create VGA terminal
-        if sim:
-            self.submodules.terminal = terminal = CEInserter()(ClockDomainsRenamer({'vga':'sys'})(Terminal(platform.request("video"))))
-            ce = Signal()
-            self.sync += ce.eq(~ce)
-            self.comb += terminal.ce.eq(ce)
-        else:
-            self.submodules.terminal = terminal = ClockDomainsRenamer({'vga':'video'})(Terminal())
+        self.submodules.terminal = terminal = ClockDomainsRenamer({'vga':'video'})(Terminal())
         self.register_mem("terminal", self.mem_map["terminal"], terminal.bus, size=0x100000)
 
         # User inputs
@@ -284,10 +280,14 @@ class DiVA_SoC(SoCCore):
         #self.submodules.simulated_video = simulated_video = ClockDomainsRenamer({"pixel":"oscg_38M"})(SimulatedVideo())
         # Boson video stream
         self.submodules.boson = boson = Boson(platform, platform.request("boson"), sys_clk_freq)
-        fifo = ClockDomainsRenamer({"read":"sys","write":"boson_rx"})(AsyncFIFO([("data", 32)], depth=512))
-        #self.submodules.YCrCb = ClockDomainsRenamer({"sys":"boson_rx"})(YCrCbConvert())
+        self.submodules.YCrCb = ycrcb = ClockDomainsRenamer({"sys":"boson_rx"})(YCrCbConvert())
+        
+        fifo = AsyncFIFO([("data", 32)], depth=512)
+        fifo = ResetInserter(["read","write"])(fifo)
+        fifo = ClockDomainsRenamer({"read":"sys","write":"boson_rx"})(fifo)
+
         self.submodules.video_debug = video_debug = ClockDomainsRenamer({"pixel":"boson_rx"})(VideoDebug(int(self.clk_freq)))
-        self.submodules.video_stream = video_stream = ClockDomainsRenamer({"pixel":"boson_rx"})(VideoStream())
+        #self.submodules.video_stream = video_stream = ClockDomainsRenamer({"pixel":"boson_rx"})(VideoStream())
         
         self.submodules.framer = framer = Framer()
 
@@ -296,10 +296,16 @@ class DiVA_SoC(SoCCore):
             video_debug.vsync.eq(boson.vsync),
             video_debug.hsync.eq(boson.hsync),
 
-            video_stream.data_valid.eq(boson.data_valid),
-            video_stream.red.eq(boson.red),
-            video_stream.green.eq(boson.green),
-            video_stream.blue.eq(boson.blue),
+            boson.source.connect(ycrcb.sink),
+
+            #fifo.reset_write.eq(boson.vsync),
+
+
+
+            #video_stream.data_valid.eq(boson.data_valid),
+            #video_stream.red.eq(boson.red),
+            #video_stream.green.eq(boson.green),
+            #video_stream.blue.eq(boson.blue),
         ]
 
         # connect something to these streams
@@ -310,7 +316,7 @@ class DiVA_SoC(SoCCore):
         self.submodules += fifo
         self.comb += [
         
-            video_stream.source.connect(fifo.sink),
+            ycrcb.source.connect(fifo.sink),
         #    ds.source.connect(fifo.sink),
             fifo.source.connect(reader.sink),
         ]
@@ -359,16 +365,33 @@ class DiVA_SoC(SoCCore):
 
 
         self.comb += writer.start.eq(vsync_rise.o)
-        self.comb += reader.start.eq(vsync_boson.o)
+        #self.comb += reader.start.eq(vsync_boson.o)
         
         #self.comb += ds.clr.eq(vsync_rise.o)
         #self.comb += fifo.reset.eq(vsync_rise.o)
 
+
+
+        # delay vsync pulse from boson by 500 clocks, then use it to reset the fifo
+        fifo_rst = Signal()
+        self.sync += [
+             timeline(vsync_boson.o, [
+                (501,  [fifo_rst.eq(1)]),   # Reset FIFO
+                (550,  [fifo_rst.eq(0)]),  # Clear Reset
+                (621,  [reader.start.eq(1)]),
+                (622,  [reader.start.eq(0)])
+            ])
+        ]
+        self.specials += MultiReg(fifo_rst, fifo.reset_write, odomain="boson_rx")
+        self.comb += fifo.reset_read.eq(fifo_rst)
        
+        #self.comb += writer.start.eq(vsync_rise.o)
 
         ## Connect VGA pins
         if not sim:
             self.comb += [
+                fifo.reset_read.eq(vsync_boson.o),
+
                 # attach framer to video generator
                 framer.vsync.eq(terminal.vsync),
                 framer.hsync.eq(terminal.hsync),
@@ -390,7 +413,7 @@ class DiVA_SoC(SoCCore):
 
         
 
-        analyser = True
+        analyser = False
         if analyser and not sim:
             # USB with Clock-Domain-Crossing support
             import os

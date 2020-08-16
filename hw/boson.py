@@ -275,7 +275,6 @@ class BosonConfig(Module):
 class boson_rx(Module):
     def __init__(self, pads):
         self.source = source = stream.Endpoint(EndpointDescription([("data", 24)]))
-        self.sync_out = Signal()
         
 
         vsync_ = Signal()
@@ -327,7 +326,6 @@ class boson_rx(Module):
             ).Else(
                 pixel_counter.eq(pixel_counter + 1)
             ),
-            self.sync_out.eq(pads.vsync),
            
         ]
 
@@ -347,22 +345,16 @@ class Boson(Module):
 
         
         self.submodules.clk = boson_clk(pads.clk, platform)
-        #self.submodules.rx = ClockDomainsRenamer("boson_rx")(boson_rx(pads))
-        #self.source = self.rx.source
+        self.submodules.rx = ClockDomainsRenamer("boson_rx")(boson_rx(pads))
+        self.source = self.rx.source
         
         self.hsync = pads.hsync
         self.vsync = pads.vsync
         self.data_valid = pads.valid
-
-        self.red = Signal(8)
-        self.green = Signal(8)
-        self.blue = Signal(8)
-
-        self.comb += [
-            self.red[-3:].eq(pads.data[0:6]),
-            self.green[-2:].eq(pads.data[6:12]),
-            self.blue[-3:].eq(pads.data[12:24]),
-        ]
+        #self.data = Signal(24)
+        #self.comb += [
+        #    self.data.eq(pads.data)
+        #]
         
       
         self.submodules.conf = ClockDomainsRenamer("sys")(BosonConfig(pads, clk_freq))
