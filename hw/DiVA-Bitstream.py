@@ -70,7 +70,7 @@ from migen.genlib.misc import timeline
 from sim import Platform
 
 from edge_detect import EdgeDetect
-from prbs_stream import prbsSink, prbsSource
+from prbs_stream import PRBSSink, PRBSSource
 
 #from hyperRAM.hyperbus_fast import HyperRAM
 #from dma.dma import StreamWriter, StreamReader, dummySink, dummySource
@@ -304,8 +304,8 @@ class DiVA_SoC(SoCCore):
 
 
         # prbs tester
-        self.submodules.prbs_sink = prbsSink()
-        self.submodules.prbs_source = prbsSource()
+        self.submodules.prbs_sink = PRBSSink()
+        self.submodules.prbs_source = PRBSSource()
 
         self.comb += [
             self.prbs_source.source.connect(self.reader1.sink),
