@@ -97,7 +97,12 @@ int main(int i, char **c)
 	reader_start_address_write(0);
 	reader_transfer_size_write(800*600);
 	reader_burst_size_write(512);
-	reader_enable_write(0);
+	reader_enable_write(1);
+
+
+	
+
+
 
 	writer_reset_write(1);
 	writer_start_address_write(0);
@@ -108,7 +113,14 @@ int main(int i, char **c)
 	
     while(1) {
 		y = _y;
+
 		printf("Counter %u \n", line++);
+		printf("freq %u \n", video_debug_freq_value_read());
+		
+		video_debug_latch_write(1);
+		printf("vsync LOW %u  HIGH %u   \n", video_debug_vsync_low_read(), video_debug_vsync_high_read());
+
+
 		/*
 		printf("Button_A %u \n", btn_in_read() & 0x1);
 		printf("Button_B %u \n", btn_in_read() & 0x2);
@@ -117,17 +129,7 @@ int main(int i, char **c)
 			reader_enable_write(1);
 			*/
 		
-		uint32_t* ptr = (HYPERRAM_BASE);
-		for(int i = 0; i < 600; i++){
-			for(int j = 0; j < 800; j++){
-				int col = 0;
-				
-				if(j == (line % 800))
-					col = 0x00FFFFFF;
-
-				*ptr++ = col;
-			}	
-		}
+		
 	}
 	
 	return 0;

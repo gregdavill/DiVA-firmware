@@ -72,6 +72,9 @@ from sim import Platform
 from edge_detect import EdgeDetect
 from prbs_stream import PRBSSink, PRBSSource
 
+from simulated_video import SimulatedVideo
+from video_debug import VideoDebug
+
 #from hyperRAM.hyperbus_fast import HyperRAM
 #from dma.dma import StreamWriter, StreamReader, dummySink, dummySource
 
@@ -171,6 +174,15 @@ class _CRG(Module, AutoCSR):
             self.pll.phase_load.eq(self._phase_load.storage),
         ]
 
+        # OSC-G for simulated video streams
+        oscg_clk = Signal()
+        self.clock_domains.cd_oscg_38M = ClockDomain()
+        self.specials += Instance("OSCG",
+            p_DIV=8,
+            o_OSC=oscg_clk
+        )
+        self.comb += self.cd_oscg_38M.clk.eq(oscg_clk)
+
 
        
 
@@ -191,6 +203,7 @@ class DiVA_SoC(SoCCore):
         "prbs_sink"  :  23,
         "prbs_source":  24,
         "reboot"     :  25,
+        "video_debug":  26
     }
     csr_map.update(SoCCore.csr_map)
 
@@ -218,6 +231,8 @@ class DiVA_SoC(SoCCore):
                           csr_data_width=32,
                           ident="HyperRAM Test SoC", ident_version=True, wishbone_timeout_cycles=512,
                           integrated_rom_size=16*1024)
+
+        self.platform.toolchain.build_template[1] += f" --log {platform.name}.log"
 
         # Fake a UART stream, to enable easy firmware reuse.
         self.comb += self.uart.source.ready.eq(1)
@@ -261,6 +276,14 @@ class DiVA_SoC(SoCCore):
 
         self.submodules.hyperram = hyperram = StreamableHyperRAM(hyperram_pads, devices=[reader, writer, reader1, writer1], sim=sim)
         self.register_mem("hyperram", self.mem_map['hyperram'], hyperram.bus, size=0x800000)
+
+        # Dummy video stream
+        self.submodules.simulated_video = simulated_video = ClockDomainsRenamer({"pixel":"oscg_38M"})(SimulatedVideo())
+        self.submodules.video_debug = video_debug = ClockDomainsRenamer({"pixel":"oscg_38M"})(VideoDebug(int(self.clk_freq)))
+
+        self.comb += [
+            video_debug.vsync.eq(simulated_video.vsync)
+        ]
 
         # connect something to these streams
         ds = dummySource()
