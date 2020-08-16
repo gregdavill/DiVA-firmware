@@ -5,6 +5,24 @@ from migen import *
 from migen.genlib.cdc import PulseSynchronizer
 
 class EdgeDetect(Module):
+    """A module to detect edges on a signal line
+
+    Args
+    ----
+
+    mode (str, optional): The type of edge that will generate an output pulse.
+        The options are:
+            * 'rise'
+            * 'fall'
+            * 'change'
+        On edge a 1 cycle pulse is generated, which can optionally 
+        be sent to a different clock domain.
+
+    input_cd (str, optional): Clock domain of input signal
+
+    output_cd (str, optional): Clock domain of output pulse
+    """
+
     def __init__(self, mode="rise", input_cd="sys", output_cd="sys"):
         self.i = i = Signal()
         self.o = o = Signal()
@@ -23,8 +41,7 @@ class EdgeDetect(Module):
         else:
             AttributeError(f"Invalid mode={mode}")
     
-
-        if input_cd is not output_cd:
+        if input_cd != output_cd:
             ps = PulseSynchronizer(input_cd, output_cd)
             self.submodules += ps
             self.comb += [
