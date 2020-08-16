@@ -13,7 +13,7 @@ from litex.soc.interconnect.stream import EndpointDescription
 
 from litex.soc.cores.uart import RS232PHYTX
 
-
+from ecp5_dynamic_pll import period_ns
 
 from struct import unpack, pack_into
 
@@ -335,34 +335,43 @@ class boson_rx(Module):
 
 # Convert the Boson clock pin Signal into a clock domain
 class boson_clk(Module):
-    def __init__(self, clk_pad):
+    def __init__(self, clk_pad, platform):
         self.clock_domains.cd_boson_rx = ClockDomain()        
-        self.comb += self.cd_boson_rx.clk.eq(~clk_pad)
-
+        self.comb += self.cd_boson_rx.clk.eq(clk_pad)
+        
+        platform.add_period_constraint(self.cd_boson_rx.clk, period_ns(27e6))
 
 class Boson(Module):
     def __init__(self, platform, pads, clk_freq):
         
 
         
-        self.submodules.clk = boson_clk(pads.clk)
-        self.submodules.rx = ClockDomainsRenamer("boson_rx")(boson_rx(pads))
-        self.source = self.rx.source
-
-
+        self.submodules.clk = boson_clk(pads.clk, platform)
+        #self.submodules.rx = ClockDomainsRenamer("boson_rx")(boson_rx(pads))
+        #self.source = self.rx.source
         
-        self.sync_out = Signal()
-        reg_sync = MultiReg(self.rx.sync_out, self.sync_out)
-        self.specials += reg_sync
+        self.hsync = pads.hsync
+        self.vsync = pads.vsync
+        self.data_valid = pads.valid
 
+        self.red = Signal(8)
+        self.green = Signal(8)
+        self.blue = Signal(8)
 
+        self.comb += [
+            self.red[-3:].eq(pads.data[0:6]),
+            self.green[-2:].eq(pads.data[6:12]),
+            self.blue[-3:].eq(pads.data[12:24]),
+        ]
+        
+      
         self.submodules.conf = ClockDomainsRenamer("sys")(BosonConfig(pads, clk_freq))
 
-        button = platform.request("button")
+        #button = platform.request("button")
 
         
         self.comb += [
-            self.conf.button.eq(~button.a),
+        #    self.conf.button.eq(~button.b),
             #self.sync_out.eq(button.b),
         ]
 

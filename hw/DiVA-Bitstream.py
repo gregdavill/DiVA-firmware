@@ -281,35 +281,41 @@ class DiVA_SoC(SoCCore):
         self.register_mem("hyperram", self.mem_map['hyperram'], hyperram.bus, size=0x800000)
 
         # Dummy video stream
-        self.submodules.simulated_video = simulated_video = ClockDomainsRenamer({"pixel":"oscg_38M"})(SimulatedVideo())
-        self.submodules.video_debug = video_debug = ClockDomainsRenamer({"pixel":"oscg_38M"})(VideoDebug(int(self.clk_freq)))
-        self.submodules.video_stream = video_stream = ClockDomainsRenamer({"pixel":"oscg_38M"})(VideoStream())
+        #self.submodules.simulated_video = simulated_video = ClockDomainsRenamer({"pixel":"oscg_38M"})(SimulatedVideo())
+        # Boson video stream
+        self.submodules.boson = boson = Boson(platform, platform.request("boson"), sys_clk_freq)
+        fifo = ClockDomainsRenamer({"read":"sys","write":"boson_rx"})(AsyncFIFO([("data", 32)], depth=512))
+        #self.submodules.YCrCb = ClockDomainsRenamer({"sys":"boson_rx"})(YCrCbConvert())
+        self.submodules.video_debug = video_debug = ClockDomainsRenamer({"pixel":"boson_rx"})(VideoDebug(int(self.clk_freq)))
+        self.submodules.video_stream = video_stream = ClockDomainsRenamer({"pixel":"boson_rx"})(VideoStream())
         
         self.submodules.framer = framer = Framer()
 
-        self.comb += [
-            video_debug.vsync.eq(simulated_video.vsync),
-            video_debug.hsync.eq(simulated_video.hsync),
 
-            video_stream.data_valid.eq(simulated_video.data_valid),
-            video_stream.red.eq(simulated_video.red),
-            video_stream.green.eq(simulated_video.green),
-            video_stream.blue.eq(simulated_video.blue),
+        self.comb += [
+            video_debug.vsync.eq(boson.vsync),
+            video_debug.hsync.eq(boson.hsync),
+
+            video_stream.data_valid.eq(boson.data_valid),
+            video_stream.red.eq(boson.red),
+            video_stream.green.eq(boson.green),
+            video_stream.blue.eq(boson.blue),
         ]
 
         # connect something to these streams
-        ds = dummySource()
+        #ds = dummySource()
         #fifo = ClockDomainsRenamer({"read":"sys","write":"sys"})(SyncFIFO([("data", 32)], depth=512))
-        fifo = ResetInserter()(SyncFIFO([("data", 32)], depth=4))
-        self.submodules += ds
+        #fifo = ResetInserter()(SyncFIFO([("data", 32)], depth=4))
+        #self.submodules += ds
         self.submodules += fifo
         self.comb += [
-            ds.source.connect(fifo.sink),
+        
+            video_stream.source.connect(fifo.sink),
+        #    ds.source.connect(fifo.sink),
             fifo.source.connect(reader.sink),
         ]
 
-        #self.submodules.boson = Boson(platform, platform.request("boson"), sys_clk_freq)
-        #self.submodules.YCrCb = ClockDomainsRenamer({"sys":"boson_rx"})(YCrCbConvert())
+
 
         ## HDMI output 
         if not sim:
@@ -327,15 +333,11 @@ class DiVA_SoC(SoCCore):
 
 
         fifo0 = ClockDomainsRenamer({"read":"video","write":"sys"})(AsyncFIFO([("data", 32)], depth=512))
-        ds0 = dummySource()
-        self.submodules += ds0
         self.submodules += fifo0
         self.comb += [
             writer.source.connect(fifo0.sink),
-            fifo0.source.connect(terminal.source),
+            fifo0.source.connect(framer.sink)
         ]
-        if sim:
-            self.comb += fifo0.source.ready.eq(terminal.source.ready & ~terminal.ce)
 
 
         # prbs tester
@@ -351,10 +353,16 @@ class DiVA_SoC(SoCCore):
         self.submodules.vsync_rise = vsync_rise = EdgeDetect(mode="rise", input_cd="video", output_cd="sys")
         self.comb += vsync_rise.i.eq(terminal.vsync)
 
+
+        self.submodules.vsync_boson = vsync_boson = EdgeDetect(mode="fall", input_cd="boson_rx", output_cd="sys")
+        self.comb += vsync_boson.i.eq(boson.vsync)
+
+
         self.comb += writer.start.eq(vsync_rise.o)
-        self.comb += reader.start.eq(vsync_rise.o)
-        self.comb += ds.clr.eq(vsync_rise.o)
-        self.comb += fifo.reset.eq(vsync_rise.o)
+        self.comb += reader.start.eq(vsync_boson.o)
+        
+        #self.comb += ds.clr.eq(vsync_rise.o)
+        #self.comb += fifo.reset.eq(vsync_rise.o)
 
        
 

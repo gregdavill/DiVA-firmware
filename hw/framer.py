@@ -65,6 +65,14 @@ class Framer(Module, AutoCSR):
             fifo.source.ready.eq(v_det.o),
         ]
 
+        self.comb += [
+            If((line_counter >= y_start) & (line_counter < y_stop),
+                If((pixel_counter >= x_start) & (pixel_counter < x_stop),
+                    sink.ready.eq(1)
+                )
+            )
+        ]
+
 
         self.sync.video += [
             # Default values
@@ -77,9 +85,15 @@ class Framer(Module, AutoCSR):
             If((line_counter >= y_start) & (line_counter < y_stop),
                 If((pixel_counter >= x_start) & (pixel_counter < x_stop),
                     data_valid.eq(1),
-                    red.eq(0xFF),
-                    green.eq(0x77),
-                    blue.eq(0xFF)
+                    If(sink.valid,
+                        red.eq(sink.data[16:24]),
+                        green.eq(sink.data[8:16]),
+                        blue.eq(sink.data[0:8])
+                    ).Else( 
+                        red.eq(0xFF),
+                        green.eq(0x77),
+                        blue.eq(0xFF)
+                    )
                 )
             ),
 

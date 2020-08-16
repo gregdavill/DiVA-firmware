@@ -55,7 +55,7 @@ int main(int i, char **c)
 
 	//rgb_div_m_write(400000);
     //rgb_config_write(2);
-/*
+
 	printf("     ______    ___   __   __   _______ \n");
 	printf("    |      |  |___| |  | |  | |   _   |\n");
 	printf("    |  _    |  ___  |  |_|  | |  |_|  |\n");
@@ -72,13 +72,6 @@ int main(int i, char **c)
  	printf("   Firmware git sha1: "DIVA_GIT_SHA1"\n");
  	printf("      Migen git sha1: "MIGEN_GIT_SHA1"\n");
  	printf("      LiteX git sha1: "LITEX_GIT_SHA1"\n");
-*/
-
-
-    printf("--========== \e[1mInitialization\e[0m ============--\n");
-
-
-//    printf(" HyperRAM Init..");
 
 	printf("--==========-- \e[1mHyperRAM Init\e[0m ===========--\n");
 	hyperram_init();
@@ -93,14 +86,14 @@ int main(int i, char **c)
 
 	reader_reset_write(1);
 	reader_start_address_write(0);
-	reader_transfer_size_write(800*600);
+	reader_transfer_size_write(640*512);
 	reader_burst_size_write(512);
 	reader_enable_write(1);
 
 
 	writer_reset_write(1);
 	writer_start_address_write(0);
-	writer_transfer_size_write(800*600);
+	writer_transfer_size_write(640*512);
 	writer_burst_size_write(512);
 	writer_enable_write(1);
 	
@@ -126,8 +119,8 @@ int main(int i, char **c)
 		printf("lines %u   \n", video_debug_lines_read());
 
 
-		framer_x_start_write(213 + ((line & 63)));
-		framer_y_start_write(27);
+		framer_x_start_write(213 + ((line & 127)));
+		framer_y_start_write(27 + ((line >> 2 & 63)));
 
 
 		/*
