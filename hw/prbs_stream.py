@@ -6,13 +6,9 @@ from litex.soc.interconnect.stream import EndpointDescription, Endpoint
 from litex.soc.interconnect.csr import CSR, CSRStatus, AutoCSR
 from litex.soc.cores.prbs import PRBS31Generator
 
-def data_stream_description(dw):
-    payload_layout = [("data", dw)]
-    return EndpointDescription(payload_layout)
-
 class PRBSSource(Module, AutoCSR):
     def __init__(self):
-        self.source = source = Endpoint(data_stream_description(32))
+        self.source = source = Endpoint([("data", 32)])
 
         self.submodules.prbs = prbs = ResetInserter()(CEInserter()(PRBS31Generator(32)))
 
@@ -29,7 +25,7 @@ class PRBSSource(Module, AutoCSR):
 
 class PRBSSink(Module, AutoCSR):
     def __init__(self):
-        self.sink = sink = Endpoint(data_stream_description(32))
+        self.sink = sink = Endpoint([("data", 32)])
         
         self.submodules.prbs = prbs = ResetInserter()(CEInserter()(PRBS31Generator(32)))
 
