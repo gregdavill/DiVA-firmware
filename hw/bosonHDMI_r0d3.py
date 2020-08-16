@@ -54,7 +54,7 @@ _io = [
 
     ("boson", 0,
         Subsignal("data", Pins("D15 C17 C13 B17 A2 A10 A11 C2 \
-                                D1 C15 B11 A15 C3 A8 C1 B13 \
+                                D1 A15 B11 C15 C3 A8 C1 B13 \
                                 B12 B1 D13 B10 B15 A16 A4 A12"),IOStandard("LVCMOS18"),Misc("SLEWRATE=SLOW")),
         Subsignal("clk", Pins("A17"),IOStandard("LVCMOS18"),Misc("SLEWRATE=SLOW")),
         Subsignal("vsync", Pins("A13"),IOStandard("LVCMOS18"),Misc("SLEWRATE=SLOW")),
