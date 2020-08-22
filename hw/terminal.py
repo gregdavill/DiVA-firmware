@@ -260,7 +260,7 @@ class Terminal(Module, AutoCSR):
                 fx.eq(0),
                 text_addr.eq(text_addr_start)
             ),
-            If(pixel_counter == H_FRONT_PORCH,
+            If(pixel_counter == (H_FRONT_PORCH - 1),
                 # Initilize next line
                 pixel_counter.eq(0),
                 line_counter.eq(line_counter + 1),
@@ -279,7 +279,7 @@ class Terminal(Module, AutoCSR):
             ).Elif(line_counter < V_BACK_PORCH,
                 vsync.eq(1)
             ),
-            If(line_counter == V_FRONT_PORCH,
+            If(line_counter == (V_FRONT_PORCH - 1),
                 # End of image
                 line_counter.eq(0)
             ),
