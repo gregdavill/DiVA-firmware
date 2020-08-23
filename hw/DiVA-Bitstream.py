@@ -78,6 +78,8 @@ from simulated_video import SimulatedVideo
 from video_debug import VideoDebug
 from video_stream import VideoStream
 from framer import Framer
+from scaler import ScalerWidth
+from scaler import ScalerHeight
 
 #from hyperRAM.hyperbus_fast import HyperRAM
 #from dma.dma import StreamWriter, StreamReader, dummySink, dummySource
@@ -285,11 +287,15 @@ class DiVA_SoC(SoCCore):
         fifo = AsyncFIFO([("data", 32)], depth=512)
         fifo = ResetInserter(["read","write"])(fifo)
         fifo = ClockDomainsRenamer({"read":"sys","write":"boson_rx"})(fifo)
-
+        
         self.submodules.video_debug = video_debug = ClockDomainsRenamer({"pixel":"boson_rx"})(VideoDebug(int(self.clk_freq)))
         #self.submodules.video_stream = video_stream = ClockDomainsRenamer({"pixel":"boson_rx"})(VideoStream())
         
         self.submodules.framer = framer = Framer()
+
+        self.submodules.scaler = scaler = ClockDomainsRenamer({"sys":"video"})(ResetInserter()(ScalerWidth()))
+        self.submodules.fifo2 = fifo2 = ClockDomainsRenamer({"sys":"video"})(ResetInserter()(SyncFIFO([("data", 32)], depth=16)))
+        self.submodules.scaler0 = scaler0 = ClockDomainsRenamer({"sys":"video"})(ResetInserter()(ScalerHeight(800)))
 
 
         self.comb += [
@@ -344,7 +350,12 @@ class DiVA_SoC(SoCCore):
         self.submodules += fifo0
         self.comb += [
             writer.source.connect(fifo0.sink),
-            fifo0.source.connect(framer.sink)
+
+
+            fifo0.source.connect(scaler.sink),
+            scaler.source.connect(fifo2.sink),
+            fifo2.source.connect(scaler0.sink),
+            scaler0.source.connect(framer.sink)
         ]
 
 
@@ -361,12 +372,20 @@ class DiVA_SoC(SoCCore):
         self.submodules.vsync_rise = vsync_rise = EdgeDetect(mode="rise", input_cd="video", output_cd="sys")
         self.comb += vsync_rise.i.eq(terminal.vsync)
 
+        self.submodules.vsync_rise_term = vsync_rise_term = EdgeDetect(mode="rise", input_cd="video", output_cd="video")
+        self.comb += vsync_rise_term.i.eq(terminal.vsync)
+
 
         self.submodules.vsync_boson = vsync_boson = EdgeDetect(mode="fall", input_cd="boson_rx", output_cd="sys")
         self.comb += vsync_boson.i.eq(boson.vsync)
 
 
-        self.comb += writer.start.eq(vsync_rise.o)
+        self.comb += [
+            writer.start.eq(vsync_rise.o),
+            scaler.reset.eq(vsync_rise_term.o),
+            fifo2.reset.eq(vsync_rise_term.o),
+            scaler0.reset.eq(vsync_rise_term.o),
+        ]
         #self.comb += reader.start.eq(vsync_boson.o)
         
         #self.comb += ds.clr.eq(vsync_rise.o)

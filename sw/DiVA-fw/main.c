@@ -98,7 +98,7 @@ int main(int i, char **c)
 	writer_enable_write(1);
 	
 
-	framer_width_write(640);
+	framer_width_write(800);
 	framer_height_write(512);
 	
 	framer_x_start_write(400);
@@ -106,8 +106,11 @@ int main(int i, char **c)
 	
 	
 	// place preview in bottom right corner
-	framer_x_start_write(213 +  (800-640));
-	framer_y_start_write(27 + (600-512));
+//	framer_x_start_write(213 +  (800-640));
+//	framer_y_start_write(27 + (600-512));
+
+	framer_x_start_write(213);
+	framer_y_start_write(27);
 
 	
     while(1) {
