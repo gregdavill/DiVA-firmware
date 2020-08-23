@@ -86,9 +86,9 @@ class Framer(Module, AutoCSR):
                 If((pixel_counter >= x_start) & (pixel_counter < x_stop),
                     data_valid.eq(1),
                     If(sink.valid,
-                        red.eq(sink.data[16:24]),
+                        red.eq(sink.data[0:8]),
                         green.eq(sink.data[8:16]),
-                        blue.eq(sink.data[0:8])
+                        blue.eq(sink.data[16:24])
                     ).Else( 
                         red.eq(0xFF),
                         green.eq(0x77),
