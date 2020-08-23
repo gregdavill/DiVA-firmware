@@ -17,6 +17,9 @@ from ecp5_dynamic_pll import period_ns
 
 from struct import unpack, pack_into
 
+
+from litex.soc.interconnect.csr import AutoCSR, CSR, CSRStatus, CSRStorage
+
 FRAME_BUF_SIZ = 4000
 START_FRAME_BYTE = bytes([0x8E])
 ESCAPE_BYTE = bytes([0x9E])
@@ -339,7 +342,7 @@ class boson_clk(Module):
         
         platform.add_period_constraint(self.cd_boson_rx.clk, period_ns(27e6))
 
-class Boson(Module):
+class Boson(Module, AutoCSR):
     def __init__(self, platform, pads, clk_freq):
         
 
@@ -351,6 +354,8 @@ class Boson(Module):
         self.hsync = pads.hsync
         self.vsync = pads.vsync
         self.data_valid = pads.valid
+
+        self.mode = CSR()
 
         self.next_mode = Signal()
         #self.data = Signal(24)
@@ -365,7 +370,7 @@ class Boson(Module):
 
         
         self.comb += [
-            self.conf.button.eq(self.next_mode),
+            self.conf.button.eq(self.mode.re),
             #self.sync_out.eq(button.b),
         ]
 
