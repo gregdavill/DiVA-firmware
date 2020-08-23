@@ -148,7 +148,7 @@ flirInitPackets = Array([
     
     flirFrame(50, 0x0006000C), # Apply Settings
     
-    flirFrame(90, 0x000B0003,[0x00,0x00,0x00,0x04]), # LUT select Rainbow
+    flirFrame(90, 0x000B0003,[0x00,0x00,0x00,0x00]), # LUT select Rainbow
     flirFrame(91, 0x000B0001,[0x00,0x00,0x00,0x01]), # Enable Colouriser
     
     flirFrame(100, 0x0006000F,[0x00,0x00,0x00,0x02]), # colour
@@ -351,6 +351,8 @@ class Boson(Module):
         self.hsync = pads.hsync
         self.vsync = pads.vsync
         self.data_valid = pads.valid
+
+        self.next_mode = Signal()
         #self.data = Signal(24)
         #self.comb += [
         #    self.data.eq(pads.data)
@@ -363,7 +365,7 @@ class Boson(Module):
 
         
         self.comb += [
-        #    self.conf.button.eq(~button.b),
+            self.conf.button.eq(self.next_mode),
             #self.sync_out.eq(button.b),
         ]
 

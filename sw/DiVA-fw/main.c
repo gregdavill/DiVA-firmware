@@ -105,6 +105,9 @@ int main(int i, char **c)
 	framer_y_start_write(300);
 	
 	
+	// place preview in bottom right corner
+	framer_x_start_write(213 +  (800-640));
+	framer_y_start_write(27 + (600-512));
 
 	
     while(1) {
@@ -119,8 +122,6 @@ int main(int i, char **c)
 		printf("lines %u   \n", video_debug_lines_read());
 
 
-		framer_x_start_write(213 + ((line & 127)));
-		framer_y_start_write(27 + ((line >> 2 & 63)));
 
 
 		/*

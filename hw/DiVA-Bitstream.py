@@ -306,6 +306,8 @@ class DiVA_SoC(SoCCore):
             #video_stream.red.eq(boson.red),
             #video_stream.green.eq(boson.green),
             #video_stream.blue.eq(boson.blue),
+
+            boson.next_mode.eq(btn.b)
         ]
 
         # connect something to these streams
