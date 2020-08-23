@@ -39,6 +39,23 @@ void terminal_write(char c){
 
 
 
+void switch_mode(int mode){
+	if(mode == 0){
+		framer_width_write(800);
+		framer_height_write(600);
+
+		scaler_enable_write(1);
+	}else{
+		
+		framer_width_write(640);
+		framer_height_write(512);
+
+
+		scaler_enable_write(0);
+	}
+}
+
+
 
 int colour(int j){
 	return (1 << (j % 24));
@@ -99,20 +116,21 @@ int main(int i, char **c)
 	
 
 	framer_width_write(800);
-	framer_height_write(512);
-	
-	framer_x_start_write(400);
-	framer_y_start_write(300);
+	framer_height_write(600);
+
+	framer_x_start_write(213);
+	framer_y_start_write(27);
 	
 	
 	// place preview in bottom right corner
 //	framer_x_start_write(213 +  (800-640));
 //	framer_y_start_write(27 + (600-512));
 
-	framer_x_start_write(213);
-	framer_y_start_write(27);
 
 	
+	uint8_t scale_mode = 0;
+	uint16_t btn_2_cnt = 0;
+
     while(1) {
 		y = _y;
 
@@ -124,6 +142,24 @@ int main(int i, char **c)
 		printf("hsync LOW %u  HIGH %u   \n", video_debug_hsync_low_read(), video_debug_hsync_high_read());
 		printf("lines %u   \n", video_debug_lines_read());
 
+
+
+		if((btn_in_read() & 2) == 0){
+			btn_2_cnt++;
+		}else{
+			if((btn_2_cnt > 20) && (btn_2_cnt < 100)){
+				boson_mode_write(1);
+			}
+			btn_2_cnt = 0;
+		}
+
+
+		if((btn_2_cnt > 120) && (btn_2_cnt < 150) ){
+			scale_mode ^= 1;
+			btn_2_cnt = 999;
+
+			switch_mode(scale_mode);
+		}
 
 
 

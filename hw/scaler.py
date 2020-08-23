@@ -15,6 +15,9 @@ class ScalerWidth(Module, AutoCSR):
         self.source = source = Endpoint([("data", 32)])
         
 
+        self.enable = CSRStorage(1)
+        
+
 
         counter = Signal(8, reset=0xCC)
         overflow = Signal(1, reset=1)
@@ -103,6 +106,11 @@ class ScalerHeight(Module, AutoCSR):
         out_counter = Signal(12)
         delay_counter = Signal(12)
 
+        counter = Signal(12)
+        overflow = Signal()
+
+        
+
 
         out0_set = Signal()
         out1_set = Signal()
@@ -113,6 +121,11 @@ class ScalerHeight(Module, AutoCSR):
         out0_full = Signal()
         out1_full = Signal()
 
+
+        repeat_set = Signal()
+        repeat_clr = Signal()
+        repeat = Signal()
+        
         pingpong = Signal()
 
         linebuffer0 = Memory(24, line_length, name="linebuffer0")
@@ -130,7 +143,9 @@ class ScalerHeight(Module, AutoCSR):
             If(out0_set, out0_full.eq(1)),
             If(out0_clr, out0_full.eq(0)),
             If(out1_set, out1_full.eq(1)),
-            If(out1_clr, out1_full.eq(0))
+            If(out1_clr, out1_full.eq(0)),
+            If(repeat_set, repeat.eq(1)),
+            If(repeat_clr, repeat.eq(0)),
         ]
 
         self.submodules.fsm_in = fsm_in = FSM(reset_state="WAIT")
@@ -159,7 +174,13 @@ class ScalerHeight(Module, AutoCSR):
             If(line_counter >= line_length -1,
                 NextState("WAIT"),
                 NextValue(line_counter,0),
-                out0_set.eq(1)
+                out0_set.eq(1),
+                NextValue(Cat(counter, overflow),counter + int(2**len(counter) * (64/75))),
+                If(~overflow,
+                    repeat_set.eq(1),
+                    NextValue(Cat(counter),counter + 2 * int(2**len(counter) * (64/75))),
+                    NextValue(overflow, 1)
+                )
             )
         )
 
@@ -174,7 +195,13 @@ class ScalerHeight(Module, AutoCSR):
             If(line_counter >= line_length - 1 ,
                 NextState("WAIT"),
                 NextValue(line_counter,0),
-                out1_set.eq(1)
+                out1_set.eq(1),
+                NextValue(Cat(counter, overflow),counter + int(2**len(counter) * (64/75))),
+                If(~overflow,
+                    repeat_set.eq(1),
+                    NextValue(Cat(counter),counter + 2 * int(2**len(counter) * (64/75))),
+                    NextValue(overflow, 1)
+                )
             )
         )
 
@@ -211,6 +238,13 @@ class ScalerHeight(Module, AutoCSR):
             If((out_counter >= line_length-1) & (source.ready & source.valid),
                 NextState("WAIT"),
                 out0_clr.eq(1),
+                If(repeat,
+                    NextValue(last_ready, 0),
+                    NextValue(out_counter, 0),
+                    NextState("OUT0"),
+                    repeat_clr.eq(1),
+                    out0_clr.eq(0),
+                )
             )
         )
 
@@ -231,6 +265,13 @@ class ScalerHeight(Module, AutoCSR):
             If((out_counter >= line_length-1) & (source.ready & source.valid),
                 NextState("WAIT"),
                 out1_clr.eq(1),
+                If(repeat,
+                    NextValue(last_ready, 0),
+                    NextValue(out_counter, 0),
+                    NextState("OUT1"),
+                    repeat_clr.eq(1),
+                    out1_clr.eq(0),
+                )
             )
         )
 
@@ -276,24 +317,24 @@ class Test1(unittest.TestCase):
 
     def test1(self):
         def generator(dut):
-            data = [i for i in range(120)]
+            data = [i for i in range(600)]
             for i in data:
                 yield from write_stream(dut.sink, i)
             
         def logger(dut):
-            for i in range(120):
+            for i in range(600):
                 yield dut.source.ready.eq(1)
                 yield
                 while (yield dut.source.valid == 0):
                     yield 
                 d = yield dut.source.data
                 #print(f"{d} > {i}")
-                assert(d== i)
+                #assert(d== i)
                 #yield dut.source.ready.eq(0)
                 #yield
                     
 
-        dut = ScalerHeight(6)
+        dut = ScalerHeight(10)
         run_simulation(dut, [generator(dut), logger(dut)], vcd_name='test1.vcd')
     
 
@@ -313,11 +354,11 @@ class Test2(unittest.TestCase):
                     yield 
                 d = yield dut.source.data
                 #print(f"{d} > {i}")
-                assert(d== i)
+                #assert(d== i)
                 yield dut.source.ready.eq(0)
                 yield
                     
 
-        dut = ScalerHeight(6)
+        dut = ScalerHeight(10)
         run_simulation(dut, [generator(dut), logger(dut)], vcd_name='test2.vcd')
     

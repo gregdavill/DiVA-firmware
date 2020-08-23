@@ -211,6 +211,8 @@ class DiVA_SoC(SoCCore):
         "reboot"     :  25,
         "video_debug":  26,
         "framer"     :  27,
+        "scaler"     :  28,
+        "boson"      :  29,
     }
     csr_map.update(SoCCore.csr_map)
 
@@ -352,10 +354,15 @@ class DiVA_SoC(SoCCore):
             writer.source.connect(fifo0.sink),
 
 
-            fifo0.source.connect(scaler.sink),
-            scaler.source.connect(fifo2.sink),
-            fifo2.source.connect(scaler0.sink),
-            scaler0.source.connect(framer.sink)
+            If(scaler.enable.storage,
+                fifo0.source.connect(scaler.sink),
+                scaler.source.connect(fifo2.sink),
+                fifo2.source.connect(scaler0.sink),
+                scaler0.source.connect(framer.sink)
+            ).Else(
+
+                fifo0.source.connect(framer.sink),
+            )
         ]
 
 
