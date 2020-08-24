@@ -16,7 +16,7 @@ class ScalerWidth(Module, AutoCSR):
         
 
         self.enable = CSRStorage(1)
-        
+
 
 
         counter = Signal(8, reset=0xCC)
@@ -153,14 +153,11 @@ class ScalerHeight(Module, AutoCSR):
 
         fsm_in.act("WAIT",
             NextValue(line_counter,0),
-            NextValue(delay_counter, delay_counter + 1),
             If(~out0_full & ~fsm_out.ongoing("OUT0"),
                 NextState("FILL0"),
             ).Elif(~out1_full & ~fsm_out.ongoing("OUT1"),
                 NextState("FILL1"),
             ),
-            NextValue(delay_counter, 0)
-        
         )
 
         fsm_in.act("FILL0",
@@ -222,57 +219,35 @@ class ScalerHeight(Module, AutoCSR):
             )
         )
 
-        fsm_out.act("OUT0",
-            NextValue(last_ready, source.ready),
-            line0.adr.eq(out_counter),
-            source.data.eq(line0.dat_r),
-            If(source.ready,
-            ),
-            source.valid.eq(last_ready),
+        def out_state(linebuffer_port, clr_flag, state_name):
+            return [ 
+                NextValue(last_ready, 1),
+                linebuffer_port.adr.eq(out_counter + source.ready),
+                source.data.eq(linebuffer_port.dat_r),
+                If(source.ready,
+                    NextValue(out_counter, out_counter + 1),
+                ),
+                source.valid.eq(last_ready),
 
-            NextValue(out_counter, out_counter + (source.ready)),
-            If(last_ready & ~source.ready,
-                NextValue(out_counter, out_counter - 1),
-            ),
-
-            If((out_counter >= line_length-1) & (source.ready & source.valid),
-                NextState("WAIT"),
-                out0_clr.eq(1),
-                If(repeat,
+                
+                If((out_counter >= line_length-1),
                     NextValue(last_ready, 0),
                     NextValue(out_counter, 0),
-                    NextState("OUT0"),
+                    #NextState(state_name),
                     repeat_clr.eq(1),
-                    out0_clr.eq(0),
+                    If(~repeat,
+                        clr_flag.eq(1),
+                        NextState("WAIT"),
+                    )
                 )
-            )
+            ]
+
+        fsm_out.act("OUT0",
+            out_state(line0, out0_clr, "OUT0")
         )
 
         fsm_out.act("OUT1",
-
-            NextValue(last_ready, source.ready),
-            line1.adr.eq(out_counter),
-            source.data.eq(line1.dat_r),
-            If(source.ready,
-            ),
-            source.valid.eq(last_ready),
-
-            NextValue(out_counter, out_counter + (source.ready)),
-            If(last_ready & ~source.ready,
-                NextValue(out_counter, out_counter - 1),
-            ),
-
-            If((out_counter >= line_length-1) & (source.ready & source.valid),
-                NextState("WAIT"),
-                out1_clr.eq(1),
-                If(repeat,
-                    NextValue(last_ready, 0),
-                    NextValue(out_counter, 0),
-                    NextState("OUT1"),
-                    repeat_clr.eq(1),
-                    out1_clr.eq(0),
-                )
-            )
+            out_state(line1, out1_clr, "OUT1")    
         )
 
 
@@ -322,43 +297,25 @@ class Test1(unittest.TestCase):
                 yield from write_stream(dut.sink, i)
             
         def logger(dut):
-            for i in range(600):
-                yield dut.source.ready.eq(1)
-                yield
-                while (yield dut.source.valid == 0):
-                    yield 
-                d = yield dut.source.data
-                #print(f"{d} > {i}")
-                #assert(d== i)
-                #yield dut.source.ready.eq(0)
+            for _ in range(60):
+                yield dut.source.ready.eq(0)
+                for _ in range(20):
+                    yield
+
+                d = []
+                for i in range(10):
+                    yield dut.source.ready.eq(1)
+                    yield
+                    d.append((yield dut.source.data))
+                    #print(f"{d} > {i}")
                 #yield
+                print(d)
+                #print([i for i in range(10)])
+                
+                #assert(d == [i for i in range(10)])
+                #for i in range(10):
                     
 
         dut = ScalerHeight(10)
         run_simulation(dut, [generator(dut), logger(dut)], vcd_name='test1.vcd')
-    
-
-class Test2(unittest.TestCase):
-
-    def test1(self):
-        def generator(dut):
-            data = [i for i in range(120)]
-            for i in data:
-                yield from write_stream(dut.sink, i)
-            
-        def logger(dut):
-            for i in range(120):
-                yield dut.source.ready.eq(1)
-                yield
-                while (yield dut.source.valid == 0):
-                    yield 
-                d = yield dut.source.data
-                #print(f"{d} > {i}")
-                #assert(d== i)
-                yield dut.source.ready.eq(0)
-                yield
-                    
-
-        dut = ScalerHeight(10)
-        run_simulation(dut, [generator(dut), logger(dut)], vcd_name='test2.vcd')
     

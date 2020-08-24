@@ -293,6 +293,8 @@ class DiVA_SoC(SoCCore):
         self.submodules.video_debug = video_debug = ClockDomainsRenamer({"pixel":"boson_rx"})(VideoDebug(int(self.clk_freq)))
         #self.submodules.video_stream = video_stream = ClockDomainsRenamer({"pixel":"boson_rx"})(VideoStream())
         
+        scaler_enable = Signal()
+
         self.submodules.framer = framer = Framer()
 
         self.submodules.scaler = scaler = ClockDomainsRenamer({"sys":"video"})(ResetInserter()(ScalerWidth()))
@@ -354,7 +356,7 @@ class DiVA_SoC(SoCCore):
             writer.source.connect(fifo0.sink),
 
 
-            If(scaler.enable.storage,
+            If(scaler_enable,
                 fifo0.source.connect(scaler.sink),
                 scaler.source.connect(fifo2.sink),
                 fifo2.source.connect(scaler0.sink),
@@ -405,7 +407,7 @@ class DiVA_SoC(SoCCore):
         self.sync += [
              timeline(vsync_boson.o, [
                 (501,  [fifo_rst.eq(1)]),   # Reset FIFO
-                (550,  [fifo_rst.eq(0)]),  # Clear Reset
+                (550,  [fifo_rst.eq(0), scaler_enable.eq(scaler.enable.storage)]),  # Clear Reset
                 (621,  [reader.start.eq(1)]),
                 (622,  [reader.start.eq(0)])
             ])

@@ -147,14 +147,14 @@ int main(int i, char **c)
 		if((btn_in_read() & 2) == 0){
 			btn_2_cnt++;
 		}else{
-			if((btn_2_cnt > 20) && (btn_2_cnt < 100)){
+			if((btn_2_cnt > 5) && (btn_2_cnt < 100)){
 				boson_mode_write(1);
 			}
 			btn_2_cnt = 0;
 		}
 
 
-		if((btn_2_cnt > 120) && (btn_2_cnt < 150) ){
+		if((btn_2_cnt > 100) && (btn_2_cnt < 150) ){
 			scale_mode ^= 1;
 			btn_2_cnt = 999;
 
