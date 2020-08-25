@@ -9,6 +9,7 @@ from edge_detect import EdgeDetect
 from litex.soc.interconnect.csr import AutoCSR, CSR, CSRStatus, CSRStorage
 from litex.soc.interconnect.stream import Endpoint, EndpointDescription, AsyncFIFO
 
+@ResetInserter()
 class ScalerWidth(Module, AutoCSR):
     def __init__(self):
         self.sink = sink = Endpoint([("data", 32)])
@@ -19,7 +20,7 @@ class ScalerWidth(Module, AutoCSR):
 
 
 
-        counter = Signal(8, reset=0xCC)
+        counter = Signal(8, reset=0)
         overflow = Signal(1, reset=1)
         overflow_r = Signal(1)
 
@@ -33,9 +34,14 @@ class ScalerWidth(Module, AutoCSR):
         r_last = Signal(32)
         
         base_x = Signal(32)
-        offset_x = Signal(16)        
-        offset_r = Signal(8)        
-        slope_red = Signal(9)
+        base_x0 = Signal(32)
+        offset_x = Signal(8)        
+        offset_r = Signal(8) 
+        offset_r0 = Signal(8)  
+        offset_r1 = Signal(8)       
+        slope_red = Signal(8)
+        neg = Signal()
+        neg1 = Signal()
 
         output_r = Signal(8)
         output_g = Signal(8)
@@ -44,6 +50,8 @@ class ScalerWidth(Module, AutoCSR):
         self.sync += [
             If(sink.valid & source.ready,
                 Cat(counter, overflow).eq(counter + int(2**len(counter) * (4/5)) + (counter > 0)),
+
+                #Cat(counter, overflow).eq(counter + int(2**len(counter) * (1/2))),
             ),
             overflow_r.eq(overflow),
         ]
@@ -70,30 +78,46 @@ class ScalerWidth(Module, AutoCSR):
 
         self.sync += [
             If(source.ready,
-                slope_red.eq(sink.data[0:8] - r_next[0:8]) 
+                If(sink.data[0:8] < r_next[0:8],
+                    slope_red.eq(r_next[0:8] - sink.data[0:8]),
+                    neg.eq(1)
+                ).Else(
+                    slope_red.eq(sink.data[0:8] - r_next[0:8]),
+                    neg.eq(0)
+                ),
+                offset_r.eq(256-counter),
             )
         ]
 
         self.sync += [
             If(source.ready,
-            #    offset_r.eq(counter),
-                
-            #    offset_x.eq(offset_r * slope_red),
-                base_x.eq(r_last),
+                offset_r0.eq(offset_r),
 
-                output_r.eq(base_x[0:8]),
-                output_g.eq(base_x[8:16]),
-                output_b.eq(base_x[16:24]),
+                neg1.eq(neg),
+                offset_x.eq((offset_r0 * slope_red)>>8),
+                base_x.eq(r_last),
+                base_x0.eq(base_x),
+                
+                output_r.eq(r_last[0:8]),
+                If((offset_x > 0) & (offset_x < 255),
+                    If(neg1,
+                        output_r.eq((r_last[0:8] + offset_x)),
+                    ).Else(
+                        output_r.eq((r_last[0:8] - offset_x)),
+                    )
+                )
             )
         ]
 
 
 #        self.specials += MultiReg((overflow | overflow_r), source.valid, n=3)
         self.comb += [
-            source.valid.eq(ce_x | ce_x1),
             source.data.eq(Cat(output_r,output_g,output_b, C(0, 8)))
 
         ]
+
+        self.specials += MultiReg(sink.last, source.last, n=4)
+        self.specials += MultiReg(sink.valid, source.valid, n=4)
 
 
 
@@ -272,16 +296,26 @@ class Test0(unittest.TestCase):
     def test0(self):
         def generator(dut):
             data = [0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80]
-            data = [i for i in range(8)]
+            data = [i*16 for i in range(8)]
+            data += reversed(data)
             for i in data:
                 yield from write_stream(dut.sink, i)
             
         def logger(dut):
-            for _ in range(16):
+            d = []
+            for _ in range(20):
                 yield dut.source.ready.eq(1)
+                while (yield dut.source.valid == 0):
+                    yield 
+                d.append((yield dut.source.data))
+                    #print(f"{d} > {i}")
+                #yield
                 yield
-                #yield dut.source.ready.eq(0)
-                yield
+            data = [i*16 for i in range(8)]
+            data += reversed(data)
+            print(data)
+            print(d)
+
                     
 
         dut = ScalerWidth()
@@ -318,4 +352,79 @@ class Test1(unittest.TestCase):
 
         dut = ScalerHeight(10)
         run_simulation(dut, [generator(dut), logger(dut)], vcd_name='test1.vcd')
+    
+
+from litex.soc.interconnect.stream_sim import PacketStreamer, PacketLogger, Packet, Randomizer
+from litex.soc.interconnect.stream import Pipeline
+
+
+class Test2(unittest.TestCase):
+
+    def test2(self):
+        def generator(dut):
+            from PIL import Image
+
+            im0 = Image.open('test0.png')
+            
+            im_data = list(im0.getdata())
+            yield
+            yield
+            yield
+            
+            out_data = []
+            for line in range(51):
+                data = []
+                for r,g,b in im_data[line*64:(line+1)*64]:
+                    data.append(r | g << 8 | b << 16)
+                d = Packet(data)
+                yield dut.scaler.reset.eq(1)
+                yield
+                yield dut.scaler.reset.eq(0)
+                yield
+                yield from dut.streamer.send_blocking(d)
+                yield from dut.logger.receive()
+                print(line,len(dut.logger.packet))
+                for d in dut.logger.packet[:80]:
+                    out_data += [(d & 0x000000FF) >> 0, (d & 0x0000FF00) >> 8, (d & 0x00FF0000) >> 16]
+            
+
+            im = Image.frombytes("RGB", (80, 51), bytes(out_data))    
+            im = im.resize((800, 510), resample=Image.NEAREST)
+            im.save("test_out.png")    
+
+            im0 = im0.resize((80,51), resample=Image.BILINEAR)
+            im0 = im0.resize((800,510), resample=Image.NEAREST)
+            im0.save("test_out0.png") 
+                    
+        class DUT(Module):
+            def __init__(self):
+                self.submodules.scaler = ScalerWidth()
+                self.sink = Endpoint([("data", 32)])
+
+                self.submodules.streamer = PacketStreamer([("data", 32)])
+                self.submodules.streamer_randomizer = Randomizer([("data", 32)], level=50)
+                self.submodules.logger = PacketLogger([("data", 32)])
+                self.submodules.logger_randomizer = Randomizer([("data", 32)], level=50)
+
+                self.submodules.pipeline = Pipeline(
+                    self.streamer,
+                    self.streamer_randomizer,
+                    self.scaler,
+                    self.logger_randomizer,
+                    self.logger
+                )
+                
+
+
+        dut = DUT()
+        generators = {
+            "sys" :   [generator(dut),
+                      dut.streamer.generator(),
+                      #dut.streamer_randomizer.generator(),
+                      dut.logger.generator(),
+                      #dut.logger_randomizer.generator()
+                      ]
+        }
+        clocks = {"sys": 10}
+        run_simulation(dut, generators, clocks,  vcd_name='test2.vcd')
     
