@@ -41,15 +41,21 @@ void terminal_write(char c){
 
 void switch_mode(int mode){
 	if(mode == 0){
+		framer_x_start_write(213);
+		framer_y_start_write(27);
+
 		framer_width_write(800);
 		framer_height_write(600);
 
+
+
 		scaler_enable_write(1);
 	}else{
-		
 		framer_width_write(640);
 		framer_height_write(512);
 
+		framer_x_start_write(213 + (800-640)/2);
+		framer_y_start_write(27 +  (600-512)/2);
 
 		scaler_enable_write(0);
 	}
@@ -96,6 +102,22 @@ int main(int i, char **c)
 	prbs_memtest(HYPERRAM_BASE, HYPERRAM_SIZE);
 
 
+	/* Run through some checks if a Boson is attached? */
+	uint32_t boson_freq = video_debug_freq_value_read();
+
+	if(boson_freq == 0){
+		printf("Waiting for Clock from Boson\n");
+
+		while(1){
+			printf("Detected Frequency: %u Hz           \r", video_debug_freq_value_read());
+
+			if(video_debug_freq_value_read() > 26.5e6){
+				break;
+			}
+		}
+	}
+
+
 
 	uint32_t line = 0;
 	uint8_t _y = y;
@@ -118,17 +140,22 @@ int main(int i, char **c)
 	framer_width_write(800);
 	framer_height_write(600);
 
-	framer_x_start_write(213);
-	framer_y_start_write(27);
+	//framer_x_start_write(213);
+	//framer_y_start_write(27);
+	framer_x_start_write(213 + (800-640)/2);
+	framer_y_start_write(27 +  (600-512)/2);
+
+	switch_mode(1);
+
+	//msleep(100);
+	//switch_mode(1);
 	
 	
 	// place preview in bottom right corner
-//	framer_x_start_write(213 +  (800-640));
-//	framer_y_start_write(27 + (600-512));
 
 
 	
-	uint8_t scale_mode = 0;
+	uint8_t scale_mode = 1;
 	uint16_t btn_2_cnt = 0;
 
     while(1) {

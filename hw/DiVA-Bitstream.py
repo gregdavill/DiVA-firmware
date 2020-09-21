@@ -200,7 +200,7 @@ class DiVA_SoC(SoCCore):
         "terminal"   :  13,
         "analyzer"   :  14,
         "hdmi_i2c"   :  15,
-        "i2c"        :  16,
+        "i2c0"        :  16,
         "btn"        :  18,
         "reader"     :  19,
         "writer"     :  20,
@@ -297,9 +297,9 @@ class DiVA_SoC(SoCCore):
 
         self.submodules.framer = framer = Framer()
 
-        self.submodules.scaler = scaler = ClockDomainsRenamer({"sys":"video"})(ResetInserter()(ScalerWidth()))
+        self.submodules.scaler = scaler = ClockDomainsRenamer({"sys":"video"})((ScalerWidth()))
         self.submodules.fifo2 = fifo2 = ClockDomainsRenamer({"sys":"video"})(ResetInserter()(SyncFIFO([("data", 32)], depth=16)))
-        self.submodules.scaler0 = scaler0 = ClockDomainsRenamer({"sys":"video"})(ResetInserter()(ScalerHeight(800)))
+        self.submodules.scaler0 = scaler0 = ClockDomainsRenamer({"sys":"video"})(ScalerHeight(800))
 
 
         self.comb += [
@@ -343,7 +343,7 @@ class DiVA_SoC(SoCCore):
 
 
             # I2C
-            self.submodules.i2c = I2C(platform.request("i2c"))
+            self.submodules.i2c0 = I2C(platform.request("i2c"))
 
         self.submodules.reboot = Reboot(platform.request("rst_n"), ext_rst=~btn.a)
 
@@ -591,10 +591,10 @@ clang++ -I obj_dir -flto -I/usr/local/share/verilator/include -I/usr/include/SDL
 
         # create a compressed bitstream
         output_bit = os.path.join(builder.output_dir, "gateware", "DiVA.bit")
-        os.system(f"ecppack --input {output_config} --compress --freq 38.8 --bit {output_bit}")
+        os.system(f"ecppack --freq 38.8 --compress --input {output_config} --bit {output_bit}")
 
         # Add DFU suffix
-        os.system(f"dfu-suffix -p 1209 -d 5bf0 -a {output_bit}")
+        os.system(f"dfu-suffix -p 16d0 -d 0fad -a {output_bit}")
 
         print(
         f"""DiVA build complete!  Output files:
