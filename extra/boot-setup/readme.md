@@ -3,7 +3,7 @@
 DiVA or the Digital Video Adapter is an addon board for the Boson LWIR core from FLIR.
 It features an FPGA that performs the video conversion from the camera to a Digital Video Interface. In order for this to function you will need to load the initial firmware onto the device.
 
-The board is designed to be user updateable in the field over the USB connection. In order to accomplish this we need to load a bootloader onto tho device. 
+Additionally the board is designed to be user updateable in the field over just a USB connection. In order to accomplish this we need to also load a bootloader onto the device, we'll do this first. 
 
 In order to simplify everything, tools from [Open Tool Forge](https://github.com/open-tool-forge/fpga-toolchain/releases) have been included under `/bin` for Linux and Windows 
 
@@ -25,7 +25,7 @@ $ ./bin/ecpprog DiVA-foboot.bit
 
 5. Run dfu-util to load the application firmware and gateware.
 ```console 
-$ dfu-util -D DiVA-fw.bit
+$ ./bin/dfu-util -D DiVA-fw.bit
 ```
 
 The board will now have a bootloader and it's application firmware loaded.
@@ -42,4 +42,14 @@ The board will now have a bootloader and it's application firmware loaded.
 If you have errors using `dfu-util`, on linux you may need to load some udev rules, using this command, then reconnect the board: 
 ```console 
 $ cp extra/udev-rules/20-diva-bootloader.rules /etc/udev/rules.d/
+```
+
+When you connect DiVA while holding down the top button the LED should be cycling through Red > Green > Blue. And you should see a DFU device appear
+``` console
+$ dmesg | tail
+  [970.951694] usb 3-1.3: new full-speed USB device number 7 using xhci_hcd
+  [971.104391] usb 3-1.3: New USB device found, idVendor=16d0, idProduct=0fad, bcdDevice= 1.01
+  [971.104403] usb 3-1.3: New USB device strings: Mfr=1, Product=2, SerialNumber=0
+  [971.104410] usb 3-1.3: Product: Boson DiVA r0.3 - DFU Bootloader v3.1-4-g4d46328
+  [971.104417] usb 3-1.3: Manufacturer: Get Labs
 ```
