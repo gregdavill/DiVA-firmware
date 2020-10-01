@@ -6,13 +6,8 @@ from migen import *
 from migen.genlib.cdc import MultiReg
 
 from boson import *
-from liteeth.common import *
 from litex.soc.cores.clock import *
 
-from pycrc.algorithms import Crc
-
-from litex.soc.cores.uart import RS232PHYTX
-from litex.soc.interconnect.stream import AsyncFIFO
 
 
 def clamp(i):

@@ -1,0 +1,18 @@
+[submodule "hw/deps/valentyusb"]
+	path = hw/deps/valentyusb
+	url = https://github.com/gregdavill/valentyusb
+[submodule "hw/deps/litex"]
+	path = hw/deps/litex
+	url = https://github.com/enjoy-digital/litex
+[submodule "hw/deps/migen"]
+	path = hw/deps/migen
+	url = https://github.com/m-labs/migen
+[submodule "hw/deps/pythondata-software-compiler_rt"]
+	path = hw/deps/pythondata-software-compiler_rt
+	url = https://github.com/litex-hub/pythondata-software-compiler_rt.git
+[submodule "hw/deps/litescope"]
+	path = hw/deps/litescope
+	url = https://github.com/enjoy-digital/litescope.git
+[submodule "hw/deps/pythondata-cpu-serv"]
+	path = hw/deps/pythondata-cpu-serv
+	url = https://github.com/litex-hub/pythondata-cpu-serv.git

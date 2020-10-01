@@ -3,6 +3,16 @@
 # This file is Copyright (c) 2020 Gregory Davill <greg.davill@gmail.com>
 # License: BSD
 
+# This variable defines all the external programs that this module
+# relies on.  lxbuildenv reads this variable in order to ensure
+# the build will finish without exiting due to missing third-party
+# programs.
+LX_DEPENDENCIES = ["riscv", "nextpnr-ecp5", "yosys"]
+
+# Import lxbuildenv to integrate the deps/ directory
+import lxbuildenv
+
+
 import sys
 import argparse
 import optparse

@@ -16,17 +16,30 @@ In order to simplify everything, tools from [Open Tool Forge](https://github.com
 
 
 3. Run this command: 
-```console 
-$ ./bin/ecpprog DiVA-foboot.bit
-```
+
+    Linux:
+    ```console 
+    $ bin/ecpprog DiVA-foboot.bit
+    ```
+    Windows:
+    ```console 
+    > bin\ecpprog.exe DiVA-foboot.bit
+    ```
 
 4. Remove the board from the programmer, and then connect it via USB, while holding down the top button.
 
 
 5. Run dfu-util to load the application firmware and gateware.
-```console 
-$ ./bin/dfu-util -D DiVA-fw.bit
-```
+
+    Linux:
+    ```console 
+    $ bin/dfu-util -D DiVA-fw.bit
+    ```
+    Windows:
+    ```console 
+    > bin\dfu-util.exe -D DiVA-fw.bit
+    ```
+
 
 The board will now have a bootloader and it's application firmware loaded.
 
@@ -44,6 +57,8 @@ If you have errors using `dfu-util`, on linux you may need to load some udev rul
 $ cp extra/udev-rules/20-diva-bootloader.rules /etc/udev/rules.d/
 ```
 
+---
+
 When you connect DiVA while holding down the top button the LED should be cycling through Red > Green > Blue. And you should see a DFU device appear
 ``` console
 $ dmesg | tail
@@ -53,3 +68,39 @@ $ dmesg | tail
   [971.104410] usb 3-1.3: Product: Boson DiVA r0.3 - DFU Bootloader v3.1-4-g4d46328
   [971.104417] usb 3-1.3: Manufacturer: Get Labs
 ```
+
+----
+### Windows Notes
+
+On windows you will need to append `.exe` to each command. You will also need to install libusbK drivers for the ftdi adapter. You can run these from either a WSL bash console, Command Prompt or PowerShell.
+
+### Install LibusbK dirvers using Zadig
+
+1. Download and open [Zadig](https://zadig.akeo.ie/)
+
+2. "List all devices" to show the FTDI device
+
+![Zadig Option](doc/zadig_001.PNG "Zadig Option")
+
+3. Ensure that `0403:6014` or `0403:6010` is the PID/VID and select libusbK as the driver, click Replace Driver
+
+![Zadig Replace](doc/zadig_002.PNG "Zadig Replace")
+
+4. Success!
+
+![Zadig Success](doc/zadig_003.PNG "Zadig Success")
+
+----
+### ecpprog output
+
+Confirm the new libusb drivers work, you should see a valid IDCODE. 
+![ecpprog test](doc/cmd_001.PNG "ecpprog test")
+![ecpprog DONE](doc/cmd_002.PNG "ecpprog DONE")
+
+----
+### dfu-util output
+
+Use the dfu-util --list` option to test if the DFU device is attached
+![dfu-util test](doc/dfu-util_001.PNG "dfu-util test")
+![dfu-util done](doc/dfu-util_002.PNG "dfu-util done")
+

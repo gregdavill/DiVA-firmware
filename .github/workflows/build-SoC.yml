@@ -1,0 +1,67 @@
+name: build-SoC
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-SoC:
+    runs-on: ubuntu-18.04
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: false # Note: not Recursive (Causes error with serv)
+
+    - name: submodule init
+      run: git submodule init
+
+    - name: configure fpga-toolchain
+      run: |
+        export VERSION=nightly-20201020
+        wget https://github.com/open-tool-forge/fpga-toolchain/releases/download/$VERSION/fpga-toolchain-linux_x86_64-$VERSION.tar.xz
+        tar -xf fpga-toolchain-linux_x86_64-$VERSION.tar.xz
+        rm -rf fpga-toolchain-linux_x86_64-$VERSION.tar.xz
+        echo "$(pwd)/fpga-toolchain/bin" >> $GITHUB_PATH
+
+    - name: configure riscv-toolchain
+      run: |
+        wget https://static.dev.sifive.com/dev-tools/riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-ubuntu14.tar.gz
+        tar -xzf riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-ubuntu14.tar.gz
+        rm -rf riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-ubuntu14.tar.gz
+        echo "$(pwd)/riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-ubuntu14/bin" >> $GITHUB_PATH
+
+    - name: configure python
+      run: |
+        python3 -m pip install setuptools
+        python3 -m pip install pycrc
+        python3 -m pip install Pillow 
+        python3 -m pip install wheel
+        python3 -m pip install Sphinx 
+        python3 -m pip install sphinxcontrib-wavedrom 
+
+
+    - name: Litex build
+      working-directory: ./hw
+      run: |
+        python3 DiVA-Bitstream.py
+#        python3 -m sphinx -M html build/documentation/ build/documentation/_build
+
+    - name: Upload build
+      uses: actions/upload-artifact@v2
+      with:
+        name: DiVA build
+        path: ${{ github.workspace }}/hw/build
+
+#    - name: Upload docs
+#      uses: actions/upload-artifact@v2
+#      with:
+#        name: OrangeCrab SoC Docs
+#        path: ${{ github.workspace }}/litex/build/documentation/_build/html
+
+
+#    - name: Deploy Docs
+#      uses: peaceiris/actions-gh-pages@v3
+#      with:
+#        github_token: ${{ secrets.GITHUB_TOKEN }}
+#        publish_dir: ${{ github.workspace }}/litex/build/documentation/_build/html
