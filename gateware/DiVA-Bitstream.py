@@ -445,7 +445,7 @@ class DiVA_SoC(SoCCore):
 
         os.makedirs(builder.output_dir, exist_ok=True)
 
-        src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "sw", "DiVA-fw"))
+        src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "firmware", "DiVA-fw"))
         builder.add_software_package("DiVA-fw", src_dir)
 
         builder._prepare_rom_software()

@@ -1,21 +1,21 @@
-[submodule "hw/deps/valentyusb"]
-	path = hw/deps/valentyusb
+[submodule "gateware/deps/valentyusb"]
+	path = gateware/deps/valentyusb
 	url = https://github.com/gregdavill/valentyusb
-[submodule "hw/deps/litex"]
-	path = hw/deps/litex
+[submodule "gateware/deps/litex"]
+	path = gateware/deps/litex
 	url = https://github.com/enjoy-digital/litex
-[submodule "hw/deps/migen"]
-	path = hw/deps/migen
+[submodule "gateware/deps/migen"]
+	path = gateware/deps/migen
 	url = https://github.com/m-labs/migen
-[submodule "hw/deps/pythondata-software-compiler_rt"]
-	path = hw/deps/pythondata-software-compiler_rt
+[submodule "gateware/deps/pythondata-software-compiler_rt"]
+	path = gateware/deps/pythondata-software-compiler_rt
 	url = https://github.com/litex-hub/pythondata-software-compiler_rt.git
-[submodule "hw/deps/litescope"]
-	path = hw/deps/litescope
+[submodule "gateware/deps/litescope"]
+	path = gateware/deps/litescope
 	url = https://github.com/enjoy-digital/litescope.git
-[submodule "hw/deps/pythondata-cpu-serv"]
-	path = hw/deps/pythondata-cpu-serv
+[submodule "gateware/deps/pythondata-cpu-serv"]
+	path = gateware/deps/pythondata-cpu-serv
 	url = https://github.com/litex-hub/pythondata-cpu-serv.git
-[submodule "hw/deps/litehyperbus"]
-	path = hw/deps/litehyperbus
+[submodule "gateware/deps/litehyperbus"]
+	path = gateware/deps/litehyperbus
 	url = https://github.com/litex-hub/litehyperbus.git

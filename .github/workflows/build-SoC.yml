@@ -42,7 +42,7 @@ jobs:
 
 
     - name: Litex build
-      working-directory: ./hw
+      working-directory: ./gateware
       run: |
         python3 DiVA-Bitstream.py
 #        python3 -m sphinx -M html build/documentation/ build/documentation/_build
@@ -51,7 +51,7 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: DiVA build
-        path: ${{ github.workspace }}/hw/build
+        path: ${{ github.workspace }}/gateware/build
 
 #    - name: Upload docs
 #      uses: actions/upload-artifact@v2
