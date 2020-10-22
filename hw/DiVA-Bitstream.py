@@ -47,7 +47,6 @@ from reboot import Reboot
 
 from streamable_hyperram import StreamableHyperRAM
 
-from wishbone_stream import StreamReader, StreamWriter, dummySink, dummySource
 
 
 
@@ -69,6 +68,7 @@ from migen.genlib.misc import timeline
 
 from edge_detect import EdgeDetect
 from rtl.prbs import PRBSStream
+from rtl.wb_streamer import StreamReader, StreamWriter
 
 from simulated_video import SimulatedVideo
 from video_debug import VideoDebug
@@ -194,8 +194,6 @@ class DiVA_SoC(SoCCore):
         "btn"        :  18,
         "reader"     :  19,
         "writer"     :  20,
-        "reader1"    :  21,
-        "writer1"    :  22,
         "prbs"       :  23,
         "reboot"     :  25,
         "video_debug":  26,
@@ -246,13 +244,10 @@ class DiVA_SoC(SoCCore):
         self.submodules.rgb = RGB(platform.request("rgb_led"))
         
         # HyperRAM
-        self.submodules.writer = writer = StreamWriter(external_sync=True)
-        self.submodules.reader = reader = StreamReader(external_sync=True)
+        self.submodules.writer = writer = StreamWriter()
+        self.submodules.reader = reader = StreamReader()
 
-        self.submodules.writer1 = writer1 = StreamWriter()
-        self.submodules.reader1 = reader1 = StreamReader()
-
-        self.submodules.hyperram = hyperram = StreamableHyperRAM(platform.request("hyperRAM"), devices=[reader, writer, reader1, writer1])
+        self.submodules.hyperram = hyperram = StreamableHyperRAM(platform.request("hyperRAM"), devices=[reader, writer])
         self.register_mem("hyperram", self.mem_map['hyperram'], hyperram.bus, size=0x800000)
 
         # Boson video stream
@@ -291,6 +286,10 @@ class DiVA_SoC(SoCCore):
             fifo.source.connect(reader.sink),
         ]
 
+        boson_stream_start = Signal()
+        reader.add_source(fifo.source, "boson_stream", boson_stream_start)
+
+
 
 
         ## HDMI output
@@ -310,7 +309,7 @@ class DiVA_SoC(SoCCore):
         fifo0 = ClockDomainsRenamer({"read":"video","write":"sys"})(AsyncFIFO([("data", 32)], depth=128))
         self.submodules += fifo0
         self.comb += [
-            writer.source.connect(fifo0.sink),
+            #writer.source.connect(fifo0.sink),
 
 
             If(scaler_enable,
@@ -324,16 +323,14 @@ class DiVA_SoC(SoCCore):
             )
         ]
 
+        boson_sink_start = Signal()
+        writer.add_sink(fifo0.sink, "boson", boson_sink_start)
 
         # prbs tester
-        
         self.submodules.prbs = PRBSStream()
-
-        self.comb += [
-            self.prbs.source.source.connect(self.reader1.sink),
-            self.writer1.source.connect(self.prbs.sink.sink),
-        ]
-
+        reader.add_source(self.prbs.source.source, "prbs")
+        writer.add_sink(self.prbs.sink.sink, "prbs")
+        
         # enable
         self.submodules.vsync_rise = vsync_rise = EdgeDetect(mode="rise", input_cd="video", output_cd="sys")
         self.comb += vsync_rise.i.eq(terminal.vsync)
@@ -347,17 +344,11 @@ class DiVA_SoC(SoCCore):
 
 
         self.comb += [
-            writer.start.eq(vsync_rise.o),
+            boson_sink_start.eq(vsync_rise.o),
             scaler.reset.eq(vsync_rise_term.o),
             fifo2.reset.eq(vsync_rise_term.o),
             scaler0.reset.eq(vsync_rise_term.o),
         ]
-        #self.comb += reader.start.eq(vsync_boson.o)
-        
-        #self.comb += ds.clr.eq(vsync_rise.o)
-        #self.comb += fifo.reset.eq(vsync_rise.o)
-
-
 
         # delay vsync pulse from boson by 500 clocks, then use it to reset the fifo
         fifo_rst = Signal()
@@ -365,14 +356,13 @@ class DiVA_SoC(SoCCore):
              timeline(vsync_boson.o, [
                 (501,  [fifo_rst.eq(1)]),   # Reset FIFO
                 (550,  [fifo_rst.eq(0), scaler_enable.eq(scaler.enable.storage)]),  # Clear Reset
-                (621,  [reader.start.eq(1)]),
-                (622,  [reader.start.eq(0)])
+                (621,  [boson_stream_start.eq(1)]),
+                (622,  [boson_stream_start.eq(0)])
             ])
         ]
         self.specials += MultiReg(fifo_rst, fifo.reset_write, odomain="boson_rx")
         self.comb += fifo.reset_read.eq(fifo_rst)
        
-        #self.comb += writer.start.eq(vsync_rise.o)
 
         ## Connect VGA pins
         self.comb += [

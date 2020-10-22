@@ -2,34 +2,11 @@ from migen import *
 
 from litex.soc.interconnect.csr import AutoCSR, CSR, CSRStatus, CSRStorage
 from litex.soc.interconnect.stream import Endpoint, EndpointDescription, SyncFIFO, AsyncFIFO, Monitor
-from wishbone_stream import StreamReader, StreamWriter, dummySource
 from litex.soc.interconnect.wishbone import InterconnectShared, Arbiter, SRAM, InterconnectPointToPoint, Interface
 from migen.genlib.cdc import PulseSynchronizer, MultiReg, BusSynchronizer
 
 from litehyperbus.core.hyperram_ddrx2 import HyperRAMX2
 
-class CSRSource(Module, AutoCSR):
-    def __init__(self):
-        self.source = source = Endpoint(EndpointDescription([("data", 32)]))
-        self.data = CSR(32)
-
-        self.sync += [
-            source.valid.eq(self.data.re),
-            source.data.eq(self.data.r)
-        ]
-
-
-class CSRSink(Module, AutoCSR):
-    def __init__(self):
-        self.sink = sink = Endpoint(EndpointDescription([("data", 32)]))
-        self.data = CSR(32)
-        self.ready = CSR(1)
-
-        self.sync += [
-            sink.ready.eq(self.data.we),
-            self.data.w.eq(sink.data),
-            self.ready.w.eq(sink.valid)
-        ]
 
 class StreamableHyperRAM(Module, AutoCSR):
     def __init__(self, hyperram_pads, devices=[]):

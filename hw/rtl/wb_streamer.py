@@ -78,9 +78,11 @@ class dummySink(Module):
         ]
 
 class StreamWriter(Module, AutoCSR):
-    def __init__(self, external_sync=False):
+    def __init__(self):
         self.bus  = bus = wishbone.Interface()
         self.source = source = Endpoint(data_stream_description(32))
+
+        self._sinks = []
 
         tx_cnt = Signal(32)
         last_address = Signal()
@@ -102,6 +104,9 @@ class StreamWriter(Module, AutoCSR):
 
 
         self.start = Signal()
+        self.external_sync = CSRStorage()
+
+        self.sink_csr = CSRStorage(4, name="sink_mux")
 
         enabled = Signal()
         overflow = Signal()
@@ -172,7 +177,7 @@ class StreamWriter(Module, AutoCSR):
             If(busy & source.ready,
                 NextState("ACTIVE"),
             ),
-            If((self.start & enabled & external_sync) | (~external_sync & self.enable.re),
+            If((self.start & enabled & self.external_sync.storage) | (~self.external_sync.storage & self.enable.re),
                 NextValue(busy,1),
             )
         )
@@ -195,11 +200,24 @@ class StreamWriter(Module, AutoCSR):
 
         self.comb += active.eq(fsm.ongoing("ACTIVE") & source.ready)
 
+    def add_sink(self, sink, sink_name, ext_start=Signal()):
+        self._sinks += [(sink, sink_name, ext_start)]
+        #s,name = self._sinks[i]
+        self.comb += [
+            If(self.sink_csr.storage == (len(self._sinks) - 1),
+                self.source.connect(sink),
+                self.start.eq(ext_start)
+            )
+        ]
+          
+
+
 class StreamReader(Module, AutoCSR):
-    def __init__(self, external_sync=False):
+    def __init__(self):
         self.bus  = bus = wishbone.Interface()
         self.sink = sink = Endpoint(data_stream_description(32))
 
+        self._sources = []
 
         tx_cnt = Signal(32)
         last_address = Signal()
@@ -220,6 +238,9 @@ class StreamReader(Module, AutoCSR):
         self.reset = CSR()
 
         self.start = Signal()
+        self.external_sync = CSRStorage()
+
+        self.source_csr = CSRStorage(4, name="source_mux")
 
         enabled = Signal()
         overflow = Signal()
@@ -308,7 +329,7 @@ class StreamReader(Module, AutoCSR):
             If(busy & sink.valid,
                 NextState("ACTIVE"),
             ),
-            If((self.start & enabled & external_sync) | (~external_sync & self.enable.re),
+            If((self.start & enabled & self.external_sync.storage) | (~self.external_sync.storage & self.enable.re),
                 NextValue(busy,1),
             )
         )
@@ -331,6 +352,16 @@ class StreamReader(Module, AutoCSR):
 
         self.comb += active.eq(fsm.ongoing("ACTIVE") & sink.valid)
 
+    def add_source(self, source, source_name, ext_start=Signal()):
+        self._sources += [(source, source_name, ext_start)]
+        #s,name = self._sinks[i]
+        self.comb += [
+            If(self.source_csr.storage == (len(self._sources) - 1),
+                #self.sink.connect(source),
+                source.connect(self.sink),
+                self.start.eq(ext_start)
+            )
+        ]
 
 # -=-=-=-= tests -=-=-=-=
 

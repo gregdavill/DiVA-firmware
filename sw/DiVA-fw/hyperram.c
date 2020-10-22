@@ -145,20 +145,23 @@ void prbs_memtest(uint32_t base, uint32_t len){
 
 	uint32_t burst = 320;
 
+	reader_source_mux_write(1);
+	writer_sink_mux_write(1);
+
 	prbs_source_reset_write(1);
 
-	reader1_reset_write(1);
-	reader1_burst_size_write(burst);
-	reader1_transfer_size_write(len/4);
-	reader1_start_address_write(base>>2);
+	reader_reset_write(1);
+	reader_burst_size_write(burst);
+	reader_transfer_size_write(len/4);
+	reader_start_address_write(base>>2);
 
 
 	/* write speed */
 	timer0_update_value_write(1);
 	start = timer0_value_read();
 
-	reader1_enable_write(1);
-	while(reader1_done_read() == 0);
+	reader_enable_write(1);
+	while(reader_done_read() == 0);
 
 	timer0_update_value_write(1);
 	end = timer0_value_read();
@@ -166,10 +169,11 @@ void prbs_memtest(uint32_t base, uint32_t len){
 	uint32_t rate = (CONFIG_CLOCK_FREQUENCY*10)/((start-end)/8);
 	printf("Write Speed: %u.%u MBytes/s ( %u cycles )\n", rate / 10, rate % 10, start-end);
 
-	writer1_reset_write(1);
-	writer1_burst_size_write(burst);
-	writer1_transfer_size_write(len/4);
-	writer1_start_address_write(base>>2);
+	writer_reset_write(1);
+	writer_burst_size_write(burst);
+	writer_transfer_size_write(len/4);
+	writer_start_address_write(base>>2);
+
 	prbs_sink_reset_write(1);
 
 
@@ -177,8 +181,8 @@ void prbs_memtest(uint32_t base, uint32_t len){
 	timer0_update_value_write(1);
 	start = timer0_value_read();
 
-	writer1_enable_write(1);
-	while(writer1_done_read() == 0);
+	writer_enable_write(1);
+	while(writer_done_read() == 0);
 
 	timer0_update_value_write(1);
 	end = timer0_value_read();
@@ -187,11 +191,22 @@ void prbs_memtest(uint32_t base, uint32_t len){
 	printf("Read Speed:  %u.%u MBytes/s ( %u cycles )\n", rate / 10, rate % 10, start-end);
 	
 	printf("Memtest: ");
-	if(prbs_sink_good_read() == writer1_transfer_size_read()){
+	if(prbs_sink_good_read() == writer_transfer_size_read()){
 		printf("%uKB ( 0x%x )...OK\n", 4*prbs_sink_good_read()/1024, 4*prbs_sink_good_read());
 	}else {
-		printf("Not OK. :(\n Good: 0x%x (%uKB) [%x], Bad: 0x%x\n", prbs_sink_good_read(),4*prbs_sink_good_read()/1024, writer1_transfer_size_read(),prbs_sink_bad_read());
+		printf("Not OK. :(\n Good: 0x%x (%uKB) [%x], Bad: 0x%x\n", prbs_sink_good_read(),4*prbs_sink_good_read()/1024, writer_transfer_size_read(),prbs_sink_bad_read());
 	}
+
+
+	reader_external_sync_write(1);
+	writer_external_sync_write(1);
+
+	writer_enable_write(0);
+	reader_enable_write(0);
+	
+	reader_source_mux_write(0);
+	writer_sink_mux_write(0);
+
 }
 
 
