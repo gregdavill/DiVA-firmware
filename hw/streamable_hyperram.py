@@ -6,8 +6,6 @@ from wishbone_stream import StreamReader, StreamWriter, dummySource
 from litex.soc.interconnect.wishbone import InterconnectShared, Arbiter, SRAM, InterconnectPointToPoint, Interface
 from migen.genlib.cdc import PulseSynchronizer, MultiReg, BusSynchronizer
 
-
-
 from litehyperbus.core.hyperram_ddrx2 import HyperRAMX2
 
 class CSRSource(Module, AutoCSR):
@@ -34,7 +32,7 @@ class CSRSink(Module, AutoCSR):
         ]
 
 class StreamableHyperRAM(Module, AutoCSR):
-    def __init__(self, hyperram_pads, devices=[], sim=False):
+    def __init__(self, hyperram_pads, devices=[]):
         self.bus = cpu_bus = Interface()
 
         self.submodules.hyperram = hyperram = HyperRAMX2(hyperram_pads)

@@ -22,25 +22,12 @@ from migen import *
 import bosonHDMI_r0d3
 import bosonHDMI_r0d2
 
-
-from math import log2, ceil
-
 import os
 import shutil
 from hdmi import HDMI
 from terminal import Terminal
 
-
-
-#from litex.soc.cores.uart import WishboneStreamingBridge
-from litex.soc.cores.uart import Stream2Wishbone
-
-from litescope import LiteScopeAnalyzer
-
-#from file_helper import package_file
-
-#from migen import *
-from migen.genlib.resetsync import AsyncResetSynchronizer
+#from migen.genlib.resetsync import AsyncResetSynchronizer
 
 from litex.build.generic_platform import *
 from litex.boards.platforms import versa_ecp5
@@ -72,14 +59,13 @@ from migen.genlib.cdc import MultiReg, PulseSynchronizer
 from boson import Boson
 from YCrCb import YCrCbConvert
 
-from sw_i2c import I2C
+from litex.soc.cores.bitbang import I2CMaster
 
 from litex.soc.interconnect import stream
 
 from migen.genlib.misc import timeline
 
 
-from sim import Platform
 
 from edge_detect import EdgeDetect
 from prbs_stream import PRBSSink, PRBSSource
@@ -91,10 +77,6 @@ from framer import Framer
 from scaler import ScalerWidth
 from scaler import ScalerHeight
 
-#from hyperRAM.hyperbus_fast import HyperRAM
-#from dma.dma import StreamWriter, StreamReader, dummySink, dummySource
-
-#from litex.soc.interconnect.stream import BufferizeEndpoints, DIR_SOURCE, PulseSynchronizer
 
 from litex.soc.interconnect.csr import *
 
@@ -133,8 +115,6 @@ class _CRG(Module, AutoCSR):
         self.comb += self.cd_init.clk.eq(clk48)
 
         pixel_clk = 40e6
-        #pixel_clk = sys_clk_freq
-
         self.clock_domains.cd_usb_12 = ClockDomain()
         self.clock_domains.cd_usb_48 = ClockDomain()
 
@@ -210,7 +190,7 @@ class DiVA_SoC(SoCCore):
         "terminal"   :  13,
         "analyzer"   :  14,
         "hdmi_i2c"   :  15,
-        "i2c0"        :  16,
+        "i2c0"       :  16,
         "btn"        :  18,
         "reader"     :  19,
         "writer"     :  20,
@@ -237,18 +217,15 @@ class DiVA_SoC(SoCCore):
     }
     interrupt_map.update(SoCCore.interrupt_map)
 
-    def __init__(self, sim=False):
-
-        if sim:
-            self.platform = platform = Platform()
-        else:
-            self.platform = platform = bosonHDMI_r0d3.Platform()
+    def __init__(self):
+        
+        self.platform = platform = bosonHDMI_r0d3.Platform()
         
         sys_clk_freq = 82.5e6
         SoCCore.__init__(self, platform, clk_freq=sys_clk_freq,
                           cpu_type='serv', with_uart=True, uart_name='stream',
                           csr_data_width=32,
-                          ident="HyperRAM Test SoC", ident_version=True, wishbone_timeout_cycles=512,
+                          ident="Boson DiVA SoC", ident_version=True, wishbone_timeout_cycles=128,
                           integrated_rom_size=16*1024)
 
         self.platform.toolchain.build_template[1] += f" --log {platform.name}.log"
@@ -257,16 +234,7 @@ class DiVA_SoC(SoCCore):
         self.comb += self.uart.source.ready.eq(1)
     
         # crg
-        if sim:
-            clk = platform.request("clk")
-            rst = platform.request("rst")
-            self.clock_domains.cd_sys = ClockDomain()
-            self.comb += self.cd_sys.clk.eq(clk)
-
-            self.comb += self.cd_sys.rst.eq(rst)            
-
-        else:
-            self.submodules.crg = _CRG(platform, sys_clk_freq)
+        self.submodules.crg = _CRG(platform, sys_clk_freq)
      
         ## Create VGA terminal
         self.submodules.terminal = terminal = ClockDomainsRenamer({'vga':'video'})(Terminal())
@@ -276,22 +244,18 @@ class DiVA_SoC(SoCCore):
         btn = platform.request("button")
         self.submodules.btn = GPIOIn(Cat(btn.a, btn.b))
 
-        if not sim:
-            self.submodules.rgb = RGB(platform.request("rgb_led"))
+        self.submodules.rgb = RGB(platform.request("rgb_led"))
         
         # HyperRAM
-        hyperram_pads = None if sim else platform.request("hyperRAM")
         self.submodules.writer = writer = StreamWriter(external_sync=True)
         self.submodules.reader = reader = StreamReader(external_sync=True)
 
         self.submodules.writer1 = writer1 = StreamWriter()
         self.submodules.reader1 = reader1 = StreamReader()
 
-        self.submodules.hyperram = hyperram = StreamableHyperRAM(hyperram_pads, devices=[reader, writer, reader1, writer1], sim=sim)
+        self.submodules.hyperram = hyperram = StreamableHyperRAM(platform.request("hyperRAM"), devices=[reader, writer])
         self.register_mem("hyperram", self.mem_map['hyperram'], hyperram.bus, size=0x800000)
 
-        # Dummy video stream
-        #self.submodules.simulated_video = simulated_video = ClockDomainsRenamer({"pixel":"oscg_38M"})(SimulatedVideo())
         # Boson video stream
         self.submodules.boson = boson = Boson(platform, platform.request("boson"), sys_clk_freq)
         self.submodules.YCrCb = ycrcb = ClockDomainsRenamer({"sys":"boson_rx"})(YCrCbConvert())
@@ -301,7 +265,6 @@ class DiVA_SoC(SoCCore):
         fifo = ClockDomainsRenamer({"read":"sys","write":"boson_rx"})(fifo)
         
         self.submodules.video_debug = video_debug = ClockDomainsRenamer({"pixel":"boson_rx"})(VideoDebug(int(self.clk_freq)))
-        #self.submodules.video_stream = video_stream = ClockDomainsRenamer({"pixel":"boson_rx"})(VideoStream())
         
         scaler_enable = Signal()
 
@@ -318,42 +281,27 @@ class DiVA_SoC(SoCCore):
 
             boson.source.connect(ycrcb.sink),
 
-            #fifo.reset_write.eq(boson.vsync),
-
-
-
-            #video_stream.data_valid.eq(boson.data_valid),
-            #video_stream.red.eq(boson.red),
-            #video_stream.green.eq(boson.green),
-            #video_stream.blue.eq(boson.blue),
 
             boson.next_mode.eq(btn.b)
         ]
 
-        # connect something to these streams
-        #ds = dummySource()
-        #fifo = ClockDomainsRenamer({"read":"sys","write":"sys"})(SyncFIFO([("data", 32)], depth=512))
-        #fifo = ResetInserter()(SyncFIFO([("data", 32)], depth=4))
-        #self.submodules += ds
         self.submodules += fifo
         self.comb += [
         
             ycrcb.source.connect(fifo.sink),
-        #    ds.source.connect(fifo.sink),
             fifo.source.connect(reader.sink),
         ]
 
 
 
-        ## HDMI output 
-        if not sim:
-            hdmi_pins = platform.request('hdmi')
-            self.submodules.hdmi = hdmi =  HDMI(platform, hdmi_pins)
-            self.submodules.hdmi_i2c = I2C(platform.request("hdmi_i2c"))
+        ## HDMI output
+        hdmi_pins = platform.request('hdmi')
+        self.submodules.hdmi = hdmi =  HDMI(platform, hdmi_pins)
+        self.submodules.hdmi_i2c = I2CMaster(platform.request("hdmi_i2c"))
 
 
-            # I2C
-            self.submodules.i2c0 = I2C(platform.request("i2c"))
+        # I2C
+        self.submodules.i2c0 = I2CMaster(platform.request("i2c"))
 
         self.submodules.reboot = Reboot(platform.request("rst_n"), ext_rst=~btn.a)
 
@@ -428,28 +376,29 @@ class DiVA_SoC(SoCCore):
         #self.comb += writer.start.eq(vsync_rise.o)
 
         ## Connect VGA pins
-        if not sim:
-            self.comb += [
-                fifo.reset_read.eq(vsync_boson.o),
+        self.comb += [
+            fifo.reset_read.eq(vsync_boson.o),
 
-                # attach framer to video generator
-                framer.vsync.eq(terminal.vsync),
-                framer.hsync.eq(terminal.hsync),
-                
+            # attach framer to video generator
+            framer.vsync.eq(terminal.vsync),
+            framer.hsync.eq(terminal.hsync),
+            
 
-                hdmi.vsync.eq(terminal.vsync),
-                hdmi.hsync.eq(terminal.hsync),
-                hdmi.blank.eq(terminal.blank),
-                If(framer.data_valid,
-                    hdmi.r.eq(framer.red),
-                    hdmi.g.eq(framer.green),
-                    hdmi.b.eq(framer.blue),
-                ).Else(
-                    hdmi.r.eq(terminal.red),
-                    hdmi.g.eq(terminal.green),
+            hdmi.vsync.eq(terminal.vsync),
+            hdmi.hsync.eq(terminal.hsync),
+            hdmi.blank.eq(terminal.blank),
+            If(framer.data_valid,
+                hdmi.r.eq(framer.red),
+                hdmi.g.eq(framer.green),
+                hdmi.b.eq(framer.blue),
+            ).Else(
+                hdmi.r.eq(terminal.red),
+                hdmi.g.eq(terminal.green),
+                hdmi.b.eq(terminal.blue),  
                     hdmi.b.eq(terminal.blue),  
-                )
-            ]
+                hdmi.b.eq(terminal.blue),  
+            )
+        ]
 
         
 
