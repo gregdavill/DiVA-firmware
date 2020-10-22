@@ -143,7 +143,7 @@ void prbs_memtest(uint32_t base, uint32_t len){
 	timer0_load_write(0xffffffff);
 	timer0_en_write(1);
 
-	uint32_t burst = 680;
+	uint32_t burst = 320;
 
 	prbs_source_reset_write(1);
 

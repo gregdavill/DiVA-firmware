@@ -1,7 +1,7 @@
 # This file is Copyright (c) 2020 Gregory Davill <greg.davill@gmail.com>
 # License: BSD
 
-from migen import Module, ResetInserter, CEInserter, Signal, If
+from migen import *
 from litex.soc.interconnect.stream import EndpointDescription, Endpoint
 from litex.soc.interconnect.csr import CSR, CSRStatus, AutoCSR
 from litex.soc.cores.prbs import PRBS31Generator
@@ -58,3 +58,10 @@ class PRBSSink(Module, AutoCSR):
             prbs.ce.eq(sink.valid),
             prbs.reset.eq(self.reset.re)
         ]
+
+
+class PRBSStream(Module, AutoCSR):
+    def __init__(self):
+        self.submodules.source = PRBSSource()
+        self.submodules.sink = PRBSSink()
+        

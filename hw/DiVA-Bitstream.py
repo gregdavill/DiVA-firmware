@@ -68,7 +68,7 @@ from migen.genlib.misc import timeline
 
 
 from edge_detect import EdgeDetect
-from prbs_stream import PRBSSink, PRBSSource
+from rtl.prbs import PRBSStream
 
 from simulated_video import SimulatedVideo
 from video_debug import VideoDebug
@@ -196,8 +196,7 @@ class DiVA_SoC(SoCCore):
         "writer"     :  20,
         "reader1"    :  21,
         "writer1"    :  22,
-        "prbs_sink"  :  23,
-        "prbs_source":  24,
+        "prbs"       :  23,
         "reboot"     :  25,
         "video_debug":  26,
         "framer"     :  27,
@@ -327,12 +326,12 @@ class DiVA_SoC(SoCCore):
 
 
         # prbs tester
-        self.submodules.prbs_sink = PRBSSink()
-        self.submodules.prbs_source = PRBSSource()
+        
+        self.submodules.prbs = PRBSStream()
 
         self.comb += [
-            self.prbs_source.source.connect(self.reader1.sink),
-            self.writer1.source.connect(self.prbs_sink.sink),
+            self.prbs.source.source.connect(self.reader1.sink),
+            self.writer1.source.connect(self.prbs.sink.sink),
         ]
 
         # enable
