@@ -78,12 +78,11 @@ class Terminal(Module, AutoCSR):
         ]
 
         # RAM initialization
-        #screen_init = read_ram_init_file(screen_init_filename, 32160)
         font = read_ram_init_file(font_filename, 4096)
-        ram_init = [0 for i in range(80 * 40)] + font
+        ram_init = [0 for i in range(100 * 50 * 2)] + font
 
         # Create RAM
-        mem = Memory(width=8, depth=(80 * 40) + 4096, init=ram_init)
+        mem = Memory(width=8, depth=(100 * 50)*2 + 4096, init=ram_init)
         self.specials += mem
         wrport = mem.get_port(write_capable=True, clock_domain="sys")
         self.specials += wrport
@@ -109,7 +108,7 @@ class Terminal(Module, AutoCSR):
         HEIGHT = 600
 
         # Offset to font data in RAM
-        FONT_ADDR = 80 * 40
+        FONT_ADDR = 100 * 50 * 2
 
         # VGA output
         self.red   = red   = Signal(8) if pads is None else pads.red
@@ -202,48 +201,48 @@ class Terminal(Module, AutoCSR):
                         green.eq(fgcolor[8:16]),
                         blue.eq(fgcolor[0:8])
                     ).Else(
-                        If(source.valid,
-                            red.eq(source.data[16:24]),
-                            green.eq(source.data[8:16]),
-                            blue.eq(source.data[0:8])
-                        ).Else( 
-                            red.eq(0x33),
-                            green.eq(0x33),
-                            blue.eq(0x33)
-                        )
+                        red.eq(0xaa),
+                        green.eq(0x00),
+                        blue.eq(0xaa)
                     ),
                     fbyte.eq(Cat(Signal(), fbyte[:-1])),
                 )
             ),
 
-            If((pixel_counter < (79*8 + H_BACK_PORCH)) & (line_counter < (39*16 + V_BACK_PORCH)),
-                # Load next character code, font line and color
-                If(fx == 1,
-                    # schedule reading the character code
-                    rdport.adr.eq(text_addr),
-                    text_addr.eq(text_addr + 1)
-                ),
-                If(fx == 2,
-                    # Schedule reading the color
-                    #rdport.adr.eq(text_addr),
-                    #text_addr.eq(text_addr + 1)
-                ),
-                If(fx == 3,
-                    # Read character code, and set address for font line
-                    rdport.adr.eq(FONT_ADDR + Cat(Signal(4), rdport.dat_r) + fline)
-                ),
-                ###
-                If(fx == 5,
-                    # Read font line, and set color index to get foreground color
-                    next_byte.eq(rdport.dat_r),
-                ),
-                ###
-                If(fx == 7,
-                    # Set background color and everything for the next 8 pixels
-                    bgcolor.eq(0x000000),
-                    fgcolor.eq(0xFFFFFF),
-                    fbyte.eq(next_byte)
-                ),
+            # Load next character code, font line and color
+            If(fx == 1,
+                # schedule reading the character code
+                rdport.adr.eq(text_addr),
+                text_addr.eq(text_addr + 1)
+            ),
+            If(fx == 2,
+                # Schedule reading the color
+                rdport.adr.eq(text_addr),
+                text_addr.eq(text_addr + 1)
+            ),
+            If(fx == 3,
+                # Read character code, and set address for font line
+                rdport.adr.eq(FONT_ADDR + Cat(Signal(4), rdport.dat_r) + fline)
+            ),
+            If(fx == 4,
+                # Read color
+                color.eq(rdport.dat_r)
+            ),
+            If(fx == 5,
+                # Read font line, and set color index to get foreground color
+                next_byte.eq(rdport.dat_r),
+                color_index.eq(color[0:4]),
+            ),
+            If(fx == 6,
+                # Get next foreground color, and set color index for background color
+                next_fgcolor.eq(color_lookup),
+                color_index.eq(color[4:8])
+            ),
+            If(fx == 7,
+                # Set background color and everything for the next 8 pixels
+                bgcolor.eq(color_lookup),
+                fgcolor.eq(next_fgcolor),
+                fbyte.eq(next_byte)
             ),
             fx.eq(fx + 1),
             If(fx == 7, fx.eq(0)),
@@ -269,7 +268,7 @@ class Terminal(Module, AutoCSR):
                 fline.eq(fline + 1),
                 If(fline == 15,
                     fline.eq(0),
-                    text_addr_start.eq(text_addr_start + 80)
+                    text_addr_start.eq(text_addr_start + 200)
                 )
             ),
 

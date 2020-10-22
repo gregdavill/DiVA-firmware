@@ -26,13 +26,13 @@ void terminal_write(char c){
 	}else if(c == '\n'){
 		y += 1;
 	}else{
-		if(x >= 80){
+		if(x >= 99){
 			x = 0;
 			y += 1;
 		}
 
-		vga[x + y*80] = c; 
-		//vga[x*2 + y*80*2 + 1] = 14; 
+		vga[x*2 + y*100*2] = c; 
+		vga[x*2 + y*100*2 + 1] = 12; 
 		x += 1;
 	}
 }

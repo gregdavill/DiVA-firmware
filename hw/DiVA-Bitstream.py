@@ -225,7 +225,8 @@ class DiVA_SoC(SoCCore):
                           ident="Boson DiVA SoC", ident_version=True, wishbone_timeout_cycles=128,
                           integrated_rom_size=16*1024)
 
-        self.platform.toolchain.build_template[1] += f" --log {platform.name}.log"
+        self.platform.toolchain.build_template[0] = "yosys -q -l {build_name}.rpt {build_name}.ys"
+        self.platform.toolchain.build_template[1] += f" --log {platform.name}.log --router router1"
 
         # Fake a UART stream, to enable easy firmware reuse.
         self.comb += self.uart.source.ready.eq(1)
@@ -330,7 +331,7 @@ class DiVA_SoC(SoCCore):
         self.submodules.prbs = PRBSStream()
         reader.add_source(self.prbs.source.source, "prbs")
         writer.add_sink(self.prbs.sink.sink, "prbs")
-        
+
         # enable
         self.submodules.vsync_rise = vsync_rise = EdgeDetect(mode="rise", input_cd="video", output_cd="sys")
         self.comb += vsync_rise.i.eq(terminal.vsync)
@@ -364,6 +365,7 @@ class DiVA_SoC(SoCCore):
         self.comb += fifo.reset_read.eq(fifo_rst)
        
 
+        terminal_mask = Signal()
         ## Connect VGA pins
         self.comb += [
             fifo.reset_read.eq(vsync_boson.o),
@@ -376,15 +378,19 @@ class DiVA_SoC(SoCCore):
             hdmi.vsync.eq(terminal.vsync),
             hdmi.hsync.eq(terminal.hsync),
             hdmi.blank.eq(terminal.blank),
-            If(framer.data_valid,
-                hdmi.r.eq(framer.red),
-                hdmi.g.eq(framer.green),
-                hdmi.b.eq(framer.blue),
+
+            # Mask Through on 0xFFFF00 pixels
+            terminal_mask.eq((terminal.red == 0xaa) & (terminal.green == 0x00) & (terminal.blue == 0xaa)),
+            
+            If(terminal_mask,
+                If(framer.data_valid,
+                    hdmi.r.eq(framer.red),
+                    hdmi.g.eq(framer.green),
+                    hdmi.b.eq(framer.blue),
+                )
             ).Else(
                 hdmi.r.eq(terminal.red),
                 hdmi.g.eq(terminal.green),
-                hdmi.b.eq(terminal.blue),  
-                    hdmi.b.eq(terminal.blue),  
                 hdmi.b.eq(terminal.blue),  
             )
         ]
