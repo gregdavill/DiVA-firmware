@@ -95,7 +95,7 @@ reg [9:0] shift_red = 1'b0; reg [9:0] shift_green = 1'b0; reg [9:0] shift_blue =
 parameter C_shift_clock_initial = 10'b0000011111;
 reg [9:0] shift_clock = C_shift_clock_initial;
 reg R_shift_clock_off_sync = 1'b0;
-reg [7:0] R_shift_clock_synchronizer = 1'b0;
+reg [7:0] R_shift_clock_synchronizer = 1'b1;
 reg [6:0] R_sync_fail;  // counts sync fails, after too many, reinitialize shift_clock
 parameter c_red = 1'b0;
 parameter c_green = 1'b0;
