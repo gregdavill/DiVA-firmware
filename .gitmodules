@@ -16,3 +16,6 @@
 [submodule "hw/deps/pythondata-cpu-serv"]
 	path = hw/deps/pythondata-cpu-serv
 	url = https://github.com/litex-hub/pythondata-cpu-serv.git
+[submodule "hw/deps/litehyperbus"]
+	path = hw/deps/litehyperbus
+	url = https://github.com/litex-hub/litehyperbus.git

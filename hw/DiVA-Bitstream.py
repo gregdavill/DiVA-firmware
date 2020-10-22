@@ -360,7 +360,7 @@ class DiVA_SoC(SoCCore):
 
 
 
-        fifo0 = ClockDomainsRenamer({"read":"video","write":"sys"})(AsyncFIFO([("data", 32)], depth=512))
+        fifo0 = ClockDomainsRenamer({"read":"video","write":"sys"})(AsyncFIFO([("data", 32)], depth=128))
         self.submodules += fifo0
         self.comb += [
             writer.source.connect(fifo0.sink),
@@ -454,7 +454,7 @@ class DiVA_SoC(SoCCore):
         
 
         analyser = False
-        if analyser and not sim:
+        if analyser:
             # USB with Clock-Domain-Crossing support
             import os
             import sys
@@ -530,10 +530,6 @@ def main():
         "--update-firmware", default=False, action='store_true',
         help="compile firmware and update existing gateware"
     )
-    parser.add_argument(
-        "--sim", default=False, action='store_true',
-        help="simulate"
-    )
     args = parser.parse_args()
 
     soc = DiVA_SoC()
@@ -543,78 +539,55 @@ def main():
     soc.PackageFirmware(builder)
         
 
-    if args.sim:
-        ...
-        builder.build(run=False)
+    # Check if we have the correct files
+    firmware_file = os.path.join(builder.output_dir, "software", "DiVA-fw", "DiVA-fw.bin")
+    firmware_data = get_mem_data(firmware_file, soc.cpu.endianness)
+    firmware_init = os.path.join(builder.output_dir, "software", "DiVA-fw", "DiVA-fw.init")
+    CreateFirmwareInit(firmware_data, firmware_init)
+    
+    rand_rom = os.path.join(builder.output_dir, "gateware", "rand.data")
+    
+    input_config = os.path.join(builder.output_dir, "gateware", f"{soc.platform.name}.config")
+    output_config = os.path.join(builder.output_dir, "gateware", f"{soc.platform.name}_patched.config")
+    
+    # If we don't have a random file, create one, and recompile gateware
+    if (os.path.exists(rand_rom) == False) or (args.update_firmware == False):
+        os.makedirs(os.path.join(builder.output_dir,'gateware'), exist_ok=True)
+        os.makedirs(os.path.join(builder.output_dir,'software'), exist_ok=True)
+
+        os.system(f"ecpbram  --generate {rand_rom} --seed {0} --width {32} --depth {soc.integrated_rom_size}")
+
+        # patch random file into BRAM
+        data = []
+        with open(rand_rom, 'r') as inp:
+            for d in inp.readlines():
+                data += [int(d, 16)]
+        soc.initialize_rom(data)
+
+        # Build gateware
+        vns = builder.build(nowidelut=False)
+        soc.do_exit(vns)    
 
 
-        # Verilator build
-        build_script = os.path.join(builder.output_dir, "gateware", "verilator_build.sh")
-        with open(build_script, 'w') as f:
-            print("""verilator --trace --compiler clang -j 4 --top-module sim -Os -I/home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_shift.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_rf_top.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_params.vh --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_rf_ram.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_bufreg.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_alu.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_ctrl.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_decode.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_rf_ram_if.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_top.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_state.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_csr.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_rf_if.v --cc /home/greg/Projects/litex/pythondata-cpu-serv/pythondata_cpu_serv/verilog/rtl/serv_mem_if.v --cc /home/greg/Projects/DiVA-firmware/hw/build/gateware/sim.v
-cd obj_dir 
-make -f Vsim.mk
-cd ..
-clang++ -I obj_dir -flto -I/usr/local/share/verilator/include -I/usr/include/SDL2  /usr/local/share/verilator/include/verilated.cpp /usr/local/share/verilator/include/verilated_vcd_c.cpp ../../verilator_sim_driver.cc -O3 -lSDL2 obj_dir/Vsim__ALL.a -fno-exceptions -std=c++14 -o sim""",
-                file=f)
+    # Insert Firmware into Gateware
+    os.system(f"ecpbram  --input {input_config} --output {output_config} --from {rand_rom} --to {firmware_init}")
 
-        cwd = os.getcwd()
-        os.chdir(os.path.join(builder.output_dir, "gateware"))
+    # create a compressed bitstream
+    output_bit = os.path.join(builder.output_dir, "gateware", "DiVA.bit")
+    os.system(f"ecppack --freq 38.8 --compress --input {output_config} --bit {output_bit}")
 
-        if subprocess.call(['bash', build_script]) != 0:
-            raise OSError("Subprocess failed")
+    # Add DFU suffix
+    os.system(f"dfu-suffix -p 16d0 -d 0fad -a {output_bit}")
 
-
-    else:
-        # Check if we have the correct files
-        firmware_file = os.path.join(builder.output_dir, "software", "DiVA-fw", "DiVA-fw.bin")
-        firmware_data = get_mem_data(firmware_file, soc.cpu.endianness)
-        firmware_init = os.path.join(builder.output_dir, "software", "DiVA-fw", "DiVA-fw.init")
-        CreateFirmwareInit(firmware_data, firmware_init)
-        
-        rand_rom = os.path.join(builder.output_dir, "gateware", "rand.data")
-        
-        input_config = os.path.join(builder.output_dir, "gateware", f"{soc.platform.name}.config")
-        output_config = os.path.join(builder.output_dir, "gateware", f"{soc.platform.name}_patched.config")
-        
-        # If we don't have a random file, create one, and recompile gateware
-        if (os.path.exists(rand_rom) == False) or (args.update_firmware == False):
-            os.makedirs(os.path.join(builder.output_dir,'gateware'), exist_ok=True)
-            os.makedirs(os.path.join(builder.output_dir,'software'), exist_ok=True)
-
-            os.system(f"ecpbram  --generate {rand_rom} --seed {0} --width {32} --depth {soc.integrated_rom_size}")
-
-            # patch random file into BRAM
-            data = []
-            with open(rand_rom, 'r') as inp:
-                for d in inp.readlines():
-                    data += [int(d, 16)]
-            soc.initialize_rom(data)
-
-            # Build gateware
-            vns = builder.build(nowidelut=True)
-            soc.do_exit(vns)    
-
-
-        # Insert Firmware into Gateware
-        os.system(f"ecpbram  --input {input_config} --output {output_config} --from {rand_rom} --to {firmware_init}")
-
-        # create a compressed bitstream
-        output_bit = os.path.join(builder.output_dir, "gateware", "DiVA.bit")
-        os.system(f"ecppack --freq 38.8 --compress --input {output_config} --bit {output_bit}")
-
-        # Add DFU suffix
-        os.system(f"dfu-suffix -p 16d0 -d 0fad -a {output_bit}")
-
-        print(
-        f"""DiVA build complete!  Output files:
-        
-        Bitstream file. (Compressed, Higher CLK)  Load this into FLASH.
-            {builder.output_dir}/gateware/DiVA.bit
-        
-        Source Verilog file.  Useful for debugging issues.
-            {builder.output_dir}/gateware/top.v
-        """)
+    print(
+    f"""DiVA build complete!  Output files:
+    
+    Bitstream file. (Compressed, Higher CLK)  Load this into FLASH.
+        {builder.output_dir}/gateware/DiVA.bit
+    
+    Source Verilog file.  Useful for debugging issues.
+        {builder.output_dir}/gateware/top.v
+    """)
 
 
 
