@@ -253,7 +253,7 @@ class DiVA_SoC(SoCCore):
         self.submodules.writer1 = writer1 = StreamWriter()
         self.submodules.reader1 = reader1 = StreamReader()
 
-        self.submodules.hyperram = hyperram = StreamableHyperRAM(platform.request("hyperRAM"), devices=[reader, writer])
+        self.submodules.hyperram = hyperram = StreamableHyperRAM(platform.request("hyperRAM"), devices=[reader, writer, reader1, writer1])
         self.register_mem("hyperram", self.mem_map['hyperram'], hyperram.bus, size=0x800000)
 
         # Boson video stream
