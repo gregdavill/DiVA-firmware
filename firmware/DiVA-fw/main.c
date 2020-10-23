@@ -6,6 +6,7 @@
 #include <stdbool.h>
 
 #include <time.h>
+#include "include/terminal.h"
 
 #include <generated/csr.h>
 #include <generated/mem.h>
@@ -13,28 +14,6 @@
 
 void isr(void){
 
-}
-
-uint8_t x = 0;
-uint8_t y = 0;
-
-
-void terminal_write(char c){
-	volatile uint32_t* vga = (volatile uint32_t*) (TERMINAL_BASE);
-	if(c == '\r'){
-		x = 0;
-	}else if(c == '\n'){
-		y += 1;
-	}else{
-		if(x >= 99){
-			x = 0;
-			y += 1;
-		}
-
-		vga[x*2 + y*100*2] = c; 
-		vga[x*2 + y*100*2 + 1] = 12; 
-		x += 1;
-	}
 }
 
 
@@ -62,12 +41,6 @@ void switch_mode(int mode){
 }
 
 
-
-int colour(int j){
-	return (1 << (j % 24));
-}
-
-
 int main(int i, char **c)
 {	
 
@@ -79,6 +52,13 @@ int main(int i, char **c)
 	//rgb_div_m_write(400000);
     //rgb_config_write(2);
 
+
+	terminal_set_bg(TERMINAL_TRANSPARENT);
+	terminal_set_fg(TERMINAL_TRANSPARENT);
+	terminal_clear();
+
+
+	terminal_set_fg(TERMINAL_CYAN);
 	printf("     ______    ___   __   __   _______ \n");
 	printf("    |      |  |___| |  | |  | |   _   |\n");
 	printf("    |  _    |  ___  |  |_|  | |  |_|  |\n");
@@ -87,8 +67,11 @@ int main(int i, char **c)
 	printf("    |       | |   |  |     |  |   _   |\n");
 	printf("    |______|  |___|   |___|   |__| |__|\n");
 
+
+	terminal_set_fg(TERMINAL_YELLOW);
 	printf("   - Digital Video Interface for Boson -\n");
-	
+	terminal_set_fg(TERMINAL_BLUE);
+
  	printf("\n (c) Copyright 2019-2020 GetLabs \n");
  	printf(" fw built: "__DATE__ " " __TIME__ " \n\n");
 
@@ -101,6 +84,8 @@ int main(int i, char **c)
 	printf("\n");	
 	prbs_memtest(HYPERRAM_BASE, HYPERRAM_SIZE);
 
+
+	terminal_set_bg(TERMINAL_TRANSPARENT);
 
 	/* Run through some checks if a Boson is attached? */
 	uint32_t boson_freq = video_debug_freq_value_read();
@@ -120,7 +105,7 @@ int main(int i, char **c)
 
 
 	uint32_t line = 0;
-	uint8_t _y = y;
+	terminal_set_cursor(0,20);
 
 
 	reader_reset_write(1);
@@ -159,7 +144,8 @@ int main(int i, char **c)
 	uint16_t btn_2_cnt = 0;
 
     while(1) {
-		y = _y;
+		
+		terminal_set_cursor(0,20);
 
 		printf("Counter %u \n", line++);
 		printf("freq %u \n", video_debug_freq_value_read());

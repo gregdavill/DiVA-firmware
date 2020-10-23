@@ -1,6 +1,6 @@
 #include <generated/csr.h>
 
-#include "i2c.h"
+//#include "i2c.h"
 
 #if 0
 

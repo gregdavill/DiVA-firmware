@@ -1,4 +1,4 @@
-#include "i2c.h"
+#include "include/i2c.h"
 
 /* I2C bit banging */
 int i2c_init(I2C *i2c)

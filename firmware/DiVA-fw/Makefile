@@ -1,9 +1,11 @@
 include ../include/generated/variables.mak
 include $(SOC_DIRECTORY)/software/common.mak
 
-CFLAGS += -fpack-struct -O3 -Iinclude
+CFLAGS += -fpack-struct -O3 -I$(DIVA-FW_DIRECTORY)/include
 
-OBJECTS=main.o time.o hyperram.o console.o hdmi_edid.o i2c.o eeprom.o
+OBJECTS=main.o time.o hyperram.o i2c.o hdmi_edid.o eeprom.o terminal.o
+
+vpath % $(DIVA-FW_DIRECTORY)
 
 all: DiVA-fw.bin size
 
@@ -34,10 +36,10 @@ endif
 # pull in dependency info for *existing* .o files
 -include $(OBJECTS:.o=.d)
 
-%.o: $(DIVA-FW_DIRECTORY)/%.c
+%.o: %.c
 	$(compile)
 
-%.o: $(DIVA-FW_DIRECTORY)/%.S
+%.o: %.S
 	$(assemble)
 
 clean:

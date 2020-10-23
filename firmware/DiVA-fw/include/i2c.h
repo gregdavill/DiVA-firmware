@@ -1,5 +1,5 @@
-#ifndef __I2C_H
-#define __I2C_H
+#ifndef __I2C_H_
+#define __I2C_H_
 
 #define I2C_SCL 0x01
 #define I2C_SDAOE	0x02

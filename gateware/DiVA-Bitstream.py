@@ -335,14 +335,19 @@ class DiVA_SoC(SoCCore):
         fifo_rst = Signal()
         self.sync += [
              timeline(vsync_boson.o, [
-                (501,  [fifo_rst.eq(1)]),   # Reset FIFO
-                (550,  [fifo_rst.eq(0), scaler_enable.eq(scaler.enable.storage)]),  # Clear Reset
-                (621,  [boson_stream_start.eq(1)]),
-                (622,  [boson_stream_start.eq(0)])
+                (1,  [fifo_rst.eq(1)]),   # Reset FIFO
+                (2,  [fifo_rst.eq(0), scaler_enable.eq(scaler.enable.storage)]),  # Clear Reset
+                (10,  [boson_stream_start.eq(1)]),
+                (11,  [boson_stream_start.eq(0)])
             ])
         ]
-        self.specials += MultiReg(fifo_rst, fifo.reset_write, odomain="boson_rx")
+        #self.specials += MultiReg(fifo_rst, fifo.reset_write, odomain="boson_rx")
+
+        fifo_rst_ps = PulseSynchronizer("sys", "boson_rx")
+        self.comb += fifo_rst_ps.i.eq(fifo_rst)
+        self.comb += fifo.reset_write.eq(fifo_rst_ps.o)
         self.comb += fifo.reset_read.eq(fifo_rst)
+        self.submodules += fifo_rst_ps
        
 
         terminal_mask = Signal()

@@ -196,11 +196,16 @@ class Terminal(Module, AutoCSR):
             If((line_counter >= V_BACK_PORCH) & (line_counter < V_DATA),
                 If((pixel_counter >= H_BACK_PORCH) & (pixel_counter < (H_DATA)),
                     blank.eq(0),
-                    If(fbyte[7] & self.enable.storage,
+                    If(self.enable.storage,
+                    If(fbyte[7],
                         red.eq(fgcolor[16:24]),
                         green.eq(fgcolor[8:16]),
                         blue.eq(fgcolor[0:8])
                     ).Else(
+                        red.eq(bgcolor[16:24]),
+                        green.eq(bgcolor[8:16]),
+                        blue.eq(bgcolor[0:8])
+                    )).Else(
                         red.eq(0xaa),
                         green.eq(0x00),
                         blue.eq(0xaa)
