@@ -5,7 +5,7 @@ import os
 from migen import *
 from migen.genlib.cdc import MultiReg
 
-from boson import *
+from rtl.video.boson import *
 from litex.soc.cores.clock import *
 
 

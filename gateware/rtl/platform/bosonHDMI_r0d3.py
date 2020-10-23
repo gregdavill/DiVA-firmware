@@ -10,7 +10,6 @@ _io = [
     ("clk48", 0, Pins("M1"),  IOStandard("LVCMOS18")),
     ("rst_n", 0, Pins("V17"), IOStandard("LVCMOS33")),
 
-
     ("rgb_led", 0,
         Subsignal("r", Pins("L16"), IOStandard("LVCMOS33")),
         Subsignal("g", Pins("J16"), IOStandard("LVCMOS33")),
@@ -34,9 +33,8 @@ _io = [
         Subsignal("cec", Pins("L15")),
     ),
     ("hdmi", 0,
-        Subsignal("p", Pins("F17 G18 J18 K17"), IOStandard("LVCMOS33D"), Misc("SLEWRATE=SLOW")),
+        Subsignal("p", Pins("F17 G18 J18 K17"), IOStandard("LVCMOS33D"), Misc("SLEWRATE=FAST")),
     ),
-
 
     ("i2c", 0,
         Subsignal("sda", Pins("N15")),
@@ -84,7 +82,6 @@ _io = [
         #Subsignal("clk",  Pins("U16"), IOStandard("LVCMOS33")),
         Subsignal("dq",   Pins("U18 T18 R18 N18"), IOStandard("LVCMOS33")),
     ),
-
 ]
 
 

@@ -9,7 +9,7 @@ from litex.soc.interconnect.stream import Endpoint, EndpointDescription, SyncFIF
 from litex.soc.interconnect.csr import AutoCSR, CSR, CSRStatus, CSRStorage
 
 from litex.soc.cores.freqmeter import FreqMeter
-from edge_detect import EdgeDetect
+from rtl.edge_detect import EdgeDetect
 
 
 from migen.genlib.cdc import MultiReg, PulseSynchronizer

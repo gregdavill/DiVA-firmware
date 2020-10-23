@@ -17,68 +17,48 @@ import sys
 import argparse
 import optparse
 import subprocess
-
-from migen import *
-import bosonHDMI_r0d3
-import bosonHDMI_r0d2
-
 import os
 import shutil
-from hdmi import HDMI
-from terminal import Terminal
 
-#from migen.genlib.resetsync import AsyncResetSynchronizer
+from migen import *
+
+from rtl.platform import bosonHDMI_r0d3
+
 
 from litex.build.generic_platform import *
-from litex.boards.platforms import versa_ecp5
-
 from litex.soc.cores.clock import *
-from ecp5_dynamic_pll import ECP5PLL, period_ns
+from rtl.ecp5_dynamic_pll import ECP5PLL, period_ns
 from litex.soc.integration.soc_core import *
 from litex.soc.integration.soc import SoCRegion
 from litex.soc.integration.builder import *
 
-
-from litex.soc.interconnect import wishbone
-
-from litex.soc.cores.gpio import GPIOOut, GPIOIn
-from rgb_led import RGB
-from reboot import Reboot
-
-from streamable_hyperram import StreamableHyperRAM
-
-
-
-
-from litex.soc.interconnect.stream import Endpoint, EndpointDescription, SyncFIFO, AsyncFIFO, Monitor
-
-
-from migen.genlib.cdc import MultiReg, PulseSynchronizer
-
-from boson import Boson
-from YCrCb import YCrCbConvert
-
 from litex.soc.cores.bitbang import I2CMaster
+from litex.soc.cores.gpio import GPIOOut, GPIOIn
 
-from litex.soc.interconnect import stream
+from litex.soc.interconnect import stream, wishbone
+from litex.soc.interconnect.stream import Endpoint, EndpointDescription, SyncFIFO, AsyncFIFO, Monitor
+from litex.soc.interconnect.csr import *
 
 from migen.genlib.misc import timeline
+from migen.genlib.cdc import MultiReg, PulseSynchronizer
 
-
-
-from edge_detect import EdgeDetect
 from rtl.prbs import PRBSStream
+from rtl.edge_detect import EdgeDetect
 from rtl.wb_streamer import StreamReader, StreamWriter
+from rtl.hdmi import HDMI
+from rtl.rgb_led import RGB
+from rtl.reboot import Reboot
+from rtl.streamable_hyperram import StreamableHyperRAM
 
-from simulated_video import SimulatedVideo
-from video_debug import VideoDebug
-from video_stream import VideoStream
-from framer import Framer
-from scaler import ScalerWidth
-from scaler import ScalerHeight
+from rtl.video.terminal import Terminal
+from rtl.video.boson import Boson
+from rtl.video.YCrCb import YCrCbConvert
 
-
-from litex.soc.interconnect.csr import *
+from rtl.video.simulated_video import SimulatedVideo
+from rtl.video.video_debug import VideoDebug
+from rtl.video.video_stream import VideoStream
+from rtl.video.framer import Framer
+from rtl.video.scaler import ScalerWidth, ScalerHeight
 
 class _CRG(Module, AutoCSR):
     def __init__(self, platform, sys_clk_freq):

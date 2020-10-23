@@ -3,7 +3,7 @@
 
 from migen import *
 from litex.soc.interconnect.stream import Endpoint
-from edge_detect import EdgeDetect
+from rtl.edge_detect import EdgeDetect
 
 from litex.soc.interconnect.csr import AutoCSR, CSR, CSRStatus, CSRStorage
 from litex.soc.interconnect.stream import Endpoint, EndpointDescription, AsyncFIFO

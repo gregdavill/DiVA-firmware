@@ -3,10 +3,9 @@ from migen import *
 class HDMI(Module):
     def __init__(self, platform, pins):
 
-        platform.add_source('hdl/fake_differential.v')
-        platform.add_source('hdl/vga2dvid.v')
-        platform.add_source('hdl/vga.v')
-        platform.add_source('hdl/tmds_encoder.v')
+        platform.add_source('rtl/verilog/fake_differential.v')
+        platform.add_source('rtl/verilog/vga2dvid.v')
+        platform.add_source('rtl/verilog/tmds_encoder.v')
 
         self.r = vga_r = Signal(8)
         self.g = vga_g = Signal(8)

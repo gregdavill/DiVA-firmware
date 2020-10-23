@@ -13,7 +13,7 @@ from litex.soc.interconnect.stream import EndpointDescription
 
 from litex.soc.cores.uart import RS232PHYTX
 
-from ecp5_dynamic_pll import period_ns
+from rtl.ecp5_dynamic_pll import period_ns
 
 from struct import unpack, pack_into
 
