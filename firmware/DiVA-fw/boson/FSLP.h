@@ -1,0 +1,13 @@
+
+
+
+#define ESCAPE_BYTE        0x9E
+#define START_FRAME_BYTE   0x8E
+#define END_FRAME_BYTE     0xAE
+#define ESCAPED_ESCAPE_BYTE        0x91
+#define ESCAPED_START_FRAME_BYTE   0x81
+#define ESCAPED_END_FRAME_BYTE     0xA1
+
+#define NUM_FRAMING_BYTES 3
+#define FRAME_START_IDX 1
+#define CRC_START_IDX 0

@@ -87,7 +87,9 @@ int main(int i, char **c)
 
 	terminal_set_bg(TERMINAL_TRANSPARENT);
 
-	treminal_draw_box(10, 10, 50, 4);
+	/* Boson Init */
+	boson_init();
+
 
 	/* Run through some checks if a Boson is attached? */
 	uint32_t boson_freq = video_debug_freq_value_read();
@@ -163,7 +165,7 @@ int main(int i, char **c)
 			btn_2_cnt++;
 		}else{
 			if((btn_2_cnt > 5) && (btn_2_cnt < 100)){
-				boson_mode_write(1);
+				//boson_mode_write(1);
 			}
 			btn_2_cnt = 0;
 		}

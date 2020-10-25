@@ -1,11 +1,11 @@
 include ../include/generated/variables.mak
 include $(SOC_DIRECTORY)/software/common.mak
 
-CFLAGS += -fpack-struct -O3 -I$(DIVA-FW_DIRECTORY)/include
+CFLAGS += -fpack-struct -O3 -I$(DIVA-FW_DIRECTORY)/include -fdata-sections -ffunction-sections
 
-OBJECTS=main.o time.o hyperram.o i2c.o hdmi_edid.o eeprom.o terminal.o
+OBJECTS=main.o time.o hyperram.o i2c.o hdmi_edid.o eeprom.o terminal.o boson.o flirCRC.o Serializer_BuiltIn.o
 
-vpath % $(DIVA-FW_DIRECTORY)
+vpath % $(DIVA-FW_DIRECTORY) $(DIVA-FW_DIRECTORY)/boson
 
 all: DiVA-fw.bin size
 
@@ -26,6 +26,7 @@ DiVA-fw.elf: $(DIVA-FW_DIRECTORY)/linker.ld $(OBJECTS)
 	$(LD) $(LDFLAGS) -L$(BUILDINC_DIRECTORY)/generated -T $(DIVA-FW_DIRECTORY)/linker.ld -N -o $@ \
 		../libbase/crt0.o \
 		$(OBJECTS) \
+		-gc-sections \
 		-L../libbase \
 		-L../libcompiler_rt \
 		-lbase-nofloat -lcompiler_rt

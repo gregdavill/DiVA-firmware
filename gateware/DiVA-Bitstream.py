@@ -255,9 +255,6 @@ class DiVA_SoC(SoCCore):
             video_debug.hsync.eq(boson.hsync),
 
             boson.source.connect(ycrcb.sink),
-
-
-            boson.next_mode.eq(btn.b)
         ]
 
         self.submodules += fifo
