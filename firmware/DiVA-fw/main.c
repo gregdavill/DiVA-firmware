@@ -70,7 +70,7 @@ int main(int i, char **c)
 
 	terminal_set_fg(TERMINAL_YELLOW);
 	printf("   - Digital Video Interface for Boson -\n");
-	terminal_set_fg(TERMINAL_BLUE);
+	terminal_set_fg(TERMINAL_CYAN);
 
  	printf("\n (c) Copyright 2019-2020 GetLabs \n");
  	printf(" fw built: "__DATE__ " " __TIME__ " \n\n");
@@ -86,6 +86,8 @@ int main(int i, char **c)
 
 
 	terminal_set_bg(TERMINAL_TRANSPARENT);
+
+	treminal_draw_box(10, 10, 50, 4);
 
 	/* Run through some checks if a Boson is attached? */
 	uint32_t boson_freq = video_debug_freq_value_read();
