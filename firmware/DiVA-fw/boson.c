@@ -4,6 +4,8 @@
 
 volatile static uint16_t boson_crc;
 
+volatile static uint32_t _seq = 0;
+
 #define UART_EV_TX	0x1
 #define UART_EV_RX	0x2
 
@@ -115,58 +117,87 @@ FLR_RESULT dispatcher_tx(uint32_t seqNum, FLR_FUNCTION fnID, const uint8_t *send
 
 
 }
-// Asynchronous (MultiService compatible) receive part
-FLR_RESULT dispatcher_rx(void) {
+
+FLR_RESULT dispatcher_rx(uint8_t* recvData, uint32_t* recvBytes) {
 
     /* Setup a timeout interval */
     int timeout = 500;
     int timeout_count = 0;
 
-    uint8_t payload[128];
-    uint8_t max_len = 128;
+    FLR_RESULT errorCode = R_UART_RECEIVE_TIMEOUT;
+
+    uint32_t max_len = *recvBytes;
+    *recvBytes = 0;
     
-    uint16_t len = 0;
+    uint32_t len = 0;
 
     printf("bsn << ");
     while(++timeout_count < timeout){
 
         while(boson_uart_read_nonblock()) {    
+            recvData[len] = boson_uart_read();
+            
+            /* Skip forward looking for START_OF_FRAME */
+            if(len == 0){
+                if(recvData[0] != START_FRAME_BYTE)
+                    continue;
+            }
 
-            payload[len] = boson_uart_read();
-            printf("%02x ", payload[len]);
+            printf("%02x ", recvData[len]);
+            
+            if(len > 2){
+                if(recvData[len] == END_FRAME_BYTE){
+                    if(recvData[len-1] != ESCAPED_END_FRAME_BYTE){
+
+                        /* End of frame */
+                        errorCode = R_SUCCESS;
+                        *recvBytes = len;
+                        break;
+                    }
+                }
+            }
             
 
-            if(payload[0] != 0x8e)
-              break;
-
             /* Basic bounds protection */
-            if(len < max_len)
+            if(len < max_len){
                 len++;
+            }else{
+                errorCode = R_SDK_PKG_BUFFER_OVERFLOW;
+                break;
+            }
         }
         
-        if((len > 0) && (payload[0] != 0x8e))
-              break;
-
-//        /* Once we have the header */
-//        if(len > 6){
-//            /* Check for total payload length */
-//            uint16_t payload_len = (payload[4] << 8) | payload[5];
-//            if(len == payload_len + 10){
-//                break;
-//            }
-//        }else if(len > 0 && payload[0] != 0x6e){
-//            /* Invalid process code */
-//
-//        }
-//
         msleep(1);
     }
 
     printf("(%u ms)\n", timeout_count);
 
-    return R_SUCCESS;
-} // End CLIENT_dispatcher()
+    return errorCode;
+}
 
+FLR_RESULT dispatcher(FLR_FUNCTION fnID, const uint8_t *sendData, const uint32_t sendBytes){
+    uint32_t seq = _seq++;
+
+    dispatcher_tx(seq, fnID, sendData, sendBytes);
+
+    uint8_t recvData[64];
+    uint32_t recvBytes = (sizeof(recvData)/sizeof(uint8_t));
+
+    /* Listen to the RX bytes, to check error code. */
+    FLR_RESULT r = dispatcher_rx(recvData, &recvBytes);
+    if(r == R_SUCCESS){
+        printf("RX OK: len=%u, ", recvBytes);
+
+        /* Check CRC */
+        if(recvBytes > 4){
+            uint16_t calcCRC = calcFlirCRC16Bytes(recvBytes - 4, recvData + 1);
+            printf("crc=%04x, ", calcCRC);
+        }
+        /* Check seq number */
+        
+        /* Check result code */
+    }
+}
 
 
 void boson_init(){
@@ -179,17 +210,29 @@ void boson_init(){
         boson_uart_read();
 
 
-    dispatcher_tx(10, BOSON_GETCAMERASN, 0, 0);
-    dispatcher_rx();
+    dispatcher(BOSON_GETCAMERASN, 0, 0);
     msleep(2000);
 
-    dispatcher_tx(11, BOSON_GETCAMERASN, 0, 0);
-    dispatcher_rx();
+    dispatcher(BOSON_GETCAMERASN, 0, 0);
 
     msleep(2000);
-    dispatcher_tx(12, BOSON_RUNFFC, 0, 0);
-    dispatcher_rx();
+    dispatcher(BOSON_RUNFFC, 0, 0);
     msleep(2000);
 
-    while(1);
+
+    /* Basic setup of boson core */
+    dispatcher(DVO_SETDISPLAYMODE, (const uint8_t[]){0x00, 0x00, 0x00, 0x00}, 4);
+    dispatcher(DVO_SETTYPE, (const uint8_t[]){0x00, 0x00, 0x00, 0x00}, 4);
+    dispatcher(DVO_SETANALOGVIDEOSTATE, (const uint8_t[]){0x00, 0x00, 0x00, 0x00}, 4);
+    dispatcher(DVO_SETOUTPUTFORMAT, (const uint8_t[]){0x00, 0x00, 0x00, 0x02}, 4); /* Mode: YCbCr */
+    dispatcher(DVO_SETOUTPUTRGBSETTINGS, (const uint8_t[]){0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, 8); /* RGB888 */
+    dispatcher(DVO_SETOUTPUTYCBCRSETTINGS, (const uint8_t[]){0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, 12); /* YCbCr Muxed */
+    dispatcher(DVO_APPLYCUSTOMSETTINGS, 0, 0);
+    dispatcher(COLORLUT_SETID, (const uint8_t[]){0x00, 0x00, 0x00, 0x02}, 4); /* Colour LUT: Ironbow */
+    dispatcher(COLORLUT_SETCONTROL, (const uint8_t[]){0x00, 0x00, 0x00, 0x01}, 4);
+    dispatcher(COLORLUT_SETID, (const uint8_t[]){0x00, 0x00, 0x00, 0x01}, 4);
+    dispatcher(GAO_SETAVERAGERSTATE, (const uint8_t[]){0x00, 0x00, 0x00, 0x00}, 4);
+    dispatcher(BOSON_RUNFFC, 0, 0);
+
+
 }
