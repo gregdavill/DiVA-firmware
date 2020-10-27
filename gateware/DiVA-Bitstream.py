@@ -203,7 +203,7 @@ class DiVA_SoC(SoCCore):
                           cpu_type='serv', with_uart=True, uart_name='stream',
                           csr_data_width=32,
                           ident="Boson DiVA SoC", ident_version=True, wishbone_timeout_cycles=128,
-                          integrated_rom_size=16*1024)
+                          integrated_rom_size=32*1024)
 
         self.platform.toolchain.build_template[0] = "yosys -q -l {build_name}.rpt {build_name}.ys"
         self.platform.toolchain.build_template[1] += f" --log {platform.name}.log --router router1"

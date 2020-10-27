@@ -3,7 +3,7 @@ include $(SOC_DIRECTORY)/software/common.mak
 
 CFLAGS += -fpack-struct -O3 -I$(DIVA-FW_DIRECTORY)/include -fdata-sections -ffunction-sections
 
-OBJECTS=main.o time.o hyperram.o i2c.o hdmi_edid.o eeprom.o terminal.o boson.o flirCRC.o Serializer_BuiltIn.o
+OBJECTS=main.o time.o hyperram.o hdmi_edid.o terminal.o boson.o settings.o flirCRC.o Serializer_BuiltIn.o
 
 vpath % $(DIVA-FW_DIRECTORY) $(DIVA-FW_DIRECTORY)/boson
 

@@ -121,7 +121,7 @@ FLR_RESULT dispatcher_tx(uint32_t seqNum, FLR_FUNCTION fnID, const uint8_t *send
 FLR_RESULT dispatcher_rx(uint8_t* recvData, uint32_t* recvBytes) {
 
     /* Setup a timeout interval */
-    int timeout = 500;
+    int timeout = 200;
     int timeout_count = 0;
 
     FLR_RESULT errorCode = R_UART_RECEIVE_TIMEOUT;
@@ -131,8 +131,8 @@ FLR_RESULT dispatcher_rx(uint8_t* recvData, uint32_t* recvBytes) {
     
     uint32_t len = 0;
 
-    printf("bsn << ");
-    while(++timeout_count < timeout){
+    //printf("bsn << ");
+    while((++timeout_count < timeout) && (errorCode != R_SUCCESS)){
 
         while(boson_uart_read_nonblock()) {    
             recvData[len] = boson_uart_read();
@@ -143,7 +143,7 @@ FLR_RESULT dispatcher_rx(uint8_t* recvData, uint32_t* recvBytes) {
                     continue;
             }
 
-            printf("%02x ", recvData[len]);
+            //printf("%02x ", recvData[len]);
             
             if(len > 2){
                 if(recvData[len] == END_FRAME_BYTE){
@@ -151,7 +151,7 @@ FLR_RESULT dispatcher_rx(uint8_t* recvData, uint32_t* recvBytes) {
 
                         /* End of frame */
                         errorCode = R_SUCCESS;
-                        *recvBytes = len;
+                        *recvBytes = len + 1;
                         break;
                     }
                 }
@@ -170,69 +170,82 @@ FLR_RESULT dispatcher_rx(uint8_t* recvData, uint32_t* recvBytes) {
         msleep(1);
     }
 
-    printf("(%u ms)\n", timeout_count);
+//    printf("(%u ms)\n", timeout_count);
 
     return errorCode;
 }
 
 FLR_RESULT dispatcher(FLR_FUNCTION fnID, const uint8_t *sendData, const uint32_t sendBytes){
-    uint32_t seq = _seq++;
-
-    dispatcher_tx(seq, fnID, sendData, sendBytes);
-
+    FLR_RESULT r = R_SYM_UNSPECIFIED_FAILURE;
     uint8_t recvData[64];
     uint32_t recvBytes = (sizeof(recvData)/sizeof(uint8_t));
+    uint32_t seq = _seq++;
+
+    r = dispatcher_tx(seq, fnID, sendData, sendBytes);
+    if(r != R_SUCCESS){
+        return r;
+    }
 
     /* Listen to the RX bytes, to check error code. */
-    FLR_RESULT r = dispatcher_rx(recvData, &recvBytes);
+    r = dispatcher_rx(recvData, &recvBytes);
     if(r == R_SUCCESS){
-        printf("RX OK: len=%u, ", recvBytes);
-
         /* Check CRC */
         if(recvBytes > 4){
-            uint16_t calcCRC = calcFlirCRC16Bytes(recvBytes - 4, recvData + 1);
-            printf("crc=%04x, ", calcCRC);
+            uint16_t calcCRC = calcFlirCRC16Bytes(recvBytes - 2, recvData + 1);
+            if(calcCRC != 0){
+                return R_UART_UNSPECIFIED_FAILURE;
+            }
         }
         /* Check seq number */
+        uint32_t rx_seq = 0;
+        byteToUINT_32(recvData + 2, &rx_seq);
+        if(seq != rx_seq){
+            return R_UART_UNSPECIFIED_FAILURE;
+        }
         
         /* Check result code */
+        byteToUINT_32(recvData + 10, &r);
     }
+    
+    return r;
 }
 
 
 void boson_init(){
 
     boson_uart_init();
-
-    msleep(2000);
-
-    while(boson_uart_rxempty_read() == 0)
-        boson_uart_read();
+    msleep(3500);
+    boson_uart_write(0);
+    boson_uart_write(0);
 
 
-    dispatcher(BOSON_GETCAMERASN, 0, 0);
-    msleep(2000);
+    /* Ping the camera a few times, takes ~3s after bootup before it will respond */
+    FLR_RESULT r = R_UART_RECEIVE_TIMEOUT;
+    for(int tries = 10; tries > 0 && r != R_SUCCESS; tries--){
+        r = dispatcher(BOSON_GETCAMERASN, 0, 0);
+    }
 
-    dispatcher(BOSON_GETCAMERASN, 0, 0);
+    if(r == R_SUCCESS){
+        /* Basic setup of boson core */
+        dispatcher(DVO_SETDISPLAYMODE, (const uint8_t[]){0x00, 0x00, 0x00, 0x00}, 4);
+        dispatcher(DVO_SETANALOGVIDEOSTATE, (const uint8_t[]){0x00, 0x00, 0x00, 0x00}, 4);
+        dispatcher(DVO_SETOUTPUTFORMAT, (const uint8_t[]){0x00, 0x00, 0x00, 0x02}, 4); /* Mode: YCbCr */
+        dispatcher(DVO_SETOUTPUTRGBSETTINGS, (const uint8_t[]){0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, 8); /* RGB888 */
+        dispatcher(DVO_SETOUTPUTYCBCRSETTINGS, (const uint8_t[]){0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}, 12); /* YCbCr Muxed */
+        dispatcher(DVO_APPLYCUSTOMSETTINGS, 0, 0);
+        dispatcher(DVO_SETTYPE, (const uint8_t[]){0x00, 0x00, 0x00, 0x02}, 4);
+        dispatcher(COLORLUT_SETID, (const uint8_t[]){0x00, 0x00, 0x00, 0x03}, 4); /* Colour LUT: Ironbow */
+        dispatcher(COLORLUT_SETCONTROL, (const uint8_t[]){0x00, 0x00, 0x00, 0x01}, 4);
+        dispatcher(GAO_SETAVERAGERSTATE, (const uint8_t[]){0x00, 0x00, 0x00, 0x00}, 4);
 
-    msleep(2000);
-    dispatcher(BOSON_RUNFFC, 0, 0);
-    msleep(2000);
-
-
-    /* Basic setup of boson core */
-    dispatcher(DVO_SETDISPLAYMODE, (const uint8_t[]){0x00, 0x00, 0x00, 0x00}, 4);
-    dispatcher(DVO_SETTYPE, (const uint8_t[]){0x00, 0x00, 0x00, 0x00}, 4);
-    dispatcher(DVO_SETANALOGVIDEOSTATE, (const uint8_t[]){0x00, 0x00, 0x00, 0x00}, 4);
-    dispatcher(DVO_SETOUTPUTFORMAT, (const uint8_t[]){0x00, 0x00, 0x00, 0x02}, 4); /* Mode: YCbCr */
-    dispatcher(DVO_SETOUTPUTRGBSETTINGS, (const uint8_t[]){0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, 8); /* RGB888 */
-    dispatcher(DVO_SETOUTPUTYCBCRSETTINGS, (const uint8_t[]){0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, 12); /* YCbCr Muxed */
-    dispatcher(DVO_APPLYCUSTOMSETTINGS, 0, 0);
-    dispatcher(COLORLUT_SETID, (const uint8_t[]){0x00, 0x00, 0x00, 0x02}, 4); /* Colour LUT: Ironbow */
-    dispatcher(COLORLUT_SETCONTROL, (const uint8_t[]){0x00, 0x00, 0x00, 0x01}, 4);
-    dispatcher(COLORLUT_SETID, (const uint8_t[]){0x00, 0x00, 0x00, 0x01}, 4);
-    dispatcher(GAO_SETAVERAGERSTATE, (const uint8_t[]){0x00, 0x00, 0x00, 0x00}, 4);
-    dispatcher(BOSON_RUNFFC, 0, 0);
+        msleep(500);
+        dispatcher(BOSON_RUNFFC, 0, 0);
+    }
 
 
+}
+
+
+void boson_set_lut(uint32_t lut){
+    dispatcher(COLORLUT_SETID, (const uint8_t[]){0x00, 0x00, 0x00, lut}, 4); /* Colour LUT: Ironbow */
 }

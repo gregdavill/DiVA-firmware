@@ -41,6 +41,15 @@ void switch_mode(int mode){
 }
 
 
+const char* palette[] = {
+			"White Hot", "Block Hot",
+			"Rainbow", "Rainbow High Contrast",
+			"Ironbow", "Lava",
+			"Arctic", "Glowbow",
+			"Graded Fire", "Hottest"};
+const char* padding = "                                                                   ";
+
+
 int main(int i, char **c)
 {	
 
@@ -84,8 +93,14 @@ int main(int i, char **c)
 	printf("\n");	
 	prbs_memtest(HYPERRAM_BASE, HYPERRAM_SIZE);
 
-
+	
 	terminal_set_bg(TERMINAL_TRANSPARENT);
+	
+	//init_settings();
+
+	terminal_clear();
+	terminal_set_bg(TERMINAL_BLACK);
+	
 
 	/* Boson Init */
 	boson_init();
@@ -95,10 +110,10 @@ int main(int i, char **c)
 	uint32_t boson_freq = video_debug_freq_value_read();
 
 	if(boson_freq == 0){
-		printf("Waiting for Clock from Boson\n");
+		//printf("Waiting for Clock from Boson\n");
 
 		while(1){
-			printf("Detected Frequency: %u Hz           \r", video_debug_freq_value_read());
+		//	printf("Detected Frequency: %u Hz           \r", video_debug_freq_value_read());
 
 			if(video_debug_freq_value_read() > 26.5e6){
 				break;
@@ -147,37 +162,60 @@ int main(int i, char **c)
 	uint8_t scale_mode = 1;
 	uint16_t btn_2_cnt = 0;
 
+
+	draw_settings_window();
+
+	uint8_t option = 0;
+
+	uint8_t x = 10;
     while(1) {
 		
-		terminal_set_cursor(0,20);
+		//terminal_set_cursor(0,20);
 
-		printf("Counter %u \n", line++);
-		printf("freq %u \n", video_debug_freq_value_read());
+		//printf("Counter %u \n", line++);
+		//printf("freq %u \n", video_debug_freq_value_read());
+		//
+		//video_debug_latch_write(1);
+		//printf("vsync LOW %u  HIGH %u   \n", video_debug_vsync_low_read(), video_debug_vsync_high_read());
+		//printf("hsync LOW %u  HIGH %u   \n", video_debug_hsync_low_read(), video_debug_hsync_high_read());
+		//printf("lines %u   \n", video_debug_lines_read());
+
+
+		msleep(1);
+
 		
-		video_debug_latch_write(1);
-		printf("vsync LOW %u  HIGH %u   \n", video_debug_vsync_low_read(), video_debug_vsync_high_read());
-		printf("hsync LOW %u  HIGH %u   \n", video_debug_hsync_low_read(), video_debug_hsync_high_read());
-		printf("lines %u   \n", video_debug_lines_read());
-
-
-
+		
 		if((btn_in_read() & 2) == 0){
 			btn_2_cnt++;
 		}else{
-			if((btn_2_cnt > 5) && (btn_2_cnt < 100)){
-				//boson_mode_write(1);
+			if(btn_2_cnt > 0){
+				
+				const uint32_t width = 70;
+				const uint32_t height = 10;
+				const uint32_t window_x = (100 - width) / 2;
+				const uint32_t window_y = 20;
+
+				terminal_set_cursor(window_x + 2, window_y+1);
+				terminal_set_fg(TERMINAL_BLUE);
+				terminal_set_bg(TERMINAL_WHITE);
+				printf("LUT [%s]%.*s", palette[option], width - 10 - strlen(palette[option]), padding);
+				//terminal_fill_line(width);
+
+				boson_set_lut(option);
+
+
+				option++;
+				if(option >= 10)
+					option = 0;
+				
+				
+
 			}
 			btn_2_cnt = 0;
 		}
 
 
-		if((btn_2_cnt > 100) && (btn_2_cnt < 150) ){
-			scale_mode ^= 1;
-			btn_2_cnt = 999;
-
-			switch_mode(scale_mode);
-		}
-
+		
 
 
 		/*
@@ -194,4 +232,24 @@ int main(int i, char **c)
 	return 0;
 }
 
+void draw_settings_window(){
 
+	const uint32_t width = 70;
+	const uint32_t height = 10;
+	const uint32_t window_x = (100 - width) / 2;
+	const uint32_t window_y = 20;
+	
+				
+	terminal_set_bg(TERMINAL_BLUE);
+	terminal_set_fg(TERMINAL_WHITE);
+
+	treminal_draw_box(window_x, window_y, width, height);
+	terminal_set_cursor(window_x + 1, window_y);
+	printf("Settings");
+	
+	
+	terminal_set_cursor(window_x + 2, window_y+1);
+	terminal_set_fg(TERMINAL_BLUE);
+	terminal_set_bg(TERMINAL_WHITE);
+	printf("LUT [%s]%.*s", palette[0], width - 10 - strlen(palette[0]), padding);
+}

@@ -62,47 +62,60 @@ void terminal_clear(void){
         vga[i*2+1] = current_colour;
         vga[i*2] = 0;
     }
+
+    cursor_x = 0;
+    cursor_y = 0;
 }
 
 
 void treminal_draw_box(uint8_t x, uint8_t y, uint8_t w, uint8_t h){
+    uint8_t box_colour = TERMINAL_BLUE << 4 | TERMINAL_WHITE;
     for(int i = x+1; i < (x+w); i++){
-        /* ═ : 205 in CP437 */
-        terminal_write_xy(i, y,     205,current_colour);
-        terminal_write_xy(i, y + h, 205,current_colour);
+        /* ─ : 0xc4 in CP437 */
+        terminal_write_xy(i, y,     0xc4,box_colour);
+        terminal_write_xy(i, y + h, 0xc4,box_colour);
     }
 
     for(int i = y+1; i < (y+h); i++){
-        /* ║ : 186 in CP437 */
-        terminal_write_xy(x, i,     186,current_colour);
-        terminal_write_xy(x + w, i, 186,current_colour);
+        /* │ : 0xb3 in CP437 */
+        terminal_write_xy(x, i,     0xb3,box_colour);
+        terminal_write_xy(x + w, i, 0xb3,box_colour);
     }
 
     /* Corners */
-    terminal_write_xy(x,   y,   /* ╔ */ 201, current_colour);
-    terminal_write_xy(x,   y+h, /* ╚ */ 202, current_colour);
-    terminal_write_xy(x+w, y,   /* ╗ */ 187, current_colour);
-    terminal_write_xy(x+w, y+h, /* ╝ */ 188, current_colour);
-}
+    terminal_write_xy(x,   y,   /* ┌ */ 0xda, box_colour);
+    terminal_write_xy(x,   y+h, /* └ */ 0xc0, box_colour);
+    terminal_write_xy(x+w, y,   /* ┐ */ 0xbf, box_colour);
+    terminal_write_xy(x+w, y+h, /* ┘ */ 0xd9, box_colour);
 
-void treminal_box_add_hline(uint8_t x, uint8_t y, uint8_t w){
-    for(int i = x+1; i < (x+w); i++){
-        /* ═ : 205 in CP437 */
-        terminal_write_xy(i, y,     205,current_colour);
-    }
-
-    /* Edges */
-    terminal_write_xy(x,   y, /* ╠ */ 204, current_colour);
-    terminal_write_xy(x+w, y, /* ╣ */ 185, current_colour);
-}
-
-void treminal_box_add_vline(uint8_t x, uint8_t y, uint8_t h){
+    /* Fill */
     for(int i = y+1; i < (y+h); i++){
-        /* ║ : 186 in CP437 */
-        terminal_write_xy(x, i,     186,current_colour);
+        for(int j = x+1; j < (x+w); j++){
+            terminal_write_xy(j, i,    ' ',box_colour);
+        }
     }
 
-    /* Edges */
-    terminal_write_xy(x,   y, /* ╦ */ 203, current_colour);
-    terminal_write_xy(x, y+h, /* ╩ */ 202, current_colour);
+    termial_drop_shadow(x,y,w,h);
 }
+
+void termial_drop_shadow(uint8_t x, uint8_t y, uint8_t w, uint8_t h){
+    for(int i = x+1; i <= (x+w+1); i++){
+        terminal_write_xy(i, y + h + 1, ' ', 0);
+    }
+
+    for(int i = y+1; i <= (y+h+1); i++){
+        terminal_write_xy(x + w + 1 , i, ' ', 0);
+    }
+}
+
+//  	0	1	2	3	4	5	6	7	8	9	A	B	C	D	E	F
+//  B				│	┤	╡	╢	╖	╕	╣	║	╗	╝	╜	╛	┐
+//  C	└	┴	┬	├	─	┼	╞	╟	╚	╔	╩	╦	╠	═	╬	╧
+//  D	╨	╤	╥	╙	╘	╒	╓	╫	╪	┘	┌			
+
+// ┌Settings──────────────────────────────┐
+// │ [*] Debug Overlay                    │
+// │     Colour Palette--->               │
+// │                                      │
+// │                                      │
+// └──────────────────────────────────────┘
