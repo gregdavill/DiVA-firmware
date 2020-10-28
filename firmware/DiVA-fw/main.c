@@ -12,6 +12,8 @@
 #include <generated/mem.h>
 #include <generated/git.h>
 
+#include "terminal_menu.h"
+
 void isr(void){
 
 }
@@ -97,6 +99,7 @@ int main(int i, char **c)
 	terminal_set_bg(TERMINAL_TRANSPARENT);
 	
 	//init_settings();
+	load_defaults();
 
 	terminal_clear();
 	terminal_set_bg(TERMINAL_BLACK);
@@ -161,13 +164,10 @@ int main(int i, char **c)
 	
 	uint8_t scale_mode = 1;
 	uint16_t btn_2_cnt = 0;
+	uint16_t btn_1_cnt = 0;
 
 
-	draw_settings_window();
 
-	uint8_t option = 0;
-
-	uint8_t x = 10;
     while(1) {
 		
 		//terminal_set_cursor(0,20);
@@ -185,34 +185,39 @@ int main(int i, char **c)
 
 		
 		
+		event_t e = 0;
+	
 		if((btn_in_read() & 2) == 0){
 			btn_2_cnt++;
+			if(btn_2_cnt == 400){
+				e |= BUTTON_B_HOLD;
+			}
 		}else{
-			if(btn_2_cnt > 0){
-				
-				const uint32_t width = 70;
-				const uint32_t height = 10;
-				const uint32_t window_x = (100 - width) / 2;
-				const uint32_t window_y = 20;
-
-				terminal_set_cursor(window_x + 2, window_y+1);
-				terminal_set_fg(TERMINAL_BLUE);
-				terminal_set_bg(TERMINAL_WHITE);
-				printf("LUT [%s]%.*s", palette[option], width - 10 - strlen(palette[option]), padding);
-				//terminal_fill_line(width);
-
-				boson_set_lut(option);
-
-
-				option++;
-				if(option >= 10)
-					option = 0;
-				
-				
-
+			if((btn_2_cnt > 0) && (btn_2_cnt < 400)){
+				e |= BUTTON_B_PRESS;
 			}
 			btn_2_cnt = 0;
 		}
+		if(e){
+			menu_act(e);
+		}
+		e = 0;
+
+		if((btn_in_read() & 1) == 0){
+			btn_1_cnt++;
+			if(btn_1_cnt == 400){
+				e |= BUTTON_A_HOLD;
+			}
+		}else{
+			if((btn_1_cnt > 0) && (btn_1_cnt < 400)){
+				e |= BUTTON_A_PRESS;
+			}
+			btn_1_cnt = 0;
+		}
+		if(e){
+			menu_act(e);
+		}
+		
 
 
 		
@@ -232,24 +237,3 @@ int main(int i, char **c)
 	return 0;
 }
 
-void draw_settings_window(){
-
-	const uint32_t width = 70;
-	const uint32_t height = 10;
-	const uint32_t window_x = (100 - width) / 2;
-	const uint32_t window_y = 20;
-	
-				
-	terminal_set_bg(TERMINAL_BLUE);
-	terminal_set_fg(TERMINAL_WHITE);
-
-	treminal_draw_box(window_x, window_y, width, height);
-	terminal_set_cursor(window_x + 1, window_y);
-	printf("Settings");
-	
-	
-	terminal_set_cursor(window_x + 2, window_y+1);
-	terminal_set_fg(TERMINAL_BLUE);
-	terminal_set_bg(TERMINAL_WHITE);
-	printf("LUT [%s]%.*s", palette[0], width - 10 - strlen(palette[0]), padding);
-}

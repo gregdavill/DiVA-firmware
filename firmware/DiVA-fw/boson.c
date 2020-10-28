@@ -6,6 +6,8 @@ volatile static uint16_t boson_crc;
 
 volatile static uint32_t _seq = 0;
 
+#define UINT32_LE(a) (a << 24) & 0xFF, (a << 16) & 0xFF, (a << 8) & 0xFF, a & 0xFF
+
 #define UART_EV_TX	0x1
 #define UART_EV_RX	0x2
 
@@ -227,25 +229,28 @@ void boson_init(){
 
     if(r == R_SUCCESS){
         /* Basic setup of boson core */
-        dispatcher(DVO_SETDISPLAYMODE, (const uint8_t[]){0x00, 0x00, 0x00, 0x00}, 4);
-        dispatcher(DVO_SETANALOGVIDEOSTATE, (const uint8_t[]){0x00, 0x00, 0x00, 0x00}, 4);
-        dispatcher(DVO_SETOUTPUTFORMAT, (const uint8_t[]){0x00, 0x00, 0x00, 0x02}, 4); /* Mode: YCbCr */
-        dispatcher(DVO_SETOUTPUTRGBSETTINGS, (const uint8_t[]){0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, 8); /* RGB888 */
-        dispatcher(DVO_SETOUTPUTYCBCRSETTINGS, (const uint8_t[]){0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}, 12); /* YCbCr Muxed */
+        dispatcher(DVO_SETDISPLAYMODE, (const uint8_t[]){UINT32_LE(0)}, 4);
+        dispatcher(DVO_SETANALOGVIDEOSTATE, (const uint8_t[]){UINT32_LE(0)}, 4);
+        dispatcher(DVO_SETOUTPUTFORMAT, (const uint8_t[]){UINT32_LE(2)}, 4); /* Mode: YCbCr */
+        dispatcher(DVO_SETOUTPUTRGBSETTINGS, (const uint8_t[]){UINT32_LE(0),UINT32_LE(0)}, 8); /* RGB888 */
+        dispatcher(DVO_SETOUTPUTYCBCRSETTINGS, (const uint8_t[]){UINT32_LE(0),UINT32_LE(0),UINT32_LE(1)}, 12); /* YCbCr Muxed */
         dispatcher(DVO_APPLYCUSTOMSETTINGS, 0, 0);
-        dispatcher(DVO_SETTYPE, (const uint8_t[]){0x00, 0x00, 0x00, 0x02}, 4);
-        dispatcher(COLORLUT_SETID, (const uint8_t[]){0x00, 0x00, 0x00, 0x03}, 4); /* Colour LUT: Ironbow */
-        dispatcher(COLORLUT_SETCONTROL, (const uint8_t[]){0x00, 0x00, 0x00, 0x01}, 4);
-        dispatcher(GAO_SETAVERAGERSTATE, (const uint8_t[]){0x00, 0x00, 0x00, 0x00}, 4);
+        dispatcher(DVO_SETTYPE, (const uint8_t[]){UINT32_LE(2)}, 4);
+        dispatcher(COLORLUT_SETID, (const uint8_t[]){UINT32_LE(4)}, 4); /* Colour LUT: Ironbow */
+        dispatcher(COLORLUT_SETCONTROL, (const uint8_t[]){UINT32_LE(1)}, 4);
+        dispatcher(GAO_SETAVERAGERSTATE, (const uint8_t[]){UINT32_LE(0)}, 4);
 
         msleep(500);
         dispatcher(BOSON_RUNFFC, 0, 0);
     }
-
-
 }
 
 
 void boson_set_lut(uint32_t lut){
     dispatcher(COLORLUT_SETID, (const uint8_t[]){0x00, 0x00, 0x00, lut}, 4); /* Colour LUT: Ironbow */
 }
+
+void boson_set_averager(uint32_t en){
+    dispatcher(GAO_SETAVERAGERSTATE, (const uint8_t[]){UINT32_LE(en)}, 4);
+}
+

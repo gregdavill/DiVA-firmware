@@ -279,7 +279,7 @@ class DiVA_SoC(SoCCore):
         # I2C
         self.submodules.i2c0 = I2CMaster(platform.request("i2c"))
 
-        self.submodules.reboot = Reboot(platform.request("rst_n"), ext_rst=~btn.a)
+        self.submodules.reboot = Reboot(platform.request("rst_n"))
 
 
 
