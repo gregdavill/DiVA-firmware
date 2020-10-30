@@ -1,7 +1,5 @@
+#include "include/time.h"
 #include <generated/csr.h>
-#include <time.h>
-
-void msleep(int);
 
 void msleep(int ms)
 {

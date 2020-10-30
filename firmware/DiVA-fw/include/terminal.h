@@ -20,6 +20,8 @@ typedef enum {
     TERMINAL_WHITE,
 } colours_t;
 
+
+void terminal_write_xy(uint32_t x, uint32_t y, uint8_t c, uint8_t colour);
 void terminal_write(uint8_t c);
 void terminal_set_cursor(uint8_t x, uint8_t y);
 

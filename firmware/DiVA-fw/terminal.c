@@ -10,8 +10,9 @@ static uint8_t cursor_y = 0;
 #define TERMINAL_HEIGHT 50
 
 
-static void terminal_write_xy(uint32_t x, uint32_t y, uint8_t c, uint8_t colour){
+void terminal_write_xy(uint32_t x, uint32_t y, uint8_t c, uint8_t colour){
 	volatile uint32_t* terminal_mem = (volatile uint32_t*) (TERMINAL_BASE);
+    
     /* Check bounds */
     if((x < 100) && (y < 60)){
         terminal_mem += x*2 + y*100*2;
@@ -21,7 +22,7 @@ static void terminal_write_xy(uint32_t x, uint32_t y, uint8_t c, uint8_t colour)
 }
 
 void terminal_write(uint8_t c){
-	volatile uint32_t* vga = (volatile uint32_t*) (TERMINAL_BASE);
+
 	if(c == '\r'){
 		cursor_x = 0;
 	}else if(c == '\n'){
@@ -95,10 +96,7 @@ void treminal_draw_box(uint8_t x, uint8_t y, uint8_t w, uint8_t h){
         }
     }
 
-    termial_drop_shadow(x,y,w,h);
-}
-
-void termial_drop_shadow(uint8_t x, uint8_t y, uint8_t w, uint8_t h){
+    /* Drop shadow */
     for(int i = x+1; i <= (x+w+1); i++){
         terminal_write_xy(i, y + h + 1, ' ', 0);
     }
@@ -107,15 +105,3 @@ void termial_drop_shadow(uint8_t x, uint8_t y, uint8_t w, uint8_t h){
         terminal_write_xy(x + w + 1 , i, ' ', 0);
     }
 }
-
-//  	0	1	2	3	4	5	6	7	8	9	A	B	C	D	E	F
-//  B				│	┤	╡	╢	╖	╕	╣	║	╗	╝	╜	╛	┐
-//  C	└	┴	┬	├	─	┼	╞	╟	╚	╔	╩	╦	╠	═	╬	╧
-//  D	╨	╤	╥	╙	╘	╒	╓	╫	╪	┘	┌			
-
-// ┌Settings──────────────────────────────┐
-// │ [*] Debug Overlay                    │
-// │     Colour Palette--->               │
-// │                                      │
-// │                                      │
-// └──────────────────────────────────────┘

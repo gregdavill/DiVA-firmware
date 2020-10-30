@@ -1,5 +1,5 @@
 #include "include/boson.h"
-
+#include "include/time.h"
 #include <generated/csr.h>
 
 volatile static uint16_t boson_crc;
@@ -10,6 +10,16 @@ volatile static uint32_t _seq = 0;
 
 #define UART_EV_TX	0x1
 #define UART_EV_RX	0x2
+
+/* Prototypes */
+static uint8_t boson_uart_read(void);
+static int boson_uart_read_nonblock(void);
+static void boson_uart_write(uint8_t c);
+static void boson_uart_write_escaped(uint8_t c);
+static void boson_uart_init(void);
+static void boson_uart_sync(void);
+static void boson_uart_write_array(const uint8_t* array, uint32_t len);
+
 
 static uint8_t boson_uart_read(void)
 {
@@ -188,6 +198,8 @@ FLR_RESULT dispatcher(FLR_FUNCTION fnID, const uint8_t *sendData, const uint32_t
         return r;
     }
 
+    boson_uart_sync();
+
     /* Listen to the RX bytes, to check error code. */
     r = dispatcher_rx(recvData, &recvBytes);
     if(r == R_SUCCESS){
@@ -213,7 +225,7 @@ FLR_RESULT dispatcher(FLR_FUNCTION fnID, const uint8_t *sendData, const uint32_t
 }
 
 
-void boson_init(){
+void boson_init(void){
 
     boson_uart_init();
     msleep(3500);

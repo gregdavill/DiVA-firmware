@@ -1,21 +1,23 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <console.h>
-#include <string.h>
-#include <uart.h>
-#include <system.h>
-#include <id.h>
-#include <irq.h>
-#include <crc.h>
 #include <stdint.h>
-#include <stdbool.h>
+
+#include "include/time.h"
+#include "include/hyperram.h"
 
 #include <generated/csr.h>
 #include <generated/mem.h>
 #include <generated/git.h>
 
 
+
 #ifdef CSR_HYPERRAM_BASE
+
+/* Prototypes */
+
+void set_io_delay(int);
+void set_clk_delay(int);
+static int basic_memtest(void);
+
 
 void set_io_delay(int cnt){
 	hyperram_io_loadn_write(0);
@@ -63,7 +65,7 @@ static int basic_memtest(void){
 }
 
 
-void hyperram_init(){
+void hyperram_init(void){
 	int window = 0;
 	int clk_del = 0;
 	int io_del = 0;

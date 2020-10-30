@@ -8,4 +8,7 @@ typedef enum {
     BUTTON_B_PRESS = 8
 } event_t;
 
+
+void menu_act(event_t);
+
 #endif

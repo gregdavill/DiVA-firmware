@@ -5,14 +5,23 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include <time.h>
+#include <console.h>
+#include "include/hyperram.h"
+#include "include/settings.h"
+#include "include/time.h"
 #include "include/terminal.h"
+#include "include/boson.h"
 
 #include <generated/csr.h>
 #include <generated/mem.h>
 #include <generated/git.h>
 
-#include "terminal_menu.h"
+#include "include/terminal_menu.h"
+
+/* prototypes */
+void isr(void);
+void switch_mode(int);
+
 
 void isr(void){
 
@@ -56,7 +65,7 @@ int main(int i, char **c)
 {	
 
 
-	console_set_write_hook(terminal_write);
+	console_set_write_hook((console_write_hook)terminal_write);
 	
 	terminal_enable_write(1);
 
@@ -124,9 +133,6 @@ int main(int i, char **c)
 		}
 	}
 
-
-
-	uint32_t line = 0;
 	terminal_set_cursor(0,20);
 
 
@@ -154,15 +160,7 @@ int main(int i, char **c)
 
 	switch_mode(1);
 
-	//msleep(100);
-	//switch_mode(1);
-	
-	
-	// place preview in bottom right corner
 
-
-	
-	uint8_t scale_mode = 1;
 	uint16_t btn_2_cnt = 0;
 	uint16_t btn_1_cnt = 0;
 

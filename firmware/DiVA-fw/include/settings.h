@@ -35,4 +35,8 @@ const menu_item_t* setting_menu_items[4];
 
 
 
+void load_defaults(void);
+
+
+
 #endif
