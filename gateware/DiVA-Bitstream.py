@@ -52,7 +52,7 @@ from rtl.streamable_hyperram import StreamableHyperRAM
 
 from rtl.video.terminal import Terminal
 from rtl.video.boson import Boson
-from rtl.video.YCrCb import YCrCbConvert
+from rtl.video.YCrCb import YCbCr2RGB
 
 from rtl.video.simulated_video import SimulatedVideo
 from rtl.video.video_debug import VideoDebug
@@ -233,7 +233,8 @@ class DiVA_SoC(SoCCore):
 
         # Boson video stream
         self.submodules.boson = boson = Boson(platform, platform.request("boson"), sys_clk_freq)
-        self.submodules.YCrCb = ycrcb = ClockDomainsRenamer({"sys":"boson_rx"})(YCrCbConvert())
+        self.submodules.YCbCr = ycrcb = ClockDomainsRenamer({"sys":"boson_rx"})(ResetInserter()(YCbCr2RGB()))
+
         
         fifo = AsyncFIFO([("data", 32)], depth=512)
         fifo = ResetInserter(["read","write"])(fifo)
@@ -249,18 +250,24 @@ class DiVA_SoC(SoCCore):
         self.submodules.fifo2 = fifo2 = ClockDomainsRenamer({"sys":"video"})(ResetInserter()(SyncFIFO([("data", 32)], depth=16)))
         self.submodules.scaler0 = scaler0 = ClockDomainsRenamer({"sys":"video"})(ScalerHeight(800))
 
+        self.submodules += fifo
 
         self.comb += [
             video_debug.vsync.eq(boson.vsync),
             video_debug.hsync.eq(boson.hsync),
 
-            boson.source.connect(ycrcb.sink),
-        ]
+            boson.source.connect(ycrcb.sink, omit=['data']),
+            ycrcb.source.connect(fifo.sink, omit=['r','g','b']),
 
-        self.submodules += fifo
-        self.comb += [
-        
-            ycrcb.source.connect(fifo.sink),
+            ycrcb.sink.y.eq(boson.source.data[0:8]),
+            ycrcb.sink.cb.eq(boson.source.data[8:16]),
+            ycrcb.sink.cr.eq(boson.source.data[16:24]),
+
+
+            fifo.sink.data[0:8].eq(ycrcb.source.r),
+            fifo.sink.data[8:16].eq(ycrcb.source.g),
+            fifo.sink.data[16:24].eq(ycrcb.source.b),
+            
             fifo.source.connect(reader.sink),
         ]
 
@@ -326,16 +333,17 @@ class DiVA_SoC(SoCCore):
             scaler.reset.eq(vsync_rise_term.o),
             fifo2.reset.eq(vsync_rise_term.o),
             scaler0.reset.eq(vsync_rise_term.o),
+
         ]
 
         # delay vsync pulse from boson by 500 clocks, then use it to reset the fifo
         fifo_rst = Signal()
         self.sync += [
              timeline(vsync_boson.o, [
-                (1,  [fifo_rst.eq(1)]),   # Reset FIFO
-                (2,  [fifo_rst.eq(0), scaler_enable.eq(scaler.enable.storage)]),  # Clear Reset
-                (10,  [boson_stream_start.eq(1)]),
-                (11,  [boson_stream_start.eq(0)])
+                (101,  [fifo_rst.eq(1)]),   # Reset FIFO
+                (102,  [fifo_rst.eq(0), scaler_enable.eq(scaler.enable.storage)]),  # Clear Reset
+                (110,  [boson_stream_start.eq(1)]),
+                (111,  [boson_stream_start.eq(0)])
             ])
         ]
         #self.specials += MultiReg(fifo_rst, fifo.reset_write, odomain="boson_rx")
@@ -350,7 +358,8 @@ class DiVA_SoC(SoCCore):
         terminal_mask = Signal()
         ## Connect VGA pins
         self.comb += [
-            fifo.reset_read.eq(vsync_boson.o),
+            fifo.reset_read.eq(fifo_rst),
+            ycrcb.reset.eq(fifo_rst),
 
             # attach framer to video generator
             framer.vsync.eq(terminal.vsync),
@@ -378,6 +387,15 @@ class DiVA_SoC(SoCCore):
         ]
 
         
+        usb_pads = self.platform.request("usb")
+
+        # Select ECP5 as USB target
+        if hasattr(usb_pads, "sw_sel"):
+            self.comb += usb_pads.sw_sel.eq(1)
+        
+        # Disable USB
+        if hasattr(usb_pads, "sw_oe"):
+            self.comb += usb_pads.sw_oe.eq(1)
 
         analyser = False
         if analyser:

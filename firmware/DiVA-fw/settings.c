@@ -71,6 +71,13 @@ void boson_palette_changed(const menu_item_t* p){
 }
 
 
+void boson_hflip_changed(const menu_item_t* p){
+    uint8_t lut = *(uint8_t*)p->pdata;
+    boson_enable_rgb(lut);
+}
+
+
+
 void boson_averager_changed(const menu_item_t* p){
     uint8_t en = *(uint8_t*)p->pdata;
     boson_set_averager(en);
@@ -91,6 +98,7 @@ const menu_item_t mi_hflip = {
     .value = boolean_value,
     .pdata = &_settings.hflip,
     .act = basic_integer,
+    .on_change= boson_hflip_changed,
     .value_min = 0,
     .value_max = 1,
 };

@@ -266,3 +266,13 @@ void boson_set_averager(uint32_t en){
     dispatcher(GAO_SETAVERAGERSTATE, (const uint8_t[]){UINT32_LE(en)}, 4);
 }
 
+void boson_enable_rgb(uint8_t val){
+    if(val){
+        dispatcher(DVO_SETOUTPUTFORMAT, (const uint8_t[]){UINT32_LE(0)}, 4); /* Mode: YCbCr */
+        dispatcher(DVO_SETOUTPUTRGBSETTINGS, (const uint8_t[]){UINT32_LE(0),UINT32_LE(0)}, 8); /* RGB888 */
+        dispatcher(DVO_APPLYCUSTOMSETTINGS, 0, 0);
+    }else {
+        dispatcher(DVO_SETOUTPUTFORMAT, (const uint8_t[]){UINT32_LE(1)}, 4); /* Mode: YCbCr */
+        dispatcher(DVO_APPLYCUSTOMSETTINGS, 0, 0);    
+    }
+}
