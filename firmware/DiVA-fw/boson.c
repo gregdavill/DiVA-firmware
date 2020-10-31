@@ -1,5 +1,6 @@
 #include "include/boson.h"
 #include "include/time.h"
+#include "include/settings.h"
 #include <generated/csr.h>
 
 volatile static uint16_t boson_crc;
@@ -244,12 +245,12 @@ void boson_init(void){
         dispatcher(DVO_SETDISPLAYMODE, (const uint8_t[]){UINT32_LE(0)}, 4);
         dispatcher(DVO_SETANALOGVIDEOSTATE, (const uint8_t[]){UINT32_LE(0)}, 4);
         dispatcher(DVO_SETOUTPUTFORMAT, (const uint8_t[]){UINT32_LE(1)}, 4); /* Mode: YCbCr */
-        dispatcher(DVO_SETOUTPUTYCBCRSETTINGS, (const uint8_t[]){UINT32_LE(0),UINT32_LE(1),UINT32_LE(0)}, 12); /* YCbCr Muxed */
-        dispatcher(DVO_SETTYPE, (const uint8_t[]){UINT32_LE(2)}, 4);
+        dispatcher(DVO_SETOUTPUTYCBCRSETTINGS, (const uint8_t[]){UINT32_LE(0),UINT32_LE(1),UINT32_LE(0)}, 12); /* CbCr Order: Cb -> Cr */
+        dispatcher(DVO_SETTYPE, (const uint8_t[]){UINT32_LE(2)}, 4); /* Type: COLOUR */
         dispatcher(DVO_APPLYCUSTOMSETTINGS, 0, 0);
-        dispatcher(COLORLUT_SETID, (const uint8_t[]){UINT32_LE(4)}, 4); /* Colour LUT: Ironbow */
+        dispatcher(COLORLUT_SETID, (const uint8_t[]){UINT32_LE(_settings.pallete)}, 4); /* Colour LUT: Ironbow */
         dispatcher(COLORLUT_SETCONTROL, (const uint8_t[]){UINT32_LE(1)}, 4);
-        dispatcher(GAO_SETAVERAGERSTATE, (const uint8_t[]){UINT32_LE(0)}, 4);
+        dispatcher(GAO_SETAVERAGERSTATE, (const uint8_t[]){UINT32_LE(_settings.averager)}, 4);
 
         msleep(500);
         dispatcher(BOSON_RUNFFC, 0, 0);

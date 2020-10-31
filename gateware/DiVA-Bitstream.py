@@ -171,7 +171,7 @@ class DiVA_SoC(SoCCore):
         "terminal"   :  13,
         "analyzer"   :  14,
         "hdmi_i2c"   :  15,
-        "i2c0"       :  16,
+        "i2c0"        :  16,
         "button"     :  18,
         "reader"     :  19,
         "writer"     :  20,

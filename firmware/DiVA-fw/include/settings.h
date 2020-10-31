@@ -5,8 +5,8 @@
 #include "terminal_menu.h"
 
 typedef struct {
-    uint32_t firmware_hash;
-    uint32_t settings_crc;
+    uint16_t firmware_hash;
+    uint16_t settings_crc;
     
     uint8_t pallete;
     uint8_t averager;

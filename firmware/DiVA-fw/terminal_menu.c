@@ -176,7 +176,6 @@ void settings_on_entry(){
 }
 
 void settings_on_exit(){
-
 }
 
 
@@ -212,7 +211,7 @@ void settings_change_on_entry(){
 }
 
 void settings_change_on_exit(){
-
+    settings_save();
 }
 
 

@@ -3,11 +3,11 @@
 
 #include "crc.h"
 
-#ifndef FIRMWARE_HASH
-#define FIRMWARE_HASH 0
-#endif
+#include <generated/mem.h>
 
 settings_t _settings;
+
+uint16_t _firmware_hash;
 
 
 const char* palette_value(const menu_item_t* p){
@@ -170,41 +170,51 @@ const settings_t setting_defaults = {
 };
 
 void init_settings(){
+    /* Calculate our Firmware CRC */
+    _firmware_hash = crc16(ROM_BASE, ROM_SIZE);
+    
+
     /* Read settings from EEPROM */
-    eeprom_init();
-
-
     settings_t loaded_settings;
-    i2c_read(&loaded_settings, sizeof(settings_t));
+    i2c_reset();
+    i2c_read(0x50, 0, &loaded_settings, sizeof(settings_t));
 
     if(!validate(&loaded_settings)){
         load_defaults();
+
+        settings_save();
+    }else {
+        memcpy(&_settings, &loaded_settings, sizeof(settings_t));
     }
 }
 
 void load_defaults(){
     memcpy(&_settings, &setting_defaults, sizeof(settings_t));
-
-    //settings_save();
 }
 
 int validate(settings_t* s){
-    if(s->firmware_hash != FIRMWARE_HASH){
+    if(s->firmware_hash != _firmware_hash){
         return 0;
     }
 
-    if(s->settings_crc != crc16(s+8, sizeof(settings_t)-8)){
+    uint16_t crc = s->settings_crc;
+    s->settings_crc = 0;
+
+    if(crc != crc16(s, sizeof(settings_t))){
         return 0;
     }
+
+    return 1;
 }
 
 void settings_save(){
     /* Commit setting to EEPROM */
     create_hashes();
-    
+    i2c_write(0x50, 0, _settings, sizeof(settings_t));
 }
 
 void create_hashes(){
-    _settings.firmware_hash = FIRMWARE_HASH;
-    _settings.settings_crc = crc16(&_settings+8, sizeof(settings_t)-8);
+    _settings.firmware_hash = _firmware_hash;
+    _settings.settings_crc = 0; /* Crear CRC for CRC calculation */
+    _settings.settings_crc = crc16(&_settings, sizeof(settings_t));
 }

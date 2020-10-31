@@ -93,7 +93,7 @@ int main(int i, char **c)
 	terminal_clear();
 
 
-	terminal_set_fg(TERMINAL_CYAN);
+	//terminal_set_fg(TERMINAL_CYAN);
 	printf("     ______    ___   __   __   _______ \n");
 	printf("    |      |  |___| |  | |  | |   _   |\n");
 	printf("    |  _    |  ___  |  |_|  | |  |_|  |\n");
@@ -103,9 +103,9 @@ int main(int i, char **c)
 	printf("    |______|  |___|   |___|   |__| |__|\n");
 
 
-	terminal_set_fg(TERMINAL_YELLOW);
+	//terminal_set_fg(TERMINAL_YELLOW);
 	printf("   - Digital Video Interface for Boson -\n");
-	terminal_set_fg(TERMINAL_CYAN);
+	//terminal_set_fg(TERMINAL_CYAN);
 
  	printf("\n (c) Copyright 2019-2020 GetLabs \n");
  	printf(" fw built: "__DATE__ " " __TIME__ " \n\n");
@@ -115,6 +115,8 @@ int main(int i, char **c)
  	printf("      LiteX git sha1: "LITEX_GIT_SHA1"\n");
 
 	printf("--==========-- \e[1mHyperRAM Init\e[0m ===========--\n");
+	
+
 	hyperram_init();
 	printf("\n");	
 	prbs_memtest(HYPERRAM_BASE, HYPERRAM_SIZE);
@@ -122,31 +124,14 @@ int main(int i, char **c)
 	
 	terminal_set_bg(TERMINAL_TRANSPARENT);
 	
-	//init_settings();
-	load_defaults();
-
-	terminal_clear();
+	init_settings();
+	
+	//terminal_clear();
 	terminal_set_bg(TERMINAL_BLACK);
 	
 
 	/* Boson Init */
 	boson_init();
-
-
-	/* Run through some checks if a Boson is attached? */
-	uint32_t boson_freq = video_debug_freq_value_read();
-
-	if(boson_freq == 0){
-		//printf("Waiting for Clock from Boson\n");
-
-		while(1){
-		//	printf("Detected Frequency: %u Hz           \r", video_debug_freq_value_read());
-
-			if(video_debug_freq_value_read() > 26.5e6){
-				break;
-			}
-		}
-	}
 
 	terminal_set_cursor(0,20);
 
@@ -168,15 +153,10 @@ int main(int i, char **c)
 	framer_width_write(800);
 	framer_height_write(600);
 
-	//framer_x_start_write(213);
-	//framer_y_start_write(27);
 	framer_x_start_write(213 + (800-640)/2);
 	framer_y_start_write(27 +  (600-512)/2);
 
-	switch_mode(0);
-
-	uint16_t btn_2_cnt = 0;
-	uint16_t btn_1_cnt = 0;
+	switch_mode(_settings.scaler_enable);
 
 	bool debug_window_open = false;
 
