@@ -53,7 +53,7 @@ from rtl.streamable_hyperram import StreamableHyperRAM
 
 from rtl.video.terminal import Terminal
 from rtl.video.boson import Boson
-from rtl.video.YCrCb import YCbCr2RGB
+from rtl.video.YCrCb import YCbCr2RGB, YCbCr422to444, ycbcr444_layout
 
 from rtl.video.simulated_video import SimulatedVideo
 from rtl.video.video_debug import VideoDebug
@@ -233,9 +233,6 @@ class DiVA_SoC(SoCCore):
         self.register_mem("hyperram", self.mem_map['hyperram'], hyperram.bus, size=0x800000)
 
         # Boson video stream
-
-        from litevideo.csc.ycbcr422to444 import YCbCr422to444, ycbcr444_layout
-
         self.submodules.boson = boson = Boson(platform, platform.request("boson"), sys_clk_freq)
 
         self.submodules.YCbCr = ycrcb = ClockDomainsRenamer({"sys":"boson_rx"})(ResetInserter()(YCbCr2RGB()))
