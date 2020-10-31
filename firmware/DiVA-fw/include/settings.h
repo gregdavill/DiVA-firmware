@@ -34,7 +34,7 @@ typedef struct menu_item {
 } menu_item_t;
 
 
-const menu_item_t* setting_menu_items[5];
+const menu_item_t* setting_menu_items[4];
 
 
 

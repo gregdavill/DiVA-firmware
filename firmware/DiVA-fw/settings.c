@@ -155,11 +155,11 @@ const menu_item_t mi_debug_info_overlay = {
 
 
 
-const menu_item_t* setting_menu_items[5] = {
+const menu_item_t* setting_menu_items[4] = {
     &mi_palette,
     &mi_scaler,
     &mi_averager,
-    &mi_frame_info_overlay,
+    //&mi_frame_info_overlay,
     &mi_debug_info_overlay
 };
 
