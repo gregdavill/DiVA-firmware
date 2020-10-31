@@ -518,7 +518,7 @@ def main():
     os.system(f"ecpbram  --input {input_config} --output {output_config} --from {rand_rom} --to {firmware_init}")
 
     # create a compressed bitstream
-    output_bit = os.path.join(builder.output_dir, "gateware", "DiVA.bit")
+    output_bit = os.path.join(builder.output_dir, "gateware", "DiVA.dfu")
     os.system(f"ecppack --freq 38.8 --compress --input {output_config} --bit {output_bit}")
 
     # Add DFU suffix

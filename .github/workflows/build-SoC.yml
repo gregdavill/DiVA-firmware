@@ -45,23 +45,15 @@ jobs:
       working-directory: ./gateware
       run: |
         python3 DiVA-Bitstream.py
-#        python3 -m sphinx -M html build/documentation/ build/documentation/_build
 
     - name: Upload build
       uses: actions/upload-artifact@v2
       with:
-        name: DiVA build
+        name: DiVA build Folder
         path: ${{ github.workspace }}/gateware/build
 
-#    - name: Upload docs
-#      uses: actions/upload-artifact@v2
-#      with:
-#        name: OrangeCrab SoC Docs
-#        path: ${{ github.workspace }}/litex/build/documentation/_build/html
-
-
-#    - name: Deploy Docs
-#      uses: peaceiris/actions-gh-pages@v3
-#      with:
-#        github_token: ${{ secrets.GITHUB_TOKEN }}
-#        publish_dir: ${{ github.workspace }}/litex/build/documentation/_build/html
+    - name: Upload dfu update file
+      uses: actions/upload-artifact@v2
+      with:
+        name: DiVA firmware update
+        path: ${{ github.workspace }}/gateware/build/DiVA.dfu
