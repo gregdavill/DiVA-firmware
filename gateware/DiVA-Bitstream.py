@@ -48,6 +48,7 @@ from rtl.wb_streamer import StreamReader, StreamWriter
 from rtl.hdmi import HDMI
 from rtl.rgb_led import RGB
 from rtl.reboot import Reboot
+from rtl.buttons import Button
 from rtl.streamable_hyperram import StreamableHyperRAM
 
 from rtl.video.terminal import Terminal
@@ -171,7 +172,7 @@ class DiVA_SoC(SoCCore):
         "analyzer"   :  14,
         "hdmi_i2c"   :  15,
         "i2c0"       :  16,
-        "btn"        :  18,
+        "button"     :  18,
         "reader"     :  19,
         "writer"     :  20,
         "prbs"       :  23,
@@ -219,8 +220,8 @@ class DiVA_SoC(SoCCore):
         self.register_mem("terminal", self.mem_map["terminal"], terminal.bus, size=0x100000)
 
         # User inputs
-        btn = platform.request("button")
-        self.submodules.btn = GPIOIn(Cat(btn.a, btn.b))
+        button = platform.request("button")
+        self.submodules.button = Button(button)
 
         self.submodules.rgb = RGB(platform.request("rgb_led"))
         
@@ -232,8 +233,13 @@ class DiVA_SoC(SoCCore):
         self.register_mem("hyperram", self.mem_map['hyperram'], hyperram.bus, size=0x800000)
 
         # Boson video stream
+
+        from litevideo.csc.ycbcr422to444 import YCbCr422to444, ycbcr444_layout
+
         self.submodules.boson = boson = Boson(platform, platform.request("boson"), sys_clk_freq)
+
         self.submodules.YCbCr = ycrcb = ClockDomainsRenamer({"sys":"boson_rx"})(ResetInserter()(YCbCr2RGB()))
+        self.submodules.YCbCr422_444 = ycrcb422_444 = ClockDomainsRenamer({"sys":"boson_rx"})(YCbCr422to444())
 
         
         fifo = AsyncFIFO([("data", 32)], depth=512)
@@ -256,18 +262,17 @@ class DiVA_SoC(SoCCore):
             video_debug.vsync.eq(boson.vsync),
             video_debug.hsync.eq(boson.hsync),
 
-            boson.source.connect(ycrcb.sink, omit=['data']),
+            boson.source.connect(ycrcb422_444.sink, omit=['data']),
+            ycrcb422_444.source.connect(ycrcb.sink),
             ycrcb.source.connect(fifo.sink, omit=['r','g','b']),
 
-            ycrcb.sink.y.eq(boson.source.data[0:8]),
-            ycrcb.sink.cb.eq(boson.source.data[8:16]),
-            ycrcb.sink.cr.eq(boson.source.data[16:24]),
-
+            ycrcb422_444.sink.y.eq(boson.source.data[0:8]),
+            ycrcb422_444.sink.cb_cr.eq(boson.source.data[8:16]),
 
             fifo.sink.data[0:8].eq(ycrcb.source.r),
             fifo.sink.data[8:16].eq(ycrcb.source.g),
             fifo.sink.data[16:24].eq(ycrcb.source.b),
-            
+
             fifo.source.connect(reader.sink),
         ]
 
@@ -303,9 +308,8 @@ class DiVA_SoC(SoCCore):
                 fifo2.source.connect(scaler0.sink),
                 scaler0.source.connect(framer.sink)
             ).Else(
-
                 fifo0.source.connect(framer.sink),
-            )
+            ),
         ]
 
         boson_sink_start = Signal()
@@ -333,7 +337,6 @@ class DiVA_SoC(SoCCore):
             scaler.reset.eq(vsync_rise_term.o),
             fifo2.reset.eq(vsync_rise_term.o),
             scaler0.reset.eq(vsync_rise_term.o),
-
         ]
 
         # delay vsync pulse from boson by 500 clocks, then use it to reset the fifo
@@ -360,6 +363,7 @@ class DiVA_SoC(SoCCore):
         self.comb += [
             fifo.reset_read.eq(fifo_rst),
             ycrcb.reset.eq(fifo_rst),
+            ycrcb422_444.reset.eq(fifo_rst),
 
             # attach framer to video generator
             framer.vsync.eq(terminal.vsync),

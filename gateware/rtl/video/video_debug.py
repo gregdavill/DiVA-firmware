@@ -42,7 +42,6 @@ class VideoDebug(Module, AutoCSR):
         lines = Signal(16)
         lines_counter = Signal(16)
 
-
         self.comb += v_edge.i.eq(vsync)
         self.comb += h_edge.i.eq(hsync)
         self.sync.pixel += [

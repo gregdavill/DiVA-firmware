@@ -68,6 +68,15 @@ void terminal_clear(void){
     cursor_y = 0;
 }
 
+void terminal_fill(uint8_t x, uint8_t y, uint8_t w, uint8_t h){
+
+    /* Fill */
+    for(int i = y; i <= (y+h); i++){
+        for(int j = x; j <= (x+w); j++){
+            terminal_write_xy(j, i, ' ', current_colour);
+        }
+    }
+}
 
 void treminal_draw_box(uint8_t x, uint8_t y, uint8_t w, uint8_t h){
     uint8_t box_colour = TERMINAL_BLUE << 4 | TERMINAL_WHITE;

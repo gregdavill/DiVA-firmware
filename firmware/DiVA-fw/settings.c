@@ -26,11 +26,19 @@ const char* palette_value(const menu_item_t* p){
     }
 }
 
-const char* averager_value(const menu_item_t* p){
-    if(*(uint8_t*)p->pdata){
-        return "Enabled (30Hz)";
+const char* scaler_value(const menu_item_t* p){
+    switch(*(uint8_t*)p->pdata){
+        case 0: return "1:1";
+        case 1: return "Fill";
+        default: return "Invalid";
     }
-    return "Disabled (60Hz)";
+}
+
+const char* enabled_disabled_value(const menu_item_t* p){
+    if(*(uint8_t*)p->pdata){
+        return "Enabled";
+    }
+    return "Disabled";
 }
 
 const char* boolean_value(const menu_item_t* p){
@@ -71,16 +79,28 @@ void boson_palette_changed(const menu_item_t* p){
 }
 
 
-void boson_hflip_changed(const menu_item_t* p){
+void _boson_scaler_change(const menu_item_t* p){
     uint8_t lut = *(uint8_t*)p->pdata;
-    boson_enable_rgb(lut);
+
+    stop_dma();
+    
+    switch_mode(lut);
+    
+    msleep(50);
+    start_dma();
 }
-
-
 
 void boson_averager_changed(const menu_item_t* p){
     uint8_t en = *(uint8_t*)p->pdata;
     boson_set_averager(en);
+}
+
+void boson_frame_info_overlay(const menu_item_t* p){
+
+}
+
+void boson_debug_info_overlay(const menu_item_t* p){
+
 }
 
 const menu_item_t mi_palette = {
@@ -93,28 +113,19 @@ const menu_item_t mi_palette = {
     .value_max = 9,
 };
 
-const menu_item_t mi_hflip = {
-    .name = "Horizontal Flip",
-    .value = boolean_value,
-    .pdata = &_settings.hflip,
+const menu_item_t mi_scaler = {
+    .name = "Scaler (Beta)",
+    .value = scaler_value,
+    .pdata = &_settings.scaler_enable,
     .act = basic_integer,
-    .on_change= boson_hflip_changed,
-    .value_min = 0,
-    .value_max = 1,
-};
-
-const menu_item_t mi_vflip = {
-    .name = "Vertical Flip",
-    .value = boolean_value,
-    .pdata = &_settings.vflip,
-    .act = basic_integer,
+    .on_change= _boson_scaler_change,
     .value_min = 0,
     .value_max = 1,
 };
 
 const menu_item_t mi_averager = {
     .name = "Averager",
-    .value = averager_value,
+    .value = enabled_disabled_value,
     .pdata = &_settings.averager,
     .act = basic_integer,
     .on_change = boson_averager_changed,
@@ -122,11 +133,34 @@ const menu_item_t mi_averager = {
     .value_max = 1,
 };
 
-const menu_item_t* setting_menu_items[4] = {
+const menu_item_t mi_frame_info_overlay = {
+    .name = "Frame Info",
+    .value = enabled_disabled_value,
+    .pdata = &_settings.frame_info_overlay,
+    .act = basic_integer,
+    .on_change = boson_frame_info_overlay,
+    .value_min = 0,
+    .value_max = 1,
+};
+
+const menu_item_t mi_debug_info_overlay = {
+    .name = "Debug Info",
+    .value = enabled_disabled_value,
+    .pdata = &_settings.debug_info_overlay,
+    .act = basic_integer,
+    .on_change = boson_debug_info_overlay,
+    .value_min = 0,
+    .value_max = 1,
+};
+
+
+
+const menu_item_t* setting_menu_items[5] = {
     &mi_palette,
-    &mi_hflip,
-    &mi_vflip,
+    &mi_scaler,
     &mi_averager,
+    &mi_frame_info_overlay,
+    &mi_debug_info_overlay
 };
 
 
@@ -150,11 +184,6 @@ void init_settings(){
 
 void load_defaults(){
     memcpy(&_settings, &setting_defaults, sizeof(settings_t));
-
-_settings.pallete = 0;
-_settings.hflip = 0;
-_settings.vflip = 1;
-_settings.averager = 0;
 
     //settings_save();
 }

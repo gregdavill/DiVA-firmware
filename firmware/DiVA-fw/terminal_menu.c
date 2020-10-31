@@ -235,8 +235,14 @@ void null_act(event_t e){
 
 void null_on_entry(){
     /* Clear screen */
+    const uint32_t width = 70;
+	const uint32_t height = 10;
+	const uint32_t window_x = (100 - width) / 2;
+	const uint32_t window_y = 20;
+
+    terminal_set_fg(TERMINAL_TRANSPARENT);
     terminal_set_bg(TERMINAL_TRANSPARENT);
-    terminal_clear();
+    terminal_fill(window_x, window_y, width+1, height+1);
 }
 
 void null_on_exit(){

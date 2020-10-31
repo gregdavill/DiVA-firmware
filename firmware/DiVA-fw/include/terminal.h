@@ -30,6 +30,7 @@ void terminal_set_bg(colours_t bg);
 
 void terminal_clear(void);
 
+void terminal_fill(uint8_t x, uint8_t y, uint8_t w, uint8_t h);
 void treminal_draw_box(uint8_t x, uint8_t y, uint8_t w, uint8_t h);
 void treminal_box_add_hline(uint8_t x, uint8_t y, uint8_t w);
 void treminal_box_add_vline(uint8_t x, uint8_t y, uint8_t h);

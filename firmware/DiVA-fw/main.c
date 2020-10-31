@@ -31,6 +31,14 @@ void isr(void){
 
 void switch_mode(int mode){
 	if(mode == 0){
+		framer_width_write(640);
+		framer_height_write(512);
+
+		framer_x_start_write(213 + (800-640)/2);
+		framer_y_start_write(27 +  (600-512)/2);
+
+		scaler_enable_write(0);
+	}else{
 		framer_x_start_write(213);
 		framer_y_start_write(27);
 
@@ -40,26 +48,33 @@ void switch_mode(int mode){
 
 
 		scaler_enable_write(1);
-	}else{
-		framer_width_write(640);
-		framer_height_write(512);
-
-		framer_x_start_write(213 + (800-640)/2);
-		framer_y_start_write(27 +  (600-512)/2);
-
-		scaler_enable_write(0);
 	}
 }
 
 
-const char* palette[] = {
-			"White Hot", "Block Hot",
-			"Rainbow", "Rainbow High Contrast",
-			"Ironbow", "Lava",
-			"Arctic", "Glowbow",
-			"Graded Fire", "Hottest"};
-const char* padding = "                                                                   ";
+void start_dma(){
+	reader_reset_write(1);
+	reader_start_address_write(0);
+	reader_transfer_size_write(640*512);
+	reader_burst_size_write(128);
+	reader_enable_write(1);
 
+
+	//writer_reset_write(1);
+	//writer_start_address_write(0);
+	//writer_transfer_size_write(640*512);
+	//writer_burst_size_write(128);
+	//writer_enable_write(1);
+}
+
+void stop_dma(){
+	reader_enable_write(0);
+	reader_reset_write(1);
+
+
+	//writer_enable_write(0);	
+	//writer_reset_write(1);
+}
 
 int main(int i, char **c)
 {	
@@ -158,78 +173,80 @@ int main(int i, char **c)
 	framer_x_start_write(213 + (800-640)/2);
 	framer_y_start_write(27 +  (600-512)/2);
 
-	switch_mode(1);
-
+	switch_mode(0);
 
 	uint16_t btn_2_cnt = 0;
 	uint16_t btn_1_cnt = 0;
 
-
+	bool debug_window_open = false;
 
     while(1) {
 		
-		//terminal_set_cursor(0,20);
+		/* Print debug window */
+		if(_settings.debug_info_overlay || debug_window_open){
+			/* Draw the main settings window */
+			const uint32_t width = 48;
+			const uint32_t height = 5;
+			uint32_t window_x = 50;
+			uint32_t window_y = 1;
 
-		//printf("Counter %u \n", line++);
-		//printf("freq %u \n", video_debug_freq_value_read());
-		//
-		//video_debug_latch_write(1);
-		//printf("vsync LOW %u  HIGH %u   \n", video_debug_vsync_low_read(), video_debug_vsync_high_read());
-		//printf("hsync LOW %u  HIGH %u   \n", video_debug_hsync_low_read(), video_debug_hsync_high_read());
-		//printf("lines %u   \n", video_debug_lines_read());
+			if(debug_window_open & !_settings.debug_info_overlay)
+			{
+				/* Close window */
+				terminal_set_fg(TERMINAL_TRANSPARENT);
+				terminal_set_bg(TERMINAL_TRANSPARENT);
+				terminal_fill(window_x, window_y, width+1, height+1);
 
-
-		msleep(1);
-
+			}else if(!debug_window_open & _settings.debug_info_overlay){
+				/* Open window */
+				treminal_draw_box(window_x, window_y, width, height);
+			}else{
+					
+				terminal_set_fg(TERMINAL_WHITE);
+				terminal_set_bg(TERMINAL_BLUE);
 		
+				terminal_set_cursor(++window_x, window_y++);
+				printf("Boson Interface debug info:");
 		
+				terminal_set_cursor(++window_x, window_y++);
+				printf("Clk Freq: %u Hz", video_debug_freq_value_read());
+
+				video_debug_latch_write(1);
+				terminal_set_cursor(window_x, window_y++);
+				printf("VSync: %8u | LOW %8u HIGH %8u", video_debug_vsync_low_read() + video_debug_vsync_high_read(), video_debug_vsync_low_read(), video_debug_vsync_high_read());
+				terminal_set_cursor(window_x, window_y++);
+				printf("HSync: %8u | LOW %8u HIGH %8u", video_debug_hsync_low_read() + video_debug_hsync_high_read(), video_debug_hsync_low_read(), video_debug_hsync_high_read());
+				terminal_set_cursor(window_x, window_y++);
+				printf("Lines: %8u ", video_debug_lines_read());
+			}
+
+			debug_window_open = _settings.debug_info_overlay;
+		}
+
+
+		msleep(2);
+		
+		/* Collect button events and pass them to the menu state machine */
 		event_t e = 0;
-	
-		if((btn_in_read() & 2) == 0){
-			btn_2_cnt++;
-			if(btn_2_cnt == 400){
-				e |= BUTTON_B_HOLD;
-			}
-		}else{
-			if((btn_2_cnt > 0) && (btn_2_cnt < 400)){
-				e |= BUTTON_B_PRESS;
-			}
-			btn_2_cnt = 0;
+		uint32_t b = button_events_read();
+
+		if(b & 0x00000002){
+			e |= BUTTON_B_PRESS;
 		}
+		if(b & 0x00000001){
+			e |= BUTTON_A_PRESS;
+		}
+		if(b & 0x00000008){
+			e |= BUTTON_B_HOLD;
+		}
+		if(b & 0x00000004){
+			e |= BUTTON_A_HOLD;
+		}
+		
 		if(e){
 			menu_act(e);
 		}
-		e = 0;
 
-		if((btn_in_read() & 1) == 0){
-			btn_1_cnt++;
-			if(btn_1_cnt == 400){
-				e |= BUTTON_A_HOLD;
-			}
-		}else{
-			if((btn_1_cnt > 0) && (btn_1_cnt < 400)){
-				e |= BUTTON_A_PRESS;
-			}
-			btn_1_cnt = 0;
-		}
-		if(e){
-			menu_act(e);
-		}
-		
-
-
-		
-
-
-		/*
-		printf("Button_A %u \n", btn_in_read() & 0x1);
-		printf("Button_B %u \n", btn_in_read() & 0x2);
-
-		if(btn_in_read() & 0x2)
-			reader_enable_write(1);
-			*/
-		
-		
 	}
 	
 	return 0;
