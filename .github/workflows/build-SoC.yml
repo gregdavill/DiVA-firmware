@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  build-SoC:
+  build-soc:
     runs-on: ubuntu-18.04
     steps:
     - uses: actions/checkout@v2
