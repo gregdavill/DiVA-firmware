@@ -2,8 +2,6 @@ name: build-SoC
 
 on:
   push:
-    branches:
-      - main
 
 
 jobs:
