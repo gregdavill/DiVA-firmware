@@ -169,27 +169,21 @@ const settings_t setting_defaults = {
     0
 };
 
-void init_settings(){
+void init_settings(bool load_defaults){
     /* Calculate our Firmware CRC */
     _firmware_hash = crc16(ROM_BASE, ROM_SIZE);
     
-
-    /* Read settings from EEPROM */
     settings_t loaded_settings;
+    /* Read settings from EEPROM */
     i2c_reset();
     i2c_read(0x50, 0, &loaded_settings, sizeof(settings_t));
 
-    if(!validate(&loaded_settings)){
-        load_defaults();
-
+    if(load_defaults || !validate(&loaded_settings)){
+        memcpy(&_settings, &setting_defaults, sizeof(settings_t));
         settings_save();
     }else {
         memcpy(&_settings, &loaded_settings, sizeof(settings_t));
     }
-}
-
-void load_defaults(){
-    memcpy(&_settings, &setting_defaults, sizeof(settings_t));
 }
 
 int validate(settings_t* s){

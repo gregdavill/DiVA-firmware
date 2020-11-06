@@ -6,8 +6,10 @@ class Button(Module, AutoCSR):
     def __init__(self, pads):
 
         self.events = CSRStatus(32)
+        self.raw = CSRStatus(32)
 
         events = Signal(32)
+        raw = Signal(32)
 
         PRESS_TIME = int(82.5e6 * 5e-3)
         HOLD_TIME = int(82.5e6 * 750e-3)
@@ -56,7 +58,18 @@ class Button(Module, AutoCSR):
             )
         ]
 
+        self.sync += [
+            raw.eq(0),
+            If(button_a_counter > PRESS_TIME,
+                raw[0].eq(1)
+            ),
+            If(button_b_counter > PRESS_TIME,
+                raw[1].eq(1)
+            ),
+        ]
+
         self.comb += [
-            self.events.status.eq(events)
+            self.events.status.eq(events),
+            self.raw.status.eq(raw)
         ]
     

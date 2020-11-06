@@ -124,7 +124,11 @@ int main(int i, char **c)
 	
 	terminal_set_bg(TERMINAL_TRANSPARENT);
 	
-	init_settings();
+	bool load_defaults = false;
+	if(button_raw_read() & 0x00000002){
+		load_defaults = true;
+	}
+	init_settings(load_defaults);
 	
 	//terminal_clear();
 	terminal_set_bg(TERMINAL_BLACK);

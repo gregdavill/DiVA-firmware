@@ -2,6 +2,7 @@
 #define SETTINGS_H__
 
 #include <stdint.h>
+#include <stdbool.h>
 #include "terminal_menu.h"
 
 typedef struct {
@@ -37,8 +38,7 @@ typedef struct menu_item {
 const menu_item_t* setting_menu_items[4];
 
 
-
-void load_defaults(void);
+void init_settings(bool load_defaults);
 
 
 
