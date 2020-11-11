@@ -46,6 +46,35 @@ void switch_mode(int mode){
 		framer_height_write(600);
 
 
+		scaler_filter_coeff_tap0_phase0_write(0);
+		scaler_filter_coeff_tap0_phase1_write(0);
+		scaler_filter_coeff_tap0_phase2_write(0);
+		scaler_filter_coeff_tap0_phase3_write(0);
+		scaler_filter_coeff_tap0_phase4_write(0);
+		scaler_filter_coeff_tap1_phase0_write(0);
+		scaler_filter_coeff_tap1_phase1_write(-16);
+		scaler_filter_coeff_tap1_phase2_write(-18);
+		scaler_filter_coeff_tap1_phase3_write(-12);
+		scaler_filter_coeff_tap1_phase4_write(-4);
+		scaler_filter_coeff_tap2_phase0_write(256);
+		scaler_filter_coeff_tap2_phase1_write(233);
+		scaler_filter_coeff_tap2_phase2_write(178);
+		scaler_filter_coeff_tap2_phase3_write(108);
+		scaler_filter_coeff_tap2_phase4_write(43);
+		scaler_filter_coeff_tap3_phase0_write(0);
+		scaler_filter_coeff_tap3_phase1_write(43);
+		scaler_filter_coeff_tap3_phase2_write(108);
+		scaler_filter_coeff_tap3_phase3_write(178);
+		scaler_filter_coeff_tap3_phase4_write(233);
+		scaler_filter_coeff_tap4_phase0_write(0);
+		scaler_filter_coeff_tap4_phase1_write(-4);
+		scaler_filter_coeff_tap4_phase2_write(-12);
+		scaler_filter_coeff_tap4_phase3_write(-18);
+		scaler_filter_coeff_tap4_phase4_write(-16);
+
+		scaler_phases_write(5);
+		scaler_starting_phase_write(1);
+
 
 		scaler_enable_write(1);
 	}

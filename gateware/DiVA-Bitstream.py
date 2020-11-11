@@ -59,7 +59,7 @@ from rtl.video.simulated_video import SimulatedVideo
 from rtl.video.video_debug import VideoDebug
 from rtl.video.video_stream import VideoStream
 from rtl.video.framer import Framer
-from rtl.video.scaler import ScalerWidth, ScalerHeight
+from rtl.video.scaler import ScalerWidth#, ScalerHeight
 
 class _CRG(Module, AutoCSR):
     def __init__(self, platform, sys_clk_freq):
@@ -251,7 +251,7 @@ class DiVA_SoC(SoCCore):
 
         self.submodules.scaler = scaler = ClockDomainsRenamer({"sys":"video"})((ScalerWidth()))
         self.submodules.fifo2 = fifo2 = ClockDomainsRenamer({"sys":"video"})(ResetInserter()(SyncFIFO([("data", 32)], depth=16)))
-        self.submodules.scaler0 = scaler0 = ClockDomainsRenamer({"sys":"video"})(ScalerHeight(800))
+        #self.submodules.scaler0 = scaler0 = ClockDomainsRenamer({"sys":"video"})(ScalerHeight(800))
 
         self.submodules += fifo
 
@@ -302,8 +302,9 @@ class DiVA_SoC(SoCCore):
             If(scaler_enable,
                 fifo0.source.connect(scaler.sink),
                 scaler.source.connect(fifo2.sink),
-                fifo2.source.connect(scaler0.sink),
-                scaler0.source.connect(framer.sink)
+                fifo2.source.connect(framer.sink),
+                #fifo2.source.connect(scaler0.sink),
+                #scaler0.source.connect(framer.sink)
             ).Else(
                 fifo0.source.connect(framer.sink),
             ),
@@ -333,7 +334,7 @@ class DiVA_SoC(SoCCore):
             boson_sink_start.eq(vsync_rise.o),
             scaler.reset.eq(vsync_rise_term.o),
             fifo2.reset.eq(vsync_rise_term.o),
-            scaler0.reset.eq(vsync_rise_term.o),
+            #scaler0.reset.eq(vsync_rise_term.o),
         ]
 
         # delay vsync pulse from boson by 500 clocks, then use it to reset the fifo
