@@ -145,19 +145,9 @@ class RGBFilterElement(Module):
         ]
 
 
-@ResetInserter()
-class ScalerWidth(StallablePipelineActor, AutoCSR):
-    def __init__(self):
-        self.sink = sink = Endpoint([("data", 32)])
-        self.source = source = Endpoint([("data", 32)])
-        n_taps = 4
-        n_phase = 5
-
-        StallablePipelineActor.__init__(self, n_taps + 2)
-
-
-
-        filters = []
+class MultiTapFilter(Module, AutoCSR):
+    def __init__(self, n_taps, n_phase):
+        self.filters = filters = []
         for i in range(n_taps):
             f = RGBFilterElement()
             filters += [f]
@@ -174,17 +164,13 @@ class ScalerWidth(StallablePipelineActor, AutoCSR):
                 name = f'filter_coeff_tap{i}_phase{p}'
                 d = coef(W((float(4-i) + float(p)*0.2)-2.0), 8)
                 #print(name, d)
-                csr = CSRStorage(16, name=name, reset=0)
+                csr = CSRStorage(16, name=name, reset=d)
                 setattr(self, name, csr) 
 
-        self.enable = CSRStorage(1)
         self.phases = phases = CSRStorage(8)
         self.starting_phase = starting_phase = CSRStorage(8)
 
         self.phase = phase = Signal(8, reset=0)
-
-        self.submodules.tap_datapath = tap_dp = MultiTapDatapath(5)
-        self.comb += self.tap_datapath.ce.eq(self.pipe_ce & ~self.stall)
 
         self.sync += [
             If(self.pipe_ce & self.busy,
@@ -195,12 +181,6 @@ class ScalerWidth(StallablePipelineActor, AutoCSR):
             ),
         ]
 
-        # This needs to be made user configurable
-        self.comb += self.stall.eq(phase == 4)
-        
-        for i in range(n_taps):
-            self.comb += filters[i].sink.eq(tap_dp.tap[i])
-
         # Connect up CSRs to filters
         for p in range(n_phase):
             for t in range(n_taps):
@@ -209,6 +189,10 @@ class ScalerWidth(StallablePipelineActor, AutoCSR):
                 )
 
 
+        self.out_r = Signal(8)
+        self.out_g = Signal(8)
+        self.out_b = Signal(8)
+        
         for ch in ['r', 'g', 'b']:
             
             # Sum up output from all filter taps
@@ -235,36 +219,63 @@ class ScalerWidth(StallablePipelineActor, AutoCSR):
 
             # Connect channel to output
             self.comb += {
-                'r': source.data[0:8],
-                'g': source.data[8:16],
-                'b': source.data[16:24],
+                'r': self.out_r,
+                'g': self.out_g,
+                'b': self.out_b,
             }[ch].eq(bitnarrow)
+
+
+
+
+@ResetInserter()
+class ScalerWidth(StallablePipelineActor, MultiTapFilter, AutoCSR):
+    def __init__(self):
+        self.sink = sink = Endpoint([("data", 32)])
+        self.source = source = Endpoint([("data", 32)])
+        n_taps = 4
+        n_phase = 5
+
+        StallablePipelineActor.__init__(self, n_taps + 2)
+        MultiTapFilter.__init__(self, n_taps, n_phase)
+        
+
+        self.enable = CSRStorage(1)
+
+        self.submodules.tap_datapath = tap_dp = MultiTapDatapath(5)
+        self.comb += self.tap_datapath.ce.eq(self.pipe_ce & ~self.stall)
+
+        # This needs to be made user configurable
+        self.comb += self.stall.eq(self.phase == 4)
+        
+        for i in range(n_taps):
+            self.comb += self.filters[i].sink.eq(tap_dp.tap[i])
+
 
         # Connect data into pipeline
         self.comb += [
             self.tap_datapath.sink.r.eq(sink.data[0:8]),
             self.tap_datapath.sink.g.eq(sink.data[8:16]),
             self.tap_datapath.sink.b.eq(sink.data[16:24]),
+
+            source.data[0:8].eq(self.out_r),
+            source.data[8:16].eq(self.out_g),
+            source.data[16:24].eq(self.out_b),
             source.data[24:32].eq(0),
         ]
 
 
 @ResetInserter()
-class LineDelay(StallablePipelineActor):
+class LineDelay(StallablePipelineActor, MultiTapFilter):
     def __init__(self):
         self.sink = sink = Endpoint([("data", 32)])
         self.source = source = Endpoint([("data", 32)])
 
         n_taps = 4
+        n_phase = 5
 
 
         StallablePipelineActor.__init__(self, 2)
-
-        outputs = []
-        for i in range(n_taps):
-            s = Signal(16, name=f'out{i}')
-            outputs += [s]
-
+        MultiTapFilter.__init__(self, n_taps, n_phase)
 
         input_idx = Signal(16)
         line_idx = Signal(16)
@@ -289,19 +300,21 @@ class LineDelay(StallablePipelineActor):
 
         # Add taps along the buffer
         for i in range(n_taps):
-            init = [0] + [1+i*(line_length+0) for i in range(n_taps-1, 0, -1)]
+            init = [0] + [i*(line_length) for i in range(n_taps-1, 0, -1)]
             adr = Signal(16, reset=init[i])
             line_reader = linebuffer.get_port(write_capable=False)
             self.specials += line_reader
             self.comb += [
                 line_reader.adr.eq(adr),
-                outputs[i].eq(line_reader.dat_r)
+                self.filters[i].sink.r.eq(line_reader.dat_r[0:8]),
+                self.filters[i].sink.g.eq(line_reader.dat_r[8:16]),
+                self.filters[i].sink.b.eq(line_reader.dat_r[16:24]),
             ]
 
             self.sync += [
                 If(sink.valid & sink.ready,
                     adr.eq(adr + 1),
-                    If(adr >= (line_length * n_taps),
+                    If(adr >= (line_length * n_taps) - 1 ,
                         adr.eq(0),
                     )
                 )
@@ -311,7 +324,7 @@ class LineDelay(StallablePipelineActor):
         self.sync += [
             If(sink.valid & sink.ready,
                 input_idx.eq(input_idx + 1),
-                If(input_idx >= (line_length * n_taps),
+                If(input_idx >= (line_length * n_taps) - 1,
                     input_idx.eq(0),
                 ),
                 line_idx.eq(line_idx + 1),
@@ -323,6 +336,15 @@ class LineDelay(StallablePipelineActor):
 
         # Load new coefs at the end of each line.
         self.comb += line_end.eq(line_idx == 0)
+
+
+        # Connect data into pipeline
+        self.comb += [
+            source.data[0:8].eq(self.out_r),
+            source.data[8:16].eq(self.out_g),
+            source.data[16:24].eq(self.out_b),
+            source.data[24:32].eq(0),
+        ]
 
 
         
@@ -355,6 +377,7 @@ class TestScaler(unittest.TestCase):
         
         def checker(dut):
             yield from dut.logger.receive()
+            print(dut.logger.packet)
             assert(self.golden == dut.logger.packet)
 
         class DUT(Module):
@@ -443,6 +466,11 @@ class TestLineBuffer(unittest.TestCase):
             yield
             yield dut.scaler.reset.eq(0)
             yield
+            #yield from dut.scaler.filter_coeff_tap0_phase0.write(256)
+            #yield from dut.scaler.filter_coeff_tap0_phase1.write(256)
+            #yield from dut.scaler.filter_coeff_tap0_phase2.write(256)
+            #yield from dut.scaler.filter_coeff_tap0_phase3.write(256)
+
             yield from dut.streamer.send_blocking(d)
             yield
             yield
