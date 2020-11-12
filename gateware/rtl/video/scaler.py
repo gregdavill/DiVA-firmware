@@ -150,25 +150,27 @@ class ScalerWidth(StallablePipelineActor, AutoCSR):
     def __init__(self):
         self.sink = sink = Endpoint([("data", 32)])
         self.source = source = Endpoint([("data", 32)])
-        StallablePipelineActor.__init__(self, 5)
+        n_taps = 4
+        n_phase = 5
 
-        filters = [
-            RGBFilterElement(), 
-            RGBFilterElement(), 
-            RGBFilterElement(),
-            RGBFilterElement(),
-            RGBFilterElement(),
-        ]
-        for f in filters:
+        StallablePipelineActor.__init__(self, n_taps + 2)
+
+
+
+        filters = []
+        for i in range(n_taps):
+            f = RGBFilterElement()
+            filters += [f]
+
             self.submodules += f
             self.comb += f.ce.eq(self.pipe_ce)
 
 
         def coef(value, cw=None):
             return int(value * 2**cw) if cw is not None else value
-        for i in range(5):
+        for i in range(n_taps):
             d = []
-            for p in range(5):
+            for p in range(n_phase):
                 name = f'filter_coeff_tap{i}_phase{p}'
                 d = coef(W((float(4-i) + float(p)*0.2)-2.0), 8)
                 #print(name, d)
@@ -187,7 +189,7 @@ class ScalerWidth(StallablePipelineActor, AutoCSR):
         self.sync += [
             If(self.pipe_ce & self.busy,
                 phase.eq(phase + 1),
-                If(phase >= (phases.storage - 1),
+                If((phase >= (phases.storage - 1)) | (phase >= n_phase),
                     phase.eq(0),
                 ),
             ),
@@ -196,12 +198,12 @@ class ScalerWidth(StallablePipelineActor, AutoCSR):
         # This needs to be made user configurable
         self.comb += self.stall.eq(phase == 4)
         
-        for i in range(5):
+        for i in range(n_taps):
             self.comb += filters[i].sink.eq(tap_dp.tap[i])
 
         # Connect up CSRs to filters
-        for p in range(5):
-            for t in range(len(filters)):
+        for p in range(n_phase):
+            for t in range(n_taps):
                 self.comb += If(phase == p,
                     filters[t].coef.eq(getattr(self, f'filter_coeff_tap{t}_phase{p}').storage)
                 )
