@@ -172,7 +172,7 @@ class ScalerWidth(StallablePipelineActor, AutoCSR):
                 name = f'filter_coeff_tap{i}_phase{p}'
                 d = coef(W((float(4-i) + float(p)*0.2)-2.0), 8)
                 #print(name, d)
-                csr = CSRStorage(16, name=name, reset=d)
+                csr = CSRStorage(16, name=name, reset=0)
                 setattr(self, name, csr) 
 
         self.enable = CSRStorage(1)
@@ -193,126 +193,56 @@ class ScalerWidth(StallablePipelineActor, AutoCSR):
             ),
         ]
 
+        # This needs to be made user configurable
         self.comb += self.stall.eq(phase == 4)
         
         for i in range(5):
             self.comb += filters[i].sink.eq(tap_dp.tap[i])
 
-        self.comb += [
-                
-            If(phase == 0, 
-                filters[0].coef.eq(self.filter_coeff_tap0_phase0.storage),
-                filters[1].coef.eq(self.filter_coeff_tap1_phase0.storage),
-                filters[2].coef.eq(self.filter_coeff_tap2_phase0.storage),
-                filters[3].coef.eq(self.filter_coeff_tap3_phase0.storage),
-                filters[4].coef.eq(self.filter_coeff_tap4_phase0.storage),
-            ),
-            If(phase == 1, 
-                filters[0].coef.eq(self.filter_coeff_tap0_phase1.storage),
-                filters[1].coef.eq(self.filter_coeff_tap1_phase1.storage),
-                filters[2].coef.eq(self.filter_coeff_tap2_phase1.storage),
-                filters[3].coef.eq(self.filter_coeff_tap3_phase1.storage),
-                filters[4].coef.eq(self.filter_coeff_tap4_phase1.storage),
-            ),
-            If(phase == 2, 
-                filters[0].coef.eq(self.filter_coeff_tap0_phase2.storage),
-                filters[1].coef.eq(self.filter_coeff_tap1_phase2.storage),
-                filters[2].coef.eq(self.filter_coeff_tap2_phase2.storage),
-                filters[3].coef.eq(self.filter_coeff_tap3_phase2.storage),
-                filters[4].coef.eq(self.filter_coeff_tap4_phase2.storage),
-            ),
-            If(phase == 3, 
-                filters[0].coef.eq(self.filter_coeff_tap0_phase3.storage),
-                filters[1].coef.eq(self.filter_coeff_tap1_phase3.storage),
-                filters[2].coef.eq(self.filter_coeff_tap2_phase3.storage),
-                filters[3].coef.eq(self.filter_coeff_tap3_phase3.storage),
-                filters[4].coef.eq(self.filter_coeff_tap4_phase3.storage),
-            ),
-            If(phase == 4, 
-                filters[0].coef.eq(self.filter_coeff_tap0_phase4.storage),
-                filters[1].coef.eq(self.filter_coeff_tap1_phase4.storage),
-                filters[2].coef.eq(self.filter_coeff_tap2_phase4.storage),
-                filters[3].coef.eq(self.filter_coeff_tap3_phase4.storage),
-                filters[4].coef.eq(self.filter_coeff_tap4_phase4.storage),
-            ),
-        ]
+        # Connect up CSRs to filters
+        for p in range(5):
+            for t in range(len(filters)):
+                self.comb += If(phase == p,
+                    filters[t].coef.eq(getattr(self, f'filter_coeff_tap{t}_phase{p}').storage)
+                )
 
-        out_r = Signal(24)
-        self.sync += [
-            If(self.pipe_ce & self.busy,
-                out_r.eq(
-                    filters[0].source.r +
-                    filters[1].source.r +
-                    filters[2].source.r +
-                    filters[3].source.r +
-                    filters[4].source.r),
-            )
-        ]
 
-        out_r_bitnarrow = Signal(8)
-        self.comb += [
-            If(out_r[-1] == 1,
-                out_r_bitnarrow.eq(0),  # Saturate negative values to 0
-            ).Elif(out_r[8:] > 255,
-                out_r_bitnarrow.eq(255),
-            ).Else(
-                out_r_bitnarrow.eq(out_r[8:]),
-            )
-        ]
+        for ch in ['r', 'g', 'b']:
+            
+            # Sum up output from all filter taps
+            sum0 = Signal(24)
+            v = 0
+            for f in filters:
+                v += getattr(f.source, ch)
+            self.sync += If(self.pipe_ce & self.busy,
+                    sum0.eq(v)
+                )
+            
+            # Combine that into an 8bit output, 
+            # take care of negative, overflow, underflow, and fixed point multiplication scaling
+            bitnarrow = Signal(8)
+            self.comb += [
+                If(sum0[-1] == 1,
+                    bitnarrow.eq(0),  # Saturate negative values to 0
+                ).Elif(sum0[8:] > 255,
+                    bitnarrow.eq(255),
+                ).Else(
+                    bitnarrow.eq(sum0[8:]),
+                )
+            ]
 
-        out_g = Signal(24)
-        self.sync += [
-            If(self.pipe_ce & self.busy,
-                out_g.eq(
-                    filters[0].source.g +
-                    filters[1].source.g +
-                    filters[2].source.g +
-                    filters[3].source.g +
-                    filters[4].source.g),
-            )
-        ]
+            # Connect channel to output
+            self.comb += {
+                'r': source.data[0:8],
+                'g': source.data[8:16],
+                'b': source.data[16:24],
+            }[ch].eq(bitnarrow)
 
-        out_g_bitnarrow = Signal(8)
-        self.comb += [
-            If(out_g[-1] == 1,
-                out_g_bitnarrow.eq(0),  # Saturate negative values to 0
-            ).Elif(out_g[8:] > 255,
-                out_g_bitnarrow.eq(255),
-            ).Else(
-                out_g_bitnarrow.eq(out_g[8:]),
-            )
-        ]
-
-        out_b = Signal(24)
-        self.sync += [
-            If(self.pipe_ce & self.busy,
-                out_b.eq(
-                    filters[0].source.b +
-                    filters[1].source.b +
-                    filters[2].source.b +
-                    filters[3].source.b +
-                    filters[4].source.b),
-            )
-        ]
-
-        out_b_bitnarrow = Signal(8)
-        self.comb += [
-            If(out_b[-1] == 1,
-                out_b_bitnarrow.eq(0),  # Saturate negative values to 0
-            ).Elif(out_b[8:] > 255,
-                out_b_bitnarrow.eq(255),
-            ).Else(
-                out_b_bitnarrow.eq(out_b[8:]),
-            )
-        ]
-
+        # Connect data into pipeline
         self.comb += [
             self.tap_datapath.sink.r.eq(sink.data[0:8]),
-            source.data[0:8].eq(out_r_bitnarrow),
             self.tap_datapath.sink.g.eq(sink.data[8:16]),
-            source.data[8:16].eq(out_g_bitnarrow),
             self.tap_datapath.sink.b.eq(sink.data[16:24]),
-            source.data[16:24].eq(out_b_bitnarrow),
             source.data[24:32].eq(0),
         ]
         
