@@ -36,17 +36,23 @@ class StallablePipelineActor(BinaryActor):
     def build_binary_control(self, sink, source, latency):
         busy  = 0
         valid = sink.valid
+        stall_n = Signal()
         for i in range(latency):
             valid_n = Signal()
-            self.sync += If(self.pipe_ce, valid_n.eq(valid))
+            self.sync += If(self.pipe_ce & ~(~stall_n & self.stall), valid_n.eq(valid))
             valid = valid_n
             busy = busy | valid
 
         self.comb += [
-            self.pipe_ce.eq((source.ready | ~valid) & ~self.stall),
-            sink.ready.eq(self.pipe_ce),
+            self.pipe_ce.eq((source.ready | ~valid)),
+            sink.ready.eq(self.pipe_ce & ~self.stall),
             source.valid.eq(valid),
             self.busy.eq(busy)
+        ]
+        self.sync += [
+            If(self.pipe_ce,
+                stall_n.eq(self.stall)
+            )
         ]
         first = sink.valid & sink.first
         last  = sink.valid & sink.last
@@ -54,7 +60,7 @@ class StallablePipelineActor(BinaryActor):
             first_n = Signal(reset_less=True)
             last_n  = Signal(reset_less=True)
             self.sync += \
-                If(self.pipe_ce,
+                If(self.pipe_ce & ~self.stall,
                     first_n.eq(first),
                     last_n.eq(last)
                 )
@@ -107,6 +113,7 @@ class FilterElement(Module):
         self.sync += mult.eq(sig_in * coef)
         self.comb += sig_out.eq(mult)
 
+@CEInserter()
 class RGBFilterElement(Module):
     def __init__(self):
         self.sink = sink = Record(rgb_layout(8))
@@ -154,6 +161,8 @@ class ScalerWidth(StallablePipelineActor, AutoCSR):
         ]
         for f in filters:
             self.submodules += f
+            self.comb += f.ce.eq(self.pipe_ce)
+
 
         def coef(value, cw=None):
             return int(value * 2**cw) if cw is not None else value
@@ -162,25 +171,25 @@ class ScalerWidth(StallablePipelineActor, AutoCSR):
             for p in range(5):
                 name = f'filter_coeff_tap{i}_phase{p}'
                 d = coef(W((float(4-i) + float(p)*0.2)-2.0), 8)
-                print(name, d)
-                csr = CSRStorage(16, name=name, reset=0)
+                #print(name, d)
+                csr = CSRStorage(16, name=name, reset=d)
                 setattr(self, name, csr) 
 
         self.enable = CSRStorage(1)
         self.phases = phases = CSRStorage(8)
         self.starting_phase = starting_phase = CSRStorage(8)
 
-        phase = Signal(8, reset=0)
+        self.phase = phase = Signal(8, reset=0)
 
         self.submodules.tap_datapath = tap_dp = MultiTapDatapath(5)
-        self.comb += self.tap_datapath.ce.eq(self.pipe_ce)
+        self.comb += self.tap_datapath.ce.eq(self.pipe_ce & ~self.stall)
 
         self.sync += [
-            If(self.busy | (self.sink.valid & self.stall),
+            If(self.pipe_ce & self.busy,
                 phase.eq(phase + 1),
-            ),
-            If(phase >= (phases.storage - 1),
-                phase.eq(0),
+                If(phase >= (phases.storage - 1),
+                    phase.eq(0),
+                ),
             ),
         ]
 
@@ -230,12 +239,14 @@ class ScalerWidth(StallablePipelineActor, AutoCSR):
 
         out_r = Signal(24)
         self.sync += [
-            out_r.eq(
-                filters[0].source.r +
-                filters[1].source.r +
-                filters[2].source.r +
-                filters[3].source.r +
-                filters[4].source.r),
+            If(self.pipe_ce & self.busy,
+                out_r.eq(
+                    filters[0].source.r +
+                    filters[1].source.r +
+                    filters[2].source.r +
+                    filters[3].source.r +
+                    filters[4].source.r),
+            )
         ]
 
         out_r_bitnarrow = Signal(8)
@@ -251,12 +262,14 @@ class ScalerWidth(StallablePipelineActor, AutoCSR):
 
         out_g = Signal(24)
         self.sync += [
-            out_g.eq(
-                filters[0].source.g +
-                filters[1].source.g +
-                filters[2].source.g +
-                filters[3].source.g +
-                filters[4].source.g),
+            If(self.pipe_ce & self.busy,
+                out_g.eq(
+                    filters[0].source.g +
+                    filters[1].source.g +
+                    filters[2].source.g +
+                    filters[3].source.g +
+                    filters[4].source.g),
+            )
         ]
 
         out_g_bitnarrow = Signal(8)
@@ -272,12 +285,14 @@ class ScalerWidth(StallablePipelineActor, AutoCSR):
 
         out_b = Signal(24)
         self.sync += [
-            out_b.eq(
-                filters[0].source.b +
-                filters[1].source.b +
-                filters[2].source.b +
-                filters[3].source.b +
-                filters[4].source.b),
+            If(self.pipe_ce & self.busy,
+                out_b.eq(
+                    filters[0].source.b +
+                    filters[1].source.b +
+                    filters[2].source.b +
+                    filters[3].source.b +
+                    filters[4].source.b),
+            )
         ]
 
         out_b_bitnarrow = Signal(8)
@@ -303,8 +318,6 @@ class ScalerWidth(StallablePipelineActor, AutoCSR):
         
 
 ## Unit tests 
-
-
 import unittest
 
 
@@ -314,41 +327,36 @@ from litex.soc.interconnect.stream import Pipeline
 from .stream_utils import StreamAppend, StreamPrepend
 
 class TestScaler(unittest.TestCase):
+    def __init__(self, methodName='runTest'):
+        self.data = [int(math.sin(i/4)*127 + 127) for i in range(16)]
+        self.golden = [150, 169, 192, 213, 229, 242, 250, 253, 251, 244, 232, 216, 197, 175, 150, 125, 100, 75, 54, 53]
+        unittest.TestCase.__init__(self, methodName=methodName)
 
     def testWidth(self):
         def generator(dut):
-            yield from dut.prepend.length.write(5)
-            yield from dut.append.length.write(5)
-            
-
+            d = Packet(self.data)
             yield from dut.scaler.phases.write(5)
             yield from dut.scaler.starting_phase.write(1)
-            
-            data = [int(math.sin(i/4)*127 + 127) for i in range(64)]
-            d = Packet(data)
             yield dut.scaler.reset.eq(1)
             yield
             yield dut.scaler.reset.eq(0)
             yield
             yield from dut.streamer.send_blocking(d)
+        
+        def checker(dut):
             yield from dut.logger.receive()
-                
+            assert(self.golden == dut.logger.packet)
+
         class DUT(Module):
             def __init__(self):
                 self.submodules.scaler = ScalerWidth()
                 self.sink = Endpoint([("data", 32)])
-
-                self.submodules.prepend = StreamPrepend()
-                self.submodules.append = StreamAppend()
-                
 
                 self.submodules.streamer = PacketStreamer([("data", 32)])
                 self.submodules.logger = PacketLogger([("data", 32)])
 
                 self.submodules.pipeline = Pipeline(
                     self.streamer,
-                    self.append,
-                    self.prepend,
                     self.scaler,
                     self.logger
                 )
@@ -358,8 +366,54 @@ class TestScaler(unittest.TestCase):
         dut = DUT()
         generators = {
             "sys" :   [generator(dut),
+                        checker(dut),
                       dut.streamer.generator(),
                       dut.logger.generator(),
+                      ]
+        }
+        clocks = {"sys": 10}
+        run_simulation(dut, generators, clocks,  vcd_name='test0.vcd')
+
+    def testWidthRandom(self):
+        def generator(dut):
+            d = Packet(self.data)
+            yield from dut.scaler.phases.write(5)
+            yield from dut.scaler.starting_phase.write(1)
+            yield dut.scaler.reset.eq(1)
+            yield
+            yield dut.scaler.reset.eq(0)
+            yield
+            yield from dut.streamer.send_blocking(d)
+        
+        def checker(dut):
+            yield from dut.logger.receive()
+            assert(self.golden == dut.logger.packet)
+
+        class DUT(Module):
+            def __init__(self):
+                self.submodules.scaler = ScalerWidth()
+                self.sink = Endpoint([("data", 32)])
+
+                self.submodules.streamer = PacketStreamer([("data", 32)])
+                self.submodules.loggerrandomiser = Randomizer([("data", 32)], level=50)
+                self.submodules.logger = PacketLogger([("data", 32)])
+
+                self.submodules.pipeline = Pipeline(
+                    self.streamer,
+                    self.scaler,
+                    self.loggerrandomiser,
+                    self.logger
+                )
+                
+
+
+        dut = DUT()
+        generators = {
+            "sys" :   [generator(dut),
+                      checker(dut),
+                      dut.streamer.generator(),
+                      dut.logger.generator(),
+                      dut.loggerrandomiser.generator()
                       ]
         }
         clocks = {"sys": 10}
