@@ -247,6 +247,84 @@ class ScalerWidth(StallablePipelineActor, AutoCSR):
             self.tap_datapath.sink.b.eq(sink.data[16:24]),
             source.data[24:32].eq(0),
         ]
+
+
+@ResetInserter()
+class LineDelay(StallablePipelineActor):
+    def __init__(self):
+        self.sink = sink = Endpoint([("data", 32)])
+        self.source = source = Endpoint([("data", 32)])
+
+        n_taps = 4
+
+
+        StallablePipelineActor.__init__(self, 2)
+
+        outputs = []
+        for i in range(n_taps):
+            s = Signal(16, name=f'out{i}')
+            outputs += [s]
+
+
+        input_idx = Signal(16)
+        line_idx = Signal(16)
+        line_length = 16
+
+        line_count = Signal(16)
+
+        line_end = Signal()
+
+        linebuffer = Memory(24, line_length * n_taps, name=f'linebuffer')
+        self.specials += linebuffer
+    
+        # Fill line-buffer
+        line_write = linebuffer.get_port(write_capable=True)
+        self.specials += line_write
+        self.comb += [
+            line_write.adr.eq(input_idx),
+            line_write.we.eq(sink.valid),
+            line_write.dat_w.eq(sink.data)
+        ]
+
+
+        # Add taps along the buffer
+        for i in range(n_taps):
+            init = [0] + [1+i*(line_length+0) for i in range(n_taps-1, 0, -1)]
+            adr = Signal(16, reset=init[i])
+            line_reader = linebuffer.get_port(write_capable=False)
+            self.specials += line_reader
+            self.comb += [
+                line_reader.adr.eq(adr),
+                outputs[i].eq(line_reader.dat_r)
+            ]
+
+            self.sync += [
+                If(sink.valid & sink.ready,
+                    adr.eq(adr + 1),
+                    If(adr >= (line_length * n_taps),
+                        adr.eq(0),
+                    )
+                )
+            ]
+
+        # Increment input address, along with an address per line
+        self.sync += [
+            If(sink.valid & sink.ready,
+                input_idx.eq(input_idx + 1),
+                If(input_idx >= (line_length * n_taps),
+                    input_idx.eq(0),
+                ),
+                line_idx.eq(line_idx + 1),
+                If(line_idx >= (line_length-1),
+                    line_idx.eq(0),
+                ),
+            )
+        ]
+
+        # Load new coefs at the end of each line.
+        self.comb += line_end.eq(line_idx == 0)
+
+
         
 
 ## Unit tests 
@@ -351,3 +429,52 @@ class TestScaler(unittest.TestCase):
         clocks = {"sys": 10}
         run_simulation(dut, generators, clocks,  vcd_name='test.vcd')
 
+
+class TestLineBuffer(unittest.TestCase):
+    def test0(self):
+        self.data = [i for i in range(16)]
+        self.data += [0x10 + i for i in range(16)]
+        self.data += [0x20 + i for i in range(16)]
+        self.data += [0x30 + i for i in range(16)]
+
+        def generator(dut):
+            d = Packet(self.data)
+            yield dut.scaler.reset.eq(1)
+            yield
+            yield dut.scaler.reset.eq(0)
+            yield
+            yield from dut.streamer.send_blocking(d)
+            yield
+            yield
+            yield
+        
+        def checker(dut):
+            ...
+            #yield from dut.logger.receive()
+
+        class DUT(Module):
+            def __init__(self):
+                self.submodules.scaler = LineDelay()
+                self.sink = Endpoint([("data", 32)])
+
+                self.submodules.streamer = PacketStreamer([("data", 32)])
+                self.submodules.logger = PacketLogger([("data", 32)])
+
+                self.submodules.pipeline = Pipeline(
+                    self.streamer,
+                    self.scaler,
+                    self.logger
+                )
+                
+
+
+        dut = DUT()
+        generators = {
+            "sys" :   [generator(dut),
+                      #  checker(dut),
+                      dut.streamer.generator(),
+                      dut.logger.generator(),
+                      ]
+        }
+        clocks = {"sys": 10}
+        run_simulation(dut, generators, clocks,  vcd_name='test1.vcd')
