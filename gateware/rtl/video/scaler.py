@@ -24,7 +24,6 @@ def W(x):
     return 0
 
 
-
 class StallablePipelineActor(BinaryActor):
     def __init__(self, latency):
         self.latency = latency
@@ -163,6 +162,8 @@ class MultiTapFilter(Module, AutoCSR):
             for p in range(n_phase):
                 name = f'filter_coeff_tap{i}_phase{p}'
                 d = coef(W((float(4-i) + float(p)*0.2)-2.0), 8)
+                if d < 0: # 2's complement hack, to keep yosys happy
+                    d = (-d - 1) ^ 0xFFFF
                 #print(name, d)
                 csr = CSRStorage(16, name=name, reset=d)
                 setattr(self, name, csr) 
@@ -239,7 +240,6 @@ class ScalerWidth(StallablePipelineActor, MultiTapFilter, AutoCSR):
         MultiTapFilter.__init__(self, n_taps, n_phase)
         
 
-        self.enable = CSRStorage(1)
 
         self.submodules.tap_datapath = tap_dp = MultiTapDatapath(5)
         self.comb += self.tap_datapath.ce.eq(self.pipe_ce & ~self.stall)
@@ -265,7 +265,7 @@ class ScalerWidth(StallablePipelineActor, MultiTapFilter, AutoCSR):
 
 
 @ResetInserter()
-class LineDelay(StallablePipelineActor, MultiTapFilter):
+class ScaleHeight(StallablePipelineActor, MultiTapFilter):
     def __init__(self):
         self.sink = sink = Endpoint([("data", 32)])
         self.source = source = Endpoint([("data", 32)])
@@ -279,7 +279,7 @@ class LineDelay(StallablePipelineActor, MultiTapFilter):
 
         input_idx = Signal(16)
         line_idx = Signal(16)
-        line_length = 16
+        line_length = 640
 
         line_count = Signal(16)
 
@@ -346,8 +346,27 @@ class LineDelay(StallablePipelineActor, MultiTapFilter):
             source.data[24:32].eq(0),
         ]
 
+@ResetInserter()
+class Scaler(Module, AutoCSR):
+    def __init__(self):
+        self.enable = CSRStorage(1)
+        self.sink = sink = Endpoint([("data", 32)])
+        self.source = source = Endpoint([("data", 32)])
 
+
+        self.submodules.height = ScaleHeight()
+        self.submodules.width = ScalerWidth()
         
+
+        self.submodules.pipeline = Pipeline(
+            sink,
+            self.height,
+            self.width,
+            source,
+        )
+
+
+
 
 ## Unit tests 
 import unittest
@@ -482,7 +501,7 @@ class TestLineBuffer(unittest.TestCase):
 
         class DUT(Module):
             def __init__(self):
-                self.submodules.scaler = LineDelay()
+                self.submodules.scaler = ScaleHeight()
                 self.sink = Endpoint([("data", 32)])
 
                 self.submodules.streamer = PacketStreamer([("data", 32)])

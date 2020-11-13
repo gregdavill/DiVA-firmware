@@ -59,7 +59,7 @@ from rtl.video.simulated_video import SimulatedVideo
 from rtl.video.video_debug import VideoDebug
 from rtl.video.video_stream import VideoStream
 from rtl.video.framer import Framer
-from rtl.video.scaler import ScalerWidth#, ScalerHeight
+from rtl.video.scaler import Scaler
 
 class _CRG(Module, AutoCSR):
     def __init__(self, platform, sys_clk_freq):
@@ -249,8 +249,9 @@ class DiVA_SoC(SoCCore):
 
         self.submodules.framer = framer = Framer()
 
-        self.submodules.scaler = scaler = ClockDomainsRenamer({"sys":"video"})((ScalerWidth()))
-        self.submodules.fifo2 = fifo2 = ClockDomainsRenamer({"sys":"video"})(ResetInserter()(SyncFIFO([("data", 32)], depth=16)))
+        #self.submodules.scaler = scaler = ClockDomainsRenamer({"sys":"video"})((ScalerWidth()))
+        self.submodules.scaler = scaler = ClockDomainsRenamer({"sys":"video"})((Scaler()))
+        self.submodules.fifo2 = fifo2 = ResetInserter()(ClockDomainsRenamer({"sys":"video"})(SyncFIFO([("data", 32)], depth=32)))
         #self.submodules.scaler0 = scaler0 = ClockDomainsRenamer({"sys":"video"})(ScalerHeight(800))
 
         self.submodules += fifo
