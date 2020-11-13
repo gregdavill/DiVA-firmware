@@ -14,7 +14,6 @@ from litex.soc.interconnect.stream import *
 def rgb_layout(dw):
     return [("r", dw), ("g", dw), ("b", dw)]
 
-
 def W(x):
     a = -0.5
     if abs(x) <= 1:
@@ -266,7 +265,7 @@ class ScalerWidth(StallablePipelineActor, MultiTapFilter, AutoCSR):
 
 @ResetInserter()
 class ScaleHeight(StallablePipelineActor, MultiTapFilter):
-    def __init__(self):
+    def __init__(self, line_length = 640):
         self.sink = sink = Endpoint([("data", 32)])
         self.source = source = Endpoint([("data", 32)])
 
@@ -278,64 +277,70 @@ class ScaleHeight(StallablePipelineActor, MultiTapFilter):
         MultiTapFilter.__init__(self, n_taps, n_phase)
 
         input_idx = Signal(16)
-        line_idx = Signal(16)
-        line_length = 640
+        
 
         line_count = Signal(16)
 
         line_end = Signal()
 
-        linebuffer = Memory(24, line_length * n_taps, name=f'linebuffer')
-        self.specials += linebuffer
+        #lines = []
+        line_write = []
+
+        tap_outputs = []
+        #line_read = []
+
+        for i in range(n_taps):
+            linebuffer = Memory(24, line_length, name=f'linebuffer{i}')
+            self.specials += linebuffer
     
-        # Fill line-buffer
-        line_write = linebuffer.get_port(write_capable=True)
-        self.specials += line_write
+            # Fill line-buffer
+            wr = linebuffer.get_port(write_capable=True, mode=READ_FIRST)
+            line_write += [wr]
+
+            self.specials += wr
+            self.comb += [
+                wr.adr.eq(input_idx),
+                wr.we.eq(sink.valid),
+            ]
+
+            # delay output by tap_number
+            s = wr.dat_r
+            for _ in range((n_taps-1) - i):
+                _s = Signal(24)
+                self.sync += If(self.pipe_ce, _s.eq(s))
+                s = _s
+                
+            tap_outputs += [s]
+
+            self.comb += [
+                self.filters[i].sink.r.eq(s[0:8]),
+                self.filters[i].sink.g.eq(s[8:16]),
+                self.filters[i].sink.b.eq(s[16:24]),
+            ]
+
+
+
         self.comb += [
-            line_write.adr.eq(input_idx),
-            line_write.we.eq(sink.valid),
-            line_write.dat_w.eq(sink.data)
+            line_write[0].dat_w.eq(sink.data)
         ]
 
-
-        # Add taps along the buffer
-        for i in range(n_taps):
-            init = [0] + [i*(line_length) for i in range(n_taps-1, 0, -1)]
-            adr = Signal(16, reset=init[i])
-            line_reader = linebuffer.get_port(write_capable=False)
-            self.specials += line_reader
-            self.comb += [
-                line_reader.adr.eq(adr),
-                self.filters[i].sink.r.eq(line_reader.dat_r[0:8]),
-                self.filters[i].sink.g.eq(line_reader.dat_r[8:16]),
-                self.filters[i].sink.b.eq(line_reader.dat_r[16:24]),
-            ]
-
-            self.sync += [
-                If(sink.valid & sink.ready,
-                    adr.eq(adr + 1),
-                    If(adr >= (line_length * n_taps) - 1 ,
-                        adr.eq(0),
-                    )
-                )
-            ]
+        
+        for i in range(n_taps-1):
+            self.comb += line_write[i+1].dat_w.eq(line_write[i].dat_r)
+        
 
         # Increment input address, along with an address per line
         self.sync += [
             If(sink.valid & sink.ready,
                 input_idx.eq(input_idx + 1),
-                If(input_idx >= (line_length * n_taps) - 1,
+                If(input_idx >= (line_length - 1),
                     input_idx.eq(0),
-                ),
-                line_idx.eq(line_idx + 1),
-                If(line_idx >= (line_length-1),
-                    line_idx.eq(0),
                 ),
             )
         ]
 
         # Load new coefs at the end of each line.
-        self.comb += line_end.eq(line_idx == 0)
+        self.comb += line_end.eq(input_idx == 0)
 
 
         # Connect data into pipeline
@@ -478,6 +483,8 @@ class TestLineBuffer(unittest.TestCase):
         self.data += [0x10 + i for i in range(16)]
         self.data += [0x20 + i for i in range(16)]
         self.data += [0x30 + i for i in range(16)]
+        self.data += [0x40 + i for i in range(16)]
+        self.data += [0x50 + i for i in range(16)]
 
         def generator(dut):
             d = Packet(self.data)
@@ -501,7 +508,7 @@ class TestLineBuffer(unittest.TestCase):
 
         class DUT(Module):
             def __init__(self):
-                self.submodules.scaler = ScaleHeight()
+                self.submodules.scaler = ScaleHeight(line_length=16)
                 self.sink = Endpoint([("data", 32)])
 
                 self.submodules.streamer = PacketStreamer([("data", 32)])
