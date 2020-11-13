@@ -151,7 +151,7 @@ class MultiTapFilter(Module, AutoCSR):
             filters += [f]
 
             self.submodules += f
-            self.comb += f.ce.eq(self.pipe_ce)
+            self.comb += f.ce.eq(self.pipe_ce & self.busy)
 
 
         def coef(value, cw=None):
@@ -164,7 +164,7 @@ class MultiTapFilter(Module, AutoCSR):
                 if d < 0: # 2's complement hack, to keep yosys happy
                     d = (-d - 1) ^ 0xFFFF
                 #print(name, d)
-                csr = CSRStorage(16, name=name, reset=d)
+                csr = CSRStorage(16, name=name, reset=0)
                 setattr(self, name, csr) 
 
         self.phases = phases = CSRStorage(8)
@@ -240,7 +240,7 @@ class ScalerWidth(StallablePipelineActor, MultiTapFilter, AutoCSR):
         
 
 
-        self.submodules.tap_datapath = tap_dp = MultiTapDatapath(5)
+        self.submodules.tap_datapath = tap_dp = MultiTapDatapath(n_taps)
         self.comb += self.tap_datapath.ce.eq(self.pipe_ce & ~self.stall)
 
         # This needs to be made user configurable
@@ -273,7 +273,7 @@ class ScaleHeight(StallablePipelineActor, MultiTapFilter):
         n_phase = 5
 
 
-        StallablePipelineActor.__init__(self, 2)
+        StallablePipelineActor.__init__(self, n_taps + 2)
         MultiTapFilter.__init__(self, n_taps, n_phase)
 
         input_idx = Signal(16)
@@ -294,20 +294,21 @@ class ScaleHeight(StallablePipelineActor, MultiTapFilter):
             self.specials += linebuffer
     
             # Fill line-buffer
-            wr = linebuffer.get_port(write_capable=True, mode=READ_FIRST)
+            wr = linebuffer.get_port(write_capable=True, mode=READ_FIRST, has_re=True)
             line_write += [wr]
 
             self.specials += wr
             self.comb += [
                 wr.adr.eq(input_idx),
-                wr.we.eq(sink.valid),
+                wr.we.eq(self.pipe_ce & self.busy),
+                wr.re.eq(self.pipe_ce & self.busy),
             ]
 
             # delay output by tap_number
             s = wr.dat_r
-            for _ in range((n_taps-1) - i):
+            for _ in range(n_taps - i):
                 _s = Signal(24)
-                self.sync += If(self.pipe_ce, _s.eq(s))
+                self.sync += If(self.pipe_ce & self.busy, _s.eq(s))
                 s = _s
                 
             tap_outputs += [s]
@@ -331,7 +332,7 @@ class ScaleHeight(StallablePipelineActor, MultiTapFilter):
 
         # Increment input address, along with an address per line
         self.sync += [
-            If(sink.valid & sink.ready,
+            If(self.pipe_ce & self.busy,
                 input_idx.eq(input_idx + 1),
                 If(input_idx >= (line_length - 1),
                     input_idx.eq(0),
@@ -353,19 +354,22 @@ class ScaleHeight(StallablePipelineActor, MultiTapFilter):
 
 @ResetInserter()
 class Scaler(Module, AutoCSR):
-    def __init__(self):
+    def __init__(self,line_length=640):
         self.enable = CSRStorage(1)
         self.sink = sink = Endpoint([("data", 32)])
         self.source = source = Endpoint([("data", 32)])
 
 
-        self.submodules.height = ScaleHeight()
+        self.submodules.height = ScaleHeight(line_length)
         self.submodules.width = ScalerWidth()
+
+        self.submodules.fifo = SyncFIFO([("data", 32)], 8, True)
         
 
         self.submodules.pipeline = Pipeline(
             sink,
             self.height,
+            self.fifo,
             self.width,
             source,
         )
@@ -492,6 +496,7 @@ class TestLineBuffer(unittest.TestCase):
             yield
             yield dut.scaler.reset.eq(0)
             yield
+
             #yield from dut.scaler.filter_coeff_tap0_phase0.write(256)
             #yield from dut.scaler.filter_coeff_tap0_phase1.write(256)
             #yield from dut.scaler.filter_coeff_tap0_phase2.write(256)
@@ -503,8 +508,13 @@ class TestLineBuffer(unittest.TestCase):
             yield
         
         def checker(dut):
-            ...
-            #yield from dut.logger.receive()
+            yield from dut.logger.receive()
+            print(dut.logger.packet)
+
+            golden = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43]
+            #        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45]
+
+            assert(dut.logger.packet == golden)
 
         class DUT(Module):
             def __init__(self):
@@ -512,11 +522,14 @@ class TestLineBuffer(unittest.TestCase):
                 self.sink = Endpoint([("data", 32)])
 
                 self.submodules.streamer = PacketStreamer([("data", 32)])
+
+                self.submodules.loggerrandomiser = Randomizer([("data", 32)], level=50)
                 self.submodules.logger = PacketLogger([("data", 32)])
 
                 self.submodules.pipeline = Pipeline(
                     self.streamer,
                     self.scaler,
+                    self.loggerrandomiser,
                     self.logger
                 )
                 
@@ -525,9 +538,73 @@ class TestLineBuffer(unittest.TestCase):
         dut = DUT()
         generators = {
             "sys" :   [generator(dut),
-                      #  checker(dut),
+                      checker(dut),
                       dut.streamer.generator(),
                       dut.logger.generator(),
+                      dut.loggerrandomiser.generator()
+                      ]
+        }
+        clocks = {"sys": 10}
+        run_simulation(dut, generators, clocks,  vcd_name='test1.vcd')
+
+
+class TestCombine(unittest.TestCase):
+    def test0(self):
+        self.data = [i for i in range(16)]
+        self.data += [0x10 + i for i in range(16)]
+        self.data += [0x20 + i for i in range(16)]
+        self.data += [0x30 + i for i in range(16)]
+        self.data += [0x40 + i for i in range(16)]
+        self.data += [0x50 + i for i in range(16)]
+
+        def generator(dut):
+            d = Packet(self.data)
+            yield dut.scaler.reset.eq(1)
+            yield
+            yield dut.scaler.reset.eq(0)
+            yield
+            yield from dut.scaler.width.phases.write(5)
+            yield from dut.scaler.width.starting_phase.write(1)
+
+            yield from dut.streamer.send_blocking(d)
+            yield
+            yield
+            yield
+        
+        def checker(dut):
+            yield from dut.logger.receive()
+            print(dut.logger.packet)
+
+            
+            
+            #assert(dut.logger.packet == golden)
+
+        class DUT(Module):
+            def __init__(self):
+                self.submodules.scaler = Scaler(line_length=16)
+                self.sink = Endpoint([("data", 32)])
+
+                self.submodules.streamer = PacketStreamer([("data", 32)])
+
+                self.submodules.loggerrandomiser = Randomizer([("data", 32)], level=50)
+                self.submodules.logger = PacketLogger([("data", 32)])
+
+                self.submodules.pipeline = Pipeline(
+                    self.streamer,
+                    self.scaler,
+                    self.loggerrandomiser,
+                    self.logger
+                )
+                
+
+
+        dut = DUT()
+        generators = {
+            "sys" :   [generator(dut),
+                      checker(dut),
+                      dut.streamer.generator(),
+                      dut.logger.generator(),
+                      dut.loggerrandomiser.generator()
                       ]
         }
         clocks = {"sys": 10}
