@@ -166,7 +166,7 @@ const menu_item_t* setting_menu_items[4] = {
 
 
 const settings_t setting_defaults = {
-    0
+    .scaler_enable=1,
 };
 
 void init_settings(bool load_defaults){
