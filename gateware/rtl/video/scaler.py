@@ -29,6 +29,7 @@ class StallablePipelineActor(BinaryActor):
         self.pipe_ce = Signal()
         self.busy    = Signal()
         self.stall   = Signal()
+        self.output_hold = Signal()
         BinaryActor.__init__(self, latency)
 
     def build_binary_control(self, sink, source, latency):
@@ -44,7 +45,7 @@ class StallablePipelineActor(BinaryActor):
         self.comb += [
             self.pipe_ce.eq((source.ready | ~valid)),
             sink.ready.eq(self.pipe_ce & ~self.stall),
-            source.valid.eq(valid),
+            source.valid.eq(valid & ~self.output_hold),
             self.busy.eq(busy)
         ]
         self.sync += [
@@ -348,11 +349,7 @@ class ScaleHeight(StallablePipelineActor, MultiTapFilter, AutoCSR):
 
         for i in range(n_taps):
             tap_outputs += [Signal(24, name=f'tap_out{i}')]
-            self.comb += If(first_line, 
-                tap_outputs[i].eq(sink_delayed[5])
-            ).Else(
-                tap_outputs[i].eq(_outputs[i])
-            )
+            self.comb += tap_outputs[i].eq(_outputs[i])
             self.comb += [
                 self.filters[i].sink.r.eq(tap_outputs[i][0:8]),
                 self.filters[i].sink.g.eq(tap_outputs[i][8:16]),
@@ -360,12 +357,13 @@ class ScaleHeight(StallablePipelineActor, MultiTapFilter, AutoCSR):
             ]
 
         self.comb += [
-            ports[0].dat_w.eq(sink.data)
+            ports[0].dat_w.eq(sink.data),
+            self.output_hold.eq(first_line)
         ]
 
         
         for i in range(n_taps-1):
-            self.comb += If(first_line, 
+            self.comb += If(first_line & (i == 0), 
                 ports[i+1].dat_w.eq(sink_delayed[i+1])
             ).Else(
                 ports[i+1].dat_w.eq(ports[i].dat_r)
@@ -390,7 +388,7 @@ class ScaleHeight(StallablePipelineActor, MultiTapFilter, AutoCSR):
 
         # Load new coefs at the end of each line.
         self.comb += line_end.eq(input_idx == (line_length - 1))
-        self.comb += first_line.eq(line_count == 0 | ((line_count == 1) & (input_idx < 4)))
+        self.comb += first_line.eq((line_count == 0) | ((line_count == 1) & (input_idx < 4)))
         
 
         self.comb += [
