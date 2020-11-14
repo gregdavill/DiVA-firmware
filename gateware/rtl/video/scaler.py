@@ -95,7 +95,7 @@ class FilterElement(Module):
     def __init__(self, dw=8):
         self.sink = sink = Signal(dw)
         self.source = source = Signal((24, True))
-        self.coef = coef = Signal((12,True))
+        self.coef = coef = Signal((10,True))
 
         sig_in = Signal((dw+1, True))
         sig_out = Signal((24,True))
@@ -116,7 +116,7 @@ class RGBFilterElement(Module):
     def __init__(self):
         self.sink = sink = Record(rgb_layout(8))
         self.source = source = Record(rgb_layout((24, True)))
-        self.coef = coef = Signal((12,True))
+        self.coef = coef = Signal((10,True))
 
         fr = FilterElement()
         fg = FilterElement()
@@ -154,18 +154,34 @@ class MultiTapFilter(Module, AutoCSR):
             self.comb += f.ce.eq(self.pipe_ce & self.busy)
 
 
-        def coef(value, cw=None):
-            return int(value * 2**cw) if cw is not None else value
+        self.phase_ce = Signal()
+
+        self.coeff_phase = CSRStorage(8)
+        self.coeff_tap = CSRStorage(8)
+        self.coeff_data = CSRStorage(10)
+        self.coeff_stall = CSRStorage()
+        self.coeff_en = CSRStorage()
+
+        
+
+        coeff_memory = Memory(10*n_taps + 1, n_phase)
+        self.specials += coeff_memory
+
+        coeff_memory_we_port = coeff_memory.get_port(write_capable=True)
+        self.comb += [
+            coeff_memory_we_port.we.eq(self.coeff_en.storage),
+            coeff_memory_we_port.adr.eq(self.coeff_phase.storage),
+        ]
+
         for i in range(n_taps):
-            d = []
-            for p in range(n_phase):
-                name = f'filter_coeff_tap{i}_phase{p}'
-                d = coef(W((float(4-i) + float(p)*0.2)-2.0), 8)
-                if d < 0: # 2's complement hack, to keep yosys happy
-                    d = (-d - 1) ^ 0xFFFF
-                #print(name, d)
-                csr = CSRStorage(16, name=name, reset=0)
-                setattr(self, name, csr) 
+            self.comb += If(self.coeff_tap.storage == i,
+                    coeff_memory_we_port.dat_w.eq(coeff_memory_we_port.dat_r),
+                    coeff_memory_we_port.dat_w[i*10:(i+1)*10].eq(self.coeff_data.storage),
+                    coeff_memory_we_port.dat_w[n_taps*10].eq(self.coeff_stall.storage),
+                )
+        
+        coeff_memory_port = coeff_memory.get_port(has_re=True)
+        self.specials += coeff_memory_port, coeff_memory_we_port
 
         self.phases = phases = CSRStorage(8)
         self.starting_phase = starting_phase = CSRStorage(8)
@@ -173,20 +189,23 @@ class MultiTapFilter(Module, AutoCSR):
         self.phase = phase = Signal(8, reset=0)
 
         self.sync += [
-            If(self.pipe_ce & self.busy,
+            If(self.phase_ce,
                 phase.eq(phase + 1),
                 If((phase >= (phases.storage - 1)) | (phase >= n_phase),
                     phase.eq(0),
                 ),
+                self.stall.eq(coeff_memory_port.dat_r[-1])
             ),
         ]
 
+        self.comb += [
+            coeff_memory_port.re.eq(self.pipe_ce),
+            coeff_memory_port.adr.eq(phase),
+        ]
+
         # Connect up CSRs to filters
-        for p in range(n_phase):
-            for t in range(n_taps):
-                self.comb += If(phase == p,
-                    filters[t].coef.eq(getattr(self, f'filter_coeff_tap{t}_phase{p}').storage)
-                )
+        for t in range(n_taps):
+            self.comb += filters[t].coef.eq(coeff_memory_port.dat_r[t*10:((t+1)*10)])
 
 
         self.out_r = Signal(8)
@@ -233,18 +252,18 @@ class ScalerWidth(StallablePipelineActor, MultiTapFilter, AutoCSR):
         self.sink = sink = Endpoint([("data", 32)])
         self.source = source = Endpoint([("data", 32)])
         n_taps = 4
-        n_phase = 5
+        n_phase = 128
 
         StallablePipelineActor.__init__(self, n_taps + 2)
         MultiTapFilter.__init__(self, n_taps, n_phase)
         
+        self.comb += [
+            self.phase_ce.eq(self.pipe_ce & self.busy)
+        ]
 
 
         self.submodules.tap_datapath = tap_dp = MultiTapDatapath(n_taps)
         self.comb += self.tap_datapath.ce.eq(self.pipe_ce & ~self.stall)
-
-        # This needs to be made user configurable
-        self.comb += self.stall.eq(self.phase == 4)
         
         for i in range(n_taps):
             self.comb += self.filters[i].sink.eq(tap_dp.tap[i])
@@ -264,28 +283,30 @@ class ScalerWidth(StallablePipelineActor, MultiTapFilter, AutoCSR):
 
 
 @ResetInserter()
-class ScaleHeight(StallablePipelineActor, MultiTapFilter):
+class ScaleHeight(StallablePipelineActor, MultiTapFilter, AutoCSR):
     def __init__(self, line_length = 640):
         self.sink = sink = Endpoint([("data", 32)])
         self.source = source = Endpoint([("data", 32)])
-
         n_taps = 4
-        n_phase = 5
+        n_phase = 128
 
-
-        StallablePipelineActor.__init__(self, n_taps + 2)
+        StallablePipelineActor.__init__(self, n_taps + 3)
         MultiTapFilter.__init__(self, n_taps, n_phase)
 
         input_idx = Signal(16)
-        
-
         line_count = Signal(16)
 
         line_end = Signal()
         line_stall = Signal()
         ports = []
-
         tap_outputs = []
+
+        stall = Signal(n_taps)
+        self.sync += [
+            If(self.pipe_ce & self.busy,
+                stall.eq(Cat(self.stall,stall[:-1]))
+            )
+        ]
 
         for i in range(n_taps):
             linebuffer = Memory(24, line_length, name=f'linebuffer{i}')
@@ -298,7 +319,7 @@ class ScaleHeight(StallablePipelineActor, MultiTapFilter):
             self.specials += wr
             self.comb += [
                 wr.adr.eq(input_idx),
-                wr.we.eq(self.pipe_ce & self.busy & ~self.stall),
+                wr.we.eq(self.pipe_ce & self.busy & ~Cat(self.stall,stall[:-1])[i]),
                 wr.re.eq(self.pipe_ce & self.busy),
             ]
 
@@ -330,26 +351,24 @@ class ScaleHeight(StallablePipelineActor, MultiTapFilter):
 
         # Increment input address, along with an address per line
         self.sync += [
+
+            self.phase_ce.eq(0),
             If(self.pipe_ce & self.busy,
                 input_idx.eq(input_idx + 1),
+                If(input_idx == (line_length - 3),
+                    self.phase_ce.eq(1),
+                ),
                 If(input_idx >= (line_length - 1),
                     input_idx.eq(0),
                 ),
-                If(line_end,
-                    line_count.eq(line_count + 1),
-                    If(line_count >= (7 - 1),
-                        line_count.eq(0),
-                    )
-                )
             )
         ]
 
         # Load new coefs at the end of each line.
-        self.comb += line_end.eq(input_idx == 0)
+        self.comb += line_end.eq(input_idx == (line_length - 1))
 
-        # line stall
-        self.comb += line_stall.eq(line_count == 5)
-        self.comb += self.stall.eq(line_stall)
+        self.comb += [
+        ]
 
 
         # Connect data into pipeline
@@ -497,6 +516,8 @@ class TestLineBuffer(unittest.TestCase):
         self.data += [0x30 + i for i in range(16)]
         self.data += [0x40 + i for i in range(16)]
         self.data += [0x50 + i for i in range(16)]
+        self.data += [0x60 + i for i in range(16)]
+        self.data += [0x70 + i for i in range(16)]
 
         def generator(dut):
             d = Packet(self.data)
@@ -505,10 +526,7 @@ class TestLineBuffer(unittest.TestCase):
             yield dut.scaler.reset.eq(0)
             yield
 
-            yield from dut.scaler.filter_coeff_tap0_phase0.write(256)
-            #yield from dut.scaler.filter_coeff_tap0_phase1.write(256)
-            #yield from dut.scaler.filter_coeff_tap0_phase2.write(256)
-            #yield from dut.scaler.filter_coeff_tap0_phase3.write(256)
+            yield from dut.scaler.phases.write(4)
 
             yield from dut.streamer.send_blocking(d)
             yield
@@ -565,6 +583,28 @@ class TestCombine(unittest.TestCase):
         self.data += [0x40 + i for i in range(16)]
         self.data += [0x50 + i for i in range(16)]
 
+
+        def coeff_load(dut, t, p, data, skip):
+            yield from dut.coeff_tap.write(t)
+            yield from dut.coeff_phase.write(p)
+            yield from dut.coeff_data.write(data)
+            yield from dut.coeff_stall.write(skip)
+            yield from dut.coeff_en.write(1)
+            yield from dut.coeff_en.write(0)
+
+
+        def load_width(dut):
+            for i in range(5):
+                yield from coeff_load(dut, 1, i, 256, i == 4)
+
+
+        def load_height(dut):
+            for i in range(3):
+                yield from coeff_load(dut, 1, i, 256, i == 2)
+
+            
+            
+
         def generator(dut):
             d = Packet(self.data)
             yield dut.scaler.reset.eq(1)
@@ -572,6 +612,9 @@ class TestCombine(unittest.TestCase):
             yield dut.scaler.reset.eq(0)
             yield
             yield from dut.scaler.width.phases.write(5)
+            yield from dut.scaler.height.phases.write(3)
+            yield from load_width(dut.scaler.width)
+            yield from load_height(dut.scaler.height)
             yield from dut.scaler.width.starting_phase.write(1)
 
             yield from dut.streamer.send_blocking(d)
@@ -600,7 +643,7 @@ class TestCombine(unittest.TestCase):
                 self.submodules.pipeline = Pipeline(
                     self.streamer,
                     self.scaler,
-                    self.loggerrandomiser,
+                    #self.loggerrandomiser,
                     self.logger
                 )
                 
