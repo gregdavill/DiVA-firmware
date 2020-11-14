@@ -296,10 +296,21 @@ class ScaleHeight(StallablePipelineActor, MultiTapFilter, AutoCSR):
         input_idx = Signal(16)
         line_count = Signal(16)
 
+        first_line = Signal()
+
         line_end = Signal()
-        line_stall = Signal()
         ports = []
+        _outputs = []
         tap_outputs = []
+
+        # delay data
+        sink_delayed = [sink.data]
+        for i in range(6):
+            data_n = Signal(24)
+            self.sync += If(self.pipe_ce & self.busy,
+                data_n.eq(sink_delayed[-1])
+            )
+            sink_delayed.append(data_n)
 
         stall = Signal(n_taps)
         self.sync += [
@@ -330,15 +341,23 @@ class ScaleHeight(StallablePipelineActor, MultiTapFilter, AutoCSR):
                 self.sync += If(self.pipe_ce & self.busy, _s.eq(s))
                 s = _s
                 
-            tap_outputs += [s]
+            _outputs += [s]
 
+
+
+
+        for i in range(n_taps):
+            tap_outputs += [Signal(24, name=f'tap_out{i}')]
+            self.comb += If(first_line, 
+                tap_outputs[i].eq(sink_delayed[5])
+            ).Else(
+                tap_outputs[i].eq(_outputs[i])
+            )
             self.comb += [
-                self.filters[i].sink.r.eq(s[0:8]),
-                self.filters[i].sink.g.eq(s[8:16]),
-                self.filters[i].sink.b.eq(s[16:24]),
+                self.filters[i].sink.r.eq(tap_outputs[i][0:8]),
+                self.filters[i].sink.g.eq(tap_outputs[i][8:16]),
+                self.filters[i].sink.b.eq(tap_outputs[i][16:24]),
             ]
-
-
 
         self.comb += [
             ports[0].dat_w.eq(sink.data)
@@ -346,7 +365,11 @@ class ScaleHeight(StallablePipelineActor, MultiTapFilter, AutoCSR):
 
         
         for i in range(n_taps-1):
-            self.comb += ports[i+1].dat_w.eq(ports[i].dat_r)
+            self.comb += If(first_line, 
+                ports[i+1].dat_w.eq(sink_delayed[i+1])
+            ).Else(
+                ports[i+1].dat_w.eq(ports[i].dat_r)
+            )
         
 
         # Increment input address, along with an address per line
@@ -360,12 +383,15 @@ class ScaleHeight(StallablePipelineActor, MultiTapFilter, AutoCSR):
                 ),
                 If(input_idx >= (line_length - 1),
                     input_idx.eq(0),
+                    line_count.eq(line_count + 1)
                 ),
             )
         ]
 
         # Load new coefs at the end of each line.
         self.comb += line_end.eq(input_idx == (line_length - 1))
+        self.comb += first_line.eq(line_count == 0 | ((line_count == 1) & (input_idx < 4)))
+        
 
         self.comb += [
         ]
