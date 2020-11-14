@@ -254,7 +254,7 @@ class ScalerWidth(StallablePipelineActor, MultiTapFilter, AutoCSR):
         n_taps = 4
         n_phase = 128
 
-        StallablePipelineActor.__init__(self, n_taps + 2)
+        StallablePipelineActor.__init__(self, n_taps + 1)
         MultiTapFilter.__init__(self, n_taps, n_phase)
         
         self.comb += [
@@ -290,7 +290,7 @@ class ScaleHeight(StallablePipelineActor, MultiTapFilter, AutoCSR):
         n_taps = 4
         n_phase = 128
 
-        StallablePipelineActor.__init__(self, n_taps + 3)
+        StallablePipelineActor.__init__(self, n_taps + 1)
         MultiTapFilter.__init__(self, n_taps, n_phase)
 
         input_idx = Signal(16)
