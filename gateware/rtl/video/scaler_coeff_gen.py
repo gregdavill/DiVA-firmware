@@ -16,28 +16,32 @@ def W(x):
 def coeffs(i):
     return [W(n-i) for n in arange(-1.0,2.001,1)]
 
-current_offset = 0.0
-total_offset = 0.0
+current_offset = 0
+total_offset = 0
 delta_offset = 1.0 - 64/75
 n_phases = 75
 n_taps = 4
 
 
+#delta_offset = 1.0 - 4/5
+#n_phases = 5
+
+
 for n in range(n_phases):
     
     skip = False
-    if current_offset + (delta_offset) > 1.0:
-        skip = True
-        #if not ((current_offset + delta_offset) > 1.0):
+    if current_offset + (delta_offset*2 + 0.0001) > 1.0:
+        if not ((current_offset + delta_offset + 0.0001) > 1.0):
+            skip = True
     
-    #print(f't={total_offset} o={current_offset}, d={delta_offset} skip={skip} n={n}', end='')
+    #print(f't={total_offset} o={current_offset}, d={delta_offset} skip={skip} n={n}')
 
     #print('')
 
     c = coeffs(current_offset)
     def encode(d):
         return int(d * 2**8)
-        
+
     for i in range(n_taps):
         v = encode(c[i])
         s = '1' if skip else '0'
