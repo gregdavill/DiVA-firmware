@@ -44,7 +44,7 @@ from migen.genlib.cdc import MultiReg, PulseSynchronizer
 
 from rtl.prbs import PRBSStream
 from rtl.edge_detect import EdgeDetect
-from rtl.wb_streamer import StreamReader, StreamWriter
+from rtl.wb_streamer import StreamReader, StreamWriter, StreamBuffers
 from rtl.hdmi import HDMI
 from rtl.rgb_led import RGB
 from rtl.reboot import Reboot
@@ -175,6 +175,7 @@ class DiVA_SoC(SoCCore):
         "button"     :  18,
         "reader"     :  19,
         "writer"     :  20,
+        "buffers"     :  21,
         "prbs"       :  23,
         "reboot"     :  25,
         "video_debug":  26,
@@ -228,6 +229,15 @@ class DiVA_SoC(SoCCore):
         # HyperRAM
         self.submodules.writer = writer = StreamWriter()
         self.submodules.reader = reader = StreamReader()
+
+        # Attach a StreamBuffer module to handle buffering of frames
+        self.submodules.buffers = buffers = StreamBuffers()
+        self.comb += [
+            buffers.rx_release.eq(reader.evt_done),
+            reader.start_address.eq(buffers.rx_buffer),
+            writer.start_address.eq(buffers.tx_buffer),
+        ]
+
 
         self.submodules.hyperram = hyperram = StreamableHyperRAM(platform.request("hyperRAM"), devices=[reader, writer])
         self.register_mem("hyperram", self.mem_map['hyperram'], hyperram.bus, size=0x800000)
