@@ -77,6 +77,52 @@ class dummySink(Module):
             sink.ready.eq(1)
         ]
 
+class StreamBuffers(Module, AutoCSR):
+    def __init__(self):
+        n_buffers = 3
+
+        buffers = []
+
+        for i in range(n_buffers):
+            csr = CSRStorage(32, name=f'adr{i}')
+            setattr(self, f'adr{i}', csr)
+            buffers += [csr.storage]
+
+        
+
+        # Stream In buffer interface
+        self.rx_buffer = Signal(32)
+        rx_idx = Signal(3, reset=1)
+        self.rx_release = Signal()
+
+        # Stream out interface
+        self.tx_buffer = Signal(32)
+        tx_idx = Signal(3, reset=0)
+
+        self.sync += [
+            If(self.rx_release,
+                rx_idx.eq(rx_idx + 1),
+                If(rx_idx >= (n_buffers-1),
+                    rx_idx.eq(0),
+                ),
+                tx_idx.eq(tx_idx + 1),
+                If(tx_idx >= (n_buffers-1),
+                    tx_idx.eq(0),
+                ),
+            )
+        ]
+
+        for i in range(n_buffers):
+            self.comb += [
+                If(rx_idx == i, 
+                    self.rx_buffer.eq(buffers[i])
+                ),
+                If(tx_idx == i, 
+                    self.tx_buffer.eq(buffers[i])
+                ),
+            ]
+    
+
 class StreamWriter(Module, AutoCSR):
     def __init__(self):
         self.bus  = bus = wishbone.Interface()
@@ -93,7 +139,9 @@ class StreamWriter(Module, AutoCSR):
         burst_end = Signal()
         burst_cnt = Signal(32)
         
-        self.start_address = CSRStorage(32)
+        self.start_address = Signal(32)
+        adr = Signal(32)
+
         self.transfer_size = CSRStorage(32)
         self.burst_size = CSRStorage(32, reset=256)
 
@@ -123,7 +171,7 @@ class StreamWriter(Module, AutoCSR):
             bus.we.eq(0),
             bus.cyc.eq(active),
             bus.stb.eq(active),
-            bus.adr.eq(self.start_address.storage[:-2] + tx_cnt),
+            bus.adr.eq(adr[:-2] + tx_cnt),
 
             source.data.eq(bus.dat_r),
             source.valid.eq(bus.ack & active),
@@ -168,7 +216,6 @@ class StreamWriter(Module, AutoCSR):
             If(evt_done,
                 done.eq(1),
             )
-
         ]
 
         # Main FSM
@@ -179,6 +226,7 @@ class StreamWriter(Module, AutoCSR):
             ),
             If((self.start & enabled & self.external_sync.storage) | (~self.external_sync.storage & self.enable.re),
                 NextValue(busy,1),
+                NextValue(adr, self.start_address),
             )
         )
         fsm.act("ACTIVE",
@@ -223,12 +271,14 @@ class StreamReader(Module, AutoCSR):
         last_address = Signal()
         busy = Signal()
         done = Signal()
-        evt_done = Signal()
+        self.evt_done = evt_done = Signal()
         active = Signal()
         burst_end = Signal()
         burst_cnt = Signal(32)
         
-        self.start_address = CSRStorage(32)
+        self.start_address = Signal(32)
+        adr = Signal(32)
+
         self.transfer_size = CSRStorage(32)
         self.burst_size = CSRStorage(32, reset=256)
 
@@ -252,27 +302,12 @@ class StreamReader(Module, AutoCSR):
             self.done.status.eq(done)
         ]
 
-        self.dbg = [
-            tx_cnt,
-            last_address,
-            busy,
-            active,
-            burst_cnt,
-            burst_end,
-            self.start,
-            sink.valid,
-            sink.ready,    
-            sink.data,
-            overflow,
-            underflow,
-        ]
-
         self.comb += [
             bus.sel.eq(0xF),
             bus.we.eq(active),
             bus.cyc.eq(active),
             bus.stb.eq(active),
-            bus.adr.eq(self.start_address.storage[:-2] + tx_cnt),
+            bus.adr.eq(adr[:-2] + tx_cnt),
             bus.dat_w.eq(sink.data),
             sink.ready.eq(bus.ack & active),
 
@@ -320,7 +355,7 @@ class StreamReader(Module, AutoCSR):
             ),
             If(evt_done,
                 done.eq(1),
-            )
+            ),
         ]
 
         # Main FSM
@@ -331,6 +366,7 @@ class StreamReader(Module, AutoCSR):
             ),
             If((self.start & enabled & self.external_sync.storage) | (~self.external_sync.storage & self.enable.re),
                 NextValue(busy,1),
+                NextValue(adr, self.start_address),
             )
         )
         fsm.act("ACTIVE",

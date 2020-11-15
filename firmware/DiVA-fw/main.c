@@ -401,7 +401,7 @@ height_coeff_write(3,74,-13,0);
 
 void start_dma(){
 	reader_reset_write(1);
-	reader_start_address_write(0);
+	//reader_start_address_write(0);
 	reader_transfer_size_write(640*512);
 	reader_burst_size_write(128);
 	reader_enable_write(1);
@@ -464,6 +464,12 @@ int main(int i, char **c)
 	printf("--==========-- \e[1mHyperRAM Init\e[0m ===========--\n");
 	
 
+	/* On power up we need these to be set to 0 so that 
+	 * PRBS memtest still works */
+	buffers_adr0_write(0x0);
+	buffers_adr1_write(0x0);
+	buffers_adr2_write(0x0);
+
 	hyperram_init();
 	printf("\n");	
 	prbs_memtest(HYPERRAM_BASE, HYPERRAM_SIZE);
@@ -486,16 +492,19 @@ int main(int i, char **c)
 
 	terminal_set_cursor(0,20);
 
+	/* Configure frame buffers, 
+	* each frame currently takes up 0x140000 bytes in RAM */
+	buffers_adr0_write(0x000000);
+	buffers_adr1_write(0x180000);
+	buffers_adr2_write(0x300000);
 
 	reader_reset_write(1);
-	reader_start_address_write(0);
 	reader_transfer_size_write(640*512);
 	reader_burst_size_write(128);
 	reader_enable_write(1);
 
 
 	writer_reset_write(1);
-	writer_start_address_write(0);
 	writer_transfer_size_write(640*512);
 	writer_burst_size_write(128);
 	writer_enable_write(1);

@@ -155,7 +155,8 @@ void prbs_memtest(uint32_t base, uint32_t len){
 	reader_reset_write(1);
 	reader_burst_size_write(burst);
 	reader_transfer_size_write(len/4);
-	reader_start_address_write(base>>2);
+	// Currently adr is handled by the buffers module
+	//reader_start_address_write(base>>2);
 
 
 	/* write speed */
@@ -174,7 +175,8 @@ void prbs_memtest(uint32_t base, uint32_t len){
 	writer_reset_write(1);
 	writer_burst_size_write(burst);
 	writer_transfer_size_write(len/4);
-	writer_start_address_write(base>>2);
+	// Currently adr is handled by the buffers module
+	//writer_start_address_write(base>>2);
 
 	prbs_sink_reset_write(1);
 
