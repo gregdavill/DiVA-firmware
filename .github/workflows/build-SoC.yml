@@ -93,3 +93,16 @@ jobs:
           asset_path: ./DiVA.dfu
           asset_name: DiVA.dfu
           asset_content_type: application/octet-stream
+
+  build-sw:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@master
+
+    - name: Setup MSBuild.exe
+      uses: warrenbuckley/Setup-MSBuild@v1
+
+    - name: MSBuild
+      working-directory: software/fw-updater
+      run: msbuild fw-updater.csproj

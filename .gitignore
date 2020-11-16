@@ -9,3 +9,5 @@ sim_build/
 results.xml
 
 analyzer.csv
+
+.vs/
