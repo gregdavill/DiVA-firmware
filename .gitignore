@@ -11,3 +11,7 @@ results.xml
 analyzer.csv
 
 .vs/
+obj/
+bin/
+*csproj.user
+software/fw-updater/Resources/DiVA.dfu

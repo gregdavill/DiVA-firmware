@@ -5,6 +5,7 @@ on:
 
 
 jobs:
+  # Main build, creates firmware update image
   build-soc:
     runs-on: ubuntu-18.04
     steps:
@@ -56,10 +57,38 @@ jobs:
       with:
         name: DiVA firmware update
         path: ${{ github.workspace }}/gateware/build/gateware/DiVA.dfu
+  
+  # Software build, create windows app to perform the dfu update
+  build-sw:
+    runs-on: windows-latest
+    needs: build-soc
+    steps:
+    - uses: actions/checkout@master
 
+    - name: Download DFU Binary
+        uses: actions/download-artifact@v2
+        with:
+          name: DiVA firmware update
+
+    - shell: bash
+        run: mv DiVA.dfu software/fw-updater/Resources/DiVA.dfu
+
+    - name: Setup MSBuild.exe
+      uses: warrenbuckley/Setup-MSBuild@v1
+
+    - name: MSBuild
+      working-directory: software/fw-updater
+      run: msbuild fw-updater.csproj
+
+    - name: Upload Updater
+      uses: actions/upload-artifact@v2
+      with:
+        name: Windows update tool
+        path: software/fw-updater/bin/Release/fw-updater.exe
+  
   release:
     name: Create Release
-    needs: build-soc
+    needs: build-sw
     if: ${{ contains( github.ref, 'refs/tags/') }}
     runs-on: ubuntu-latest
     steps:
@@ -69,6 +98,12 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: DiVA firmware update
+
+      - name: Download DFU Binary
+        uses: actions/download-artifact@v2
+        with:
+          name: Windows update tool
+
       - name: Create Release
         id: create-release
         uses: actions/create-release@v1
@@ -94,15 +129,13 @@ jobs:
           asset_name: DiVA.dfu
           asset_content_type: application/octet-stream
 
-  build-sw:
-    runs-on: windows-latest
-
-    steps:
-    - uses: actions/checkout@master
-
-    - name: Setup MSBuild.exe
-      uses: warrenbuckley/Setup-MSBuild@v1
-
-    - name: MSBuild
-      working-directory: software/fw-updater
-      run: msbuild fw-updater.csproj
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create-release.outputs.upload_url }}
+          asset_path: ./fw-updater.exe
+          asset_name: fw-updater.exe
+          asset_content_type: application/octet-stream
