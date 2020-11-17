@@ -78,7 +78,7 @@ jobs:
 
     - name: MSBuild
       working-directory: software/fw-updater
-      run: msbuild fw-updater.csproj
+      run: msbuild fw-updater.csproj /p:Configuration=Release
 
     - name: Upload Updater
       uses: actions/upload-artifact@v2
