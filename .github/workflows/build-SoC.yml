@@ -71,7 +71,7 @@ jobs:
         name: DiVA firmware update
 
     - shell: bash
-        run: mv DiVA.dfu software/fw-updater/Resources/DiVA.dfu
+      run: mv DiVA.dfu software/fw-updater/Resources/DiVA.dfu
 
     - name: Setup MSBuild.exe
       uses: warrenbuckley/Setup-MSBuild@v1
