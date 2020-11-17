@@ -402,13 +402,13 @@ class DiVA_SoC(SoCCore):
         
         usb_pads = self.platform.request("usb")
 
-        # Select ECP5 as USB target
+        # Select Boson as USB target
         if hasattr(usb_pads, "sw_sel"):
-            self.comb += usb_pads.sw_sel.eq(1)
+            self.comb += usb_pads.sw_sel.eq(0)
         
-        # Disable USB
+        # Enable USB
         if hasattr(usb_pads, "sw_oe"):
-            self.comb += usb_pads.sw_oe.eq(1)
+            self.comb += usb_pads.sw_oe.eq(0)
 
         analyser = False
         if analyser:
