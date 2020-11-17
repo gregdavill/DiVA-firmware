@@ -66,9 +66,9 @@ jobs:
     - uses: actions/checkout@master
 
     - name: Download DFU Binary
-        uses: actions/download-artifact@v2
-        with:
-          name: DiVA firmware update
+      uses: actions/download-artifact@v2
+      with:
+        name: DiVA firmware update
 
     - shell: bash
         run: mv DiVA.dfu software/fw-updater/Resources/DiVA.dfu
