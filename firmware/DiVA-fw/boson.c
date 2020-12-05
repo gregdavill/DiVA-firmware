@@ -243,6 +243,7 @@ void boson_init(void){
     if(r == R_SUCCESS){
         /* Basic setup of boson core */
         dispatcher(DVO_SETDISPLAYMODE, (const uint8_t[]){UINT32_LE(0)}, 4);
+        dispatcher(TELEMETRY_SETSTATE, (const uint8_t[]){UINT32_LE(0)}, 4); /* Disable Telemetry Line */
         dispatcher(DVO_SETANALOGVIDEOSTATE, (const uint8_t[]){UINT32_LE(0)}, 4);
         dispatcher(DVO_SETOUTPUTFORMAT, (const uint8_t[]){UINT32_LE(1)}, 4); /* Mode: YCbCr */
         dispatcher(DVO_SETOUTPUTYCBCRSETTINGS, (const uint8_t[]){UINT32_LE(0),UINT32_LE(1),UINT32_LE(0)}, 12); /* CbCr Order: Cb -> Cr */
