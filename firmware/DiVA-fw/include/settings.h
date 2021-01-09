@@ -40,6 +40,25 @@ const menu_item_t* setting_menu_items[4];
 
 void init_settings(bool load_defaults);
 
+const char* palette_value(const menu_item_t* p);
+const char* scaler_value(const menu_item_t* p);
+const char* enabled_disabled_value(const menu_item_t* p);
+const char* boolean_value(const menu_item_t* p);
+void basic_integer(menu_item_t* p, event_t e);
+
+void boson_set_lut(uint32_t lut);
+
+void boson_palette_changed(const menu_item_t* p);
+void _boson_scaler_change(const menu_item_t* p);
+void boson_averager_changed(const menu_item_t* p);
+
+void boson_frame_info_overlay(const menu_item_t* p);
+void boson_debug_info_overlay(const menu_item_t* p);
+void init_settings(bool load_defaults);
+int validate(settings_t* s);
+void settings_save(void);
+void create_hashes(void);
+
 
 
 #endif

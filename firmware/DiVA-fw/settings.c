@@ -1,6 +1,11 @@
 #include <string.h>
 #include "settings.h"
 
+#include "include/dma.h"
+#include "include/scaler.h"
+#include "include/time.h"
+#include "include/boson.h"
+
 #include "crc.h"
 
 #include <generated/mem.h>
@@ -201,13 +206,13 @@ int validate(settings_t* s){
     return 1;
 }
 
-void settings_save(){
+void settings_save(void){
     /* Commit setting to EEPROM */
     create_hashes();
     i2c_write(0x50, 0, _settings, sizeof(settings_t));
 }
 
-void create_hashes(){
+void create_hashes(void){
     _settings.firmware_hash = _firmware_hash;
     _settings.settings_crc = 0; /* Crear CRC for CRC calculation */
     _settings.settings_crc = crc16(&_settings, sizeof(settings_t));
