@@ -259,10 +259,8 @@ class DiVA_SoC(SoCCore):
 
         self.submodules.framer = framer = Framer()
 
-        #self.submodules.scaler = scaler = ClockDomainsRenamer({"sys":"video"})((ScalerWidth()))
-        self.submodules.scaler = scaler = ClockDomainsRenamer({"sys":"video"})((Scaler()))
+        self.submodules.scaler = scaler = ResetInserter(["video"])(ClockDomainsRenamer({"sys":"video", "cpu":"sys"})((Scaler())))
         self.submodules.fifo2 = fifo2 = ResetInserter()(ClockDomainsRenamer({"sys":"video"})(SyncFIFO([("data", 32)], depth=32)))
-        #self.submodules.scaler0 = scaler0 = ClockDomainsRenamer({"sys":"video"})(ScalerHeight(800))
 
         self.submodules += fifo
 
@@ -343,7 +341,7 @@ class DiVA_SoC(SoCCore):
 
         self.comb += [
             boson_sink_start.eq(vsync_rise.o),
-            scaler.reset.eq(vsync_rise_term.o),
+            scaler.reset_video.eq(vsync_rise_term.o),
             fifo2.reset.eq(vsync_rise_term.o),
             #scaler0.reset.eq(vsync_rise_term.o),
         ]

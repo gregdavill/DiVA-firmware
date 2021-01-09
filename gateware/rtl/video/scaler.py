@@ -157,28 +157,34 @@ class MultiTapFilter(Module, AutoCSR):
 
         self.phase_ce = Signal()
 
-        self.coeff_phase = CSRStorage(8)
-        self.coeff_tap = CSRStorage(8)
-        self.coeff_data = CSRStorage(10)
-        self.coeff_stall = CSRStorage()
-        self.coeff_en = CSRStorage()
+
+        self.coeff_data = CSRStorage(32)
+        cfg_coeff_phase = self.coeff_data.storage[16:24]
+        cfg_coeff_tap = self.coeff_data.storage[24:31]
+        cfg_coeff_stall = self.coeff_data.storage[31]
+        cfg_coeff_dat = self.coeff_data.storage[0:10]
 
         
+        _coeff_data_we_ps = PulseSynchronizer('cpu', 'sys')
+        self.comb += _coeff_data_we_ps.i.eq(self.coeff_data.re)
+        self.submodules += _coeff_data_we_ps
 
         coeff_memory = Memory(10*n_taps + 1, n_phase)
         self.specials += coeff_memory
 
         coeff_memory_we_port = coeff_memory.get_port(write_capable=True)
+
+        # Give CSR storage time to load, and then coeff_memory a cycle to have dat_r prepared
         self.comb += [
-            coeff_memory_we_port.we.eq(self.coeff_en.storage),
-            coeff_memory_we_port.adr.eq(self.coeff_phase.storage),
+            coeff_memory_we_port.we.eq(_coeff_data_we_ps.o),
+            coeff_memory_we_port.adr.eq(cfg_coeff_phase),
         ]
 
         for i in range(n_taps):
-            self.comb += If(self.coeff_tap.storage == i,
+            self.comb += If(cfg_coeff_tap == i,
                     coeff_memory_we_port.dat_w.eq(coeff_memory_we_port.dat_r),
-                    coeff_memory_we_port.dat_w[i*10:(i+1)*10].eq(self.coeff_data.storage),
-                    coeff_memory_we_port.dat_w[n_taps*10].eq(self.coeff_stall.storage),
+                    coeff_memory_we_port.dat_w[i*10:(i+1)*10].eq(cfg_coeff_dat),
+                    coeff_memory_we_port.dat_w[-1].eq(cfg_coeff_stall),
                 )
         
         coeff_memory_port = coeff_memory.get_port(has_re=True)
@@ -247,7 +253,6 @@ class MultiTapFilter(Module, AutoCSR):
 
 
 
-@ResetInserter()
 class ScalerWidth(StallablePipelineActor, MultiTapFilter, AutoCSR):
     def __init__(self):
         self.sink = sink = Endpoint([("data", 32)])
@@ -283,7 +288,6 @@ class ScalerWidth(StallablePipelineActor, MultiTapFilter, AutoCSR):
         ]
 
 
-@ResetInserter()
 class ScaleHeight(StallablePipelineActor, MultiTapFilter, AutoCSR):
     def __init__(self, line_length = 640):
         self.sink = sink = Endpoint([("data", 32)])
@@ -403,7 +407,6 @@ class ScaleHeight(StallablePipelineActor, MultiTapFilter, AutoCSR):
             source.data[24:32].eq(0),
         ]
 
-@ResetInserter()
 class Scaler(Module, AutoCSR):
     def __init__(self,line_length=640):
         self.enable = CSRStorage(1)
