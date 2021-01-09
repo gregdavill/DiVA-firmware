@@ -26,23 +26,30 @@ class Framer(Module, AutoCSR):
         self.height = CSRStorage(16)
         self.x_start = CSRStorage(16)
         self.y_start = CSRStorage(16)
+        self.scaler_en = CSRStorage(1)
+        self.update_values = CSR(1)
+
+        # output signal
+        self.scaler_enable = scaler_enable = Signal()
         
         params = [
             ("width", 16),
             ("height", 16),
             ("x_start", 16),
             ("y_start", 16),
+            ("scaler_en", 1),
         ]
 
         # fifo
         self.submodules.fifo = fifo = ClockDomainsRenamer({"read":"video","write":"sys"})(AsyncFIFO(params, depth=4))
         
-        self.sync += [
+        self.comb += [
             fifo.sink.width.eq(self.width.storage),
             fifo.sink.height.eq(self.height.storage),
             fifo.sink.x_start.eq(self.x_start.storage),
             fifo.sink.y_start.eq(self.y_start.storage),
-            fifo.sink.valid.eq(1)
+            fifo.sink.scaler_en.eq(self.scaler_en.storage),
+            fifo.sink.valid.eq(self.update_values.re)
         ]
 
         pixel_counter = Signal(14)
@@ -107,10 +114,12 @@ class Framer(Module, AutoCSR):
             If(v_det.o,
                 line_counter.eq(0),
 
-                
-                x_stop.eq(fifo.source.x_start + fifo.source.width),
-                y_stop.eq(fifo.source.y_start + fifo.source.height),
-                x_start.eq(fifo.source.x_start),
-                y_start.eq(fifo.source.y_start),
+                If(fifo.source.valid,
+                    x_stop.eq(fifo.source.x_start + fifo.source.width),
+                    y_stop.eq(fifo.source.y_start + fifo.source.height),
+                    x_start.eq(fifo.source.x_start),
+                    y_start.eq(fifo.source.y_start),
+                    scaler_enable.eq(fifo.source.scaler_en),
+                )
             )
         ]

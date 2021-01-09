@@ -57,23 +57,25 @@ void init_scaler_640x512_upto_800x600(void){
 }
 
 void switch_mode(int mode){
+
 	if(mode == 0){
 		framer_width_write(640);
 		framer_height_write(512);
 
 		framer_x_start_write(213 + (800-640)/2);
 		framer_y_start_write(27 +  (600-512)/2);
-
-		scaler_enable_write(0);
+		framer_scaler_en_write(0);
 	}else{
 		framer_x_start_write(213);
 		framer_y_start_write(27);
 
 		framer_width_write(800);
-		framer_height_write(600 - 2);
-
 		init_scaler_640x512_upto_800x600();
 
-		scaler_enable_write(1);
+		framer_height_write(600 - 2);
+		framer_scaler_en_write(1);
 	}
+	
+	/* Use new parameters */
+	framer_update_values_write(1);
 }

@@ -255,7 +255,7 @@ class DiVA_SoC(SoCCore):
         
         self.submodules.video_debug = video_debug = ClockDomainsRenamer({"pixel":"boson_rx"})(VideoDebug(int(self.clk_freq)))
         
-        scaler_enable = Signal()
+        
 
         self.submodules.framer = framer = Framer()
 
@@ -308,7 +308,7 @@ class DiVA_SoC(SoCCore):
             #writer.source.connect(fifo0.sink),
 
 
-            If(scaler_enable,
+            If(framer.scaler_enable,
                 fifo0.source.connect(scaler.sink),
                 scaler.source.connect(fifo2.sink),
                 fifo2.source.connect(framer.sink),
@@ -335,6 +335,7 @@ class DiVA_SoC(SoCCore):
         self.comb += vsync_rise_term.i.eq(terminal.vsync)
 
 
+
         self.submodules.vsync_boson = vsync_boson = EdgeDetect(mode="fall", input_cd="boson_rx", output_cd="sys")
         self.comb += vsync_boson.i.eq(boson.vsync)
 
@@ -345,13 +346,13 @@ class DiVA_SoC(SoCCore):
             fifo2.reset.eq(vsync_rise_term.o),
             #scaler0.reset.eq(vsync_rise_term.o),
         ]
-
+        
         # delay vsync pulse from boson by 500 clocks, then use it to reset the fifo
         fifo_rst = Signal()
         self.sync += [
              timeline(vsync_boson.o, [
                 (101,  [fifo_rst.eq(1)]),   # Reset FIFO
-                (102,  [fifo_rst.eq(0), scaler_enable.eq(scaler.enable.storage)]),  # Clear Reset
+                (102,  [fifo_rst.eq(0)]),  # Clear Reset
                 (110,  [boson_stream_start.eq(1)]),
                 (111,  [boson_stream_start.eq(0)])
             ])

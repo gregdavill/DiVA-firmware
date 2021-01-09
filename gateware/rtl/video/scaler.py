@@ -409,7 +409,6 @@ class ScaleHeight(StallablePipelineActor, MultiTapFilter, AutoCSR):
 
 class Scaler(Module, AutoCSR):
     def __init__(self,line_length=640):
-        self.enable = CSRStorage(1)
         self.sink = sink = Endpoint([("data", 32)])
         self.source = source = Endpoint([("data", 32)])
 
