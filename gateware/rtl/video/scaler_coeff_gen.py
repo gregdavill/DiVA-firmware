@@ -96,3 +96,33 @@ print_c(output_coeffs, 'scaler_coef_640_800')
 
 
 
+
+delta_offset = 1.0 - 64/75 # (640 > 750)
+n_phases = 75
+
+
+output_coeffs = generate(delta_offset, n_phases, n_taps)
+print(f' // Scaler coefficients generated with the following parameters:')
+print(f' // delta_offset={delta_offset}')
+print(f' // n_phases={n_phases}')
+print(f' // n_taps={n_taps}')
+print(f'')
+print_c(output_coeffs, 'scaler_coef_640_750')
+
+
+
+
+delta_offset = 1.0 - 4/5 # (512 > 640)
+n_phases = 5
+
+
+output_coeffs = generate(delta_offset, n_phases, n_taps)
+print(f' // Scaler coefficients generated with the following parameters:')
+print(f' // delta_offset={delta_offset}')
+print(f' // n_phases={n_phases}')
+print(f' // n_taps={n_taps}')
+print(f'')
+print_c(output_coeffs, 'scaler_coef_512_640')
+
+
+

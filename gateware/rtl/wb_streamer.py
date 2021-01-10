@@ -153,6 +153,7 @@ class StreamWriter(Module, AutoCSR):
 
 
         self.start = Signal()
+        self.short = Signal()
         self.external_sync = CSRStorage()
 
         self.sink_csr = CSRStorage(4, name="sink_mux")
@@ -188,7 +189,11 @@ class StreamWriter(Module, AutoCSR):
 
         self.comb += [
             burst_end.eq(last_address | (burst_cnt == self.burst_size.storage - 1)),
-            last_address.eq(tx_cnt == self.transfer_size.storage - 1),
+            If(self.short,
+                last_address.eq(tx_cnt == self.transfer_size.storage - 1 - 28*640),
+            ).Else(
+                last_address.eq(tx_cnt == self.transfer_size.storage - 1),
+            )
         ]
 
         self.sync += [
@@ -224,7 +229,11 @@ class StreamWriter(Module, AutoCSR):
             ),
             If((self.start & enabled & self.external_sync.storage) | (~self.external_sync.storage & self.enable.re),
                 NextValue(busy,1),
-                NextValue(adr, self.start_address),
+                If(self.short,
+                    NextValue(adr, self.start_address + 14*640),
+                ).Else(
+                    NextValue(adr, self.start_address),
+                )
             )
         )
         fsm.act("ACTIVE",

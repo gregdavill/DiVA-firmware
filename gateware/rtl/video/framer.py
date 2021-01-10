@@ -27,10 +27,12 @@ class Framer(Module, AutoCSR):
         self.x_start = CSRStorage(16)
         self.y_start = CSRStorage(16)
         self.scaler_en = CSRStorage(1)
+        self._scaler_fill = CSRStorage(1)
         self.update_values = CSR(1)
 
         # output signal
         self.scaler_enable = scaler_enable = Signal()
+        self.scaler_fill = scaler_fill = Signal()
         
         params = [
             ("width", 16),
@@ -38,6 +40,7 @@ class Framer(Module, AutoCSR):
             ("x_start", 16),
             ("y_start", 16),
             ("scaler_en", 1),
+            ("scaler_fill", 1),
         ]
 
         # fifo
@@ -49,6 +52,7 @@ class Framer(Module, AutoCSR):
             fifo.sink.x_start.eq(self.x_start.storage),
             fifo.sink.y_start.eq(self.y_start.storage),
             fifo.sink.scaler_en.eq(self.scaler_en.storage),
+            fifo.sink.scaler_fill.eq(self._scaler_fill.storage),
             fifo.sink.valid.eq(self.update_values.re)
         ]
 
@@ -120,6 +124,7 @@ class Framer(Module, AutoCSR):
                     x_start.eq(fifo.source.x_start),
                     y_start.eq(fifo.source.y_start),
                     scaler_enable.eq(fifo.source.scaler_en),
+                    scaler_fill.eq(fifo.source.scaler_fill),
                 )
             )
         ]

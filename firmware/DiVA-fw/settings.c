@@ -33,8 +33,10 @@ const char* palette_value(const menu_item_t* p){
 
 const char* scaler_value(const menu_item_t* p){
     switch(*(uint8_t*)p->pdata){
-        case 0: return "1:1";
-        case 1: return "Fill";
+        case 0: return "1:1, Center";
+        case 1: return "Full Screen";
+        case 2: return "Fit";
+        case 3: return "Fill";
         default: return "Invalid";
     }
 }
@@ -126,7 +128,7 @@ const menu_item_t mi_scaler = {
     .act = basic_integer,
     .on_change= _boson_scaler_change,
     .value_min = 0,
-    .value_max = 1,
+    .value_max = 3,
 };
 
 const menu_item_t mi_averager = {

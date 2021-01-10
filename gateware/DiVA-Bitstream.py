@@ -300,23 +300,21 @@ class DiVA_SoC(SoCCore):
         self.submodules.reboot = Reboot(platform.request("rst_n"))
 
 
-
-
-        fifo0 = ClockDomainsRenamer({"read":"video","write":"sys"})(AsyncFIFO([("data", 32)], depth=128))
+        fifo0 = AsyncFIFO([("data", 32)], depth=128)
+        fifo0 = ResetInserter(["read","write"])(fifo0)
+        fifo0 = ClockDomainsRenamer({"read":"video","write":"sys"})(fifo0)
         self.submodules += fifo0
+
         self.comb += [
-            #writer.source.connect(fifo0.sink),
-
-
             If(framer.scaler_enable,
                 fifo0.source.connect(scaler.sink),
                 scaler.source.connect(fifo2.sink),
                 fifo2.source.connect(framer.sink),
-                #fifo2.source.connect(scaler0.sink),
-                #scaler0.source.connect(framer.sink)
             ).Else(
                 fifo0.source.connect(framer.sink),
             ),
+
+            writer.short.eq(framer.scaler_fill),
         ]
 
         boson_sink_start = Signal()
@@ -344,7 +342,9 @@ class DiVA_SoC(SoCCore):
             boson_sink_start.eq(vsync_rise.o),
             scaler.reset_video.eq(vsync_rise_term.o),
             fifo2.reset.eq(vsync_rise_term.o),
-            #scaler0.reset.eq(vsync_rise_term.o),
+
+            fifo0.reset_read.eq(vsync_rise_term.o),
+            fifo0.reset_write.eq(vsync_rise.o),
         ]
         
         # delay vsync pulse from boson by 500 clocks, then use it to reset the fifo
