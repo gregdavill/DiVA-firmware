@@ -123,6 +123,7 @@ class StreamBuffers(Module, AutoCSR):
             ]
     
 
+@ResetInserter()
 class StreamWriter(Module, AutoCSR):
     def __init__(self):
         self.bus  = bus = wishbone.Interface()
@@ -148,7 +149,7 @@ class StreamWriter(Module, AutoCSR):
         self.done = CSRStatus()
 
         self.enable = CSR()
-        self.reset = CSR()
+        self._reset = CSR()
 
 
         self.start = Signal()
@@ -182,7 +183,7 @@ class StreamWriter(Module, AutoCSR):
                 bus.cti.eq(0b111), # END-OF-BURST
             ).Else(
                 bus.cti.eq(0b010), # LINEAR_BURST
-            )
+            ),
         ]
 
         self.comb += [
@@ -210,9 +211,6 @@ class StreamWriter(Module, AutoCSR):
                 enabled.eq(self.enable.r[0])
             ),
             
-            If(self.reset.re,
-                done.eq(0),
-            ),
             If(evt_done,
                 done.eq(1),
             )
@@ -240,13 +238,12 @@ class StreamWriter(Module, AutoCSR):
                     NextValue(busy,0),
                 )
             ),
-            If(self.reset.re,
-                NextValue(busy, 0),
-                NextState("IDLE")
-            )
         )
 
         self.comb += active.eq(fsm.ongoing("ACTIVE") & source.ready)
+
+    def do_finalize(self):
+        self.comb += self.reset.eq(self._reset.re)
 
     def add_sink(self, sink, sink_name, ext_start=Signal()):
         self._sinks += [(sink, sink_name, ext_start)]
@@ -259,7 +256,7 @@ class StreamWriter(Module, AutoCSR):
         ]
           
 
-
+@ResetInserter()
 class StreamReader(Module, AutoCSR):
     def __init__(self):
         self.bus  = bus = wishbone.Interface()
@@ -285,7 +282,7 @@ class StreamReader(Module, AutoCSR):
         self.done = CSRStatus()
 
         self.enable = CSR()
-        self.reset = CSR()
+        self._reset = CSR()
 
         self.start = Signal()
         self.external_sync = CSRStorage()
@@ -350,9 +347,6 @@ class StreamReader(Module, AutoCSR):
                 enabled.eq(self.enable.r[0])
             ),
 
-            If(self.reset.re,
-                done.eq(0),
-            ),
             If(evt_done,
                 done.eq(1),
             ),
@@ -380,13 +374,14 @@ class StreamReader(Module, AutoCSR):
                     evt_done.eq(1),
                 )
             ),
-            If(self.reset.re,
-                NextValue(busy, 0),
-                NextState("IDLE")
-            )
         )
 
         self.comb += active.eq(fsm.ongoing("ACTIVE") & sink.valid)
+
+    def do_finalize(self):
+        self.comb += [
+            self.reset.eq(self._reset.re),
+        ]
 
     def add_source(self, source, source_name, ext_start=Signal()):
         self._sources += [(source, source_name, ext_start)]

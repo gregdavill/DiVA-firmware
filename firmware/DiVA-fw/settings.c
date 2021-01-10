@@ -91,7 +91,14 @@ void _boson_scaler_change(const menu_item_t* p){
 
 void boson_averager_changed(const menu_item_t* p){
     uint8_t en = *(uint8_t*)p->pdata;
+    /* Averager will stop current stream, and then startup a new stream. 
+      Because of this we should also be disabling the DMA, and then re-enabling it*/
+    stop_dma();
+
     boson_set_averager(en);
+
+    msleep(100);
+    start_dma();
 }
 
 void boson_frame_info_overlay(const menu_item_t* p){
