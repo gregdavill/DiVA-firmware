@@ -119,7 +119,7 @@ const menu_item_t mi_palette = {
 };
 
 const menu_item_t mi_scaler = {
-    .name = "Scaler (Beta)",
+    .name = "Scaler",
     .value = scaler_value,
     .pdata = &_settings.scaler_enable,
     .act = basic_integer,
