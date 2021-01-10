@@ -85,14 +85,8 @@ void boson_palette_changed(const menu_item_t* p){
 
 
 void _boson_scaler_change(const menu_item_t* p){
-    uint8_t lut = *(uint8_t*)p->pdata;
-
-    stop_dma();
-    
-    switch_mode(lut);
-    
-    msleep(50);
-    start_dma();
+    uint8_t enabled = *(uint8_t*)p->pdata;
+    switch_mode(enabled);
 }
 
 void boson_averager_changed(const menu_item_t* p){
