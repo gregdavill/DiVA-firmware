@@ -42,58 +42,70 @@ const uint32_t scaler_coef_4upto5 [20] = {
         0x0004fffc, 0x0104002b, 0x020400e9, 0x0304fff0, 
 };
 
-void init_scaler_640x512_upto_800x600(void){
-	for(int i = 0; i < sizeof(scaler_coef_64upto75) / sizeof(const uint32_t); i++){
-		scaler_height_coeff_data_write(scaler_coef_64upto75[i]);
-	}
-	scaler_height_phases_write(75);
 
-	for(int i = 0; i < sizeof(scaler_coef_4upto5) / sizeof(const uint32_t); i++){
-		scaler_width_coeff_data_write(scaler_coef_4upto5[i]);
+static void load_height(const uint32_t* coeffs, uint32_t len, uint32_t phases){
+	uint32_t bank_mask = 0;
+	if(pipeline_config_scaler_bank_read()){
+		bank_mask |= 0x40000000;
 	}
-	scaler_width_phases_write(5);
+
+	for(int i = 0; i < len; i++){
+		scaler_height_coeff_data_write(coeffs[i] | bank_mask);
+	}
+	scaler_height_phases_write(phases);
+}
+
+static void load_width(const uint32_t* coeffs, uint32_t len, uint32_t phases){
+	uint32_t bank_mask = 0;
+	if(pipeline_config_scaler_bank_read()){
+		bank_mask |= 0x40000000;
+	}
+	
+	for(int i = 0; i < len; i++){
+		scaler_width_coeff_data_write(coeffs[i] | bank_mask);
+	}
+	scaler_width_phases_write(phases);
+}
+
+static void load_64upto75(void (*func)(const uint32_t*, uint32_t, uint32_t)){
+	func(scaler_coef_64upto75, sizeof(scaler_coef_64upto75) / sizeof(const uint32_t), 75);
+}
+
+static void load_4upto5(void (*func)(const uint32_t*, uint32_t, uint32_t)){
+	func(scaler_coef_4upto5, sizeof(scaler_coef_4upto5) / sizeof(const uint32_t), 5);
+}
+
+
+void init_scaler_640x512_upto_800x600(void){
+	load_64upto75(load_height);
+	load_4upto5(load_width);
 }
 
 void init_scaler_640x512_upto_750x600(void){
-	for(int i = 0; i < sizeof(scaler_coef_64upto75) / sizeof(const uint32_t); i++){
-		scaler_height_coeff_data_write(scaler_coef_64upto75[i]);
-	}
-	scaler_height_phases_write(75);
-
-	for(int i = 0; i < sizeof(scaler_coef_64upto75) / sizeof(const uint32_t); i++){
-		scaler_width_coeff_data_write(scaler_coef_64upto75[i]);
-	}
-	scaler_width_phases_write(75);
+	load_64upto75(load_height);
+	load_64upto75(load_width);
 }
 
 void init_scaler_640x512_upto_800x640(void){
-	for(int i = 0; i < sizeof(scaler_coef_4upto5) / sizeof(const uint32_t); i++){
-		scaler_height_coeff_data_write(scaler_coef_4upto5[i]);
-	}
-	scaler_height_phases_write(5);
-
-	for(int i = 0; i < sizeof(scaler_coef_4upto5) / sizeof(const uint32_t); i++){
-		scaler_width_coeff_data_write(scaler_coef_4upto5[i]);
-	}
-	scaler_width_phases_write(5);
+	load_4upto5(load_height);
+	load_4upto5(load_width);
 }
 
 void switch_mode(int mode){
 
-	/* 1:1 */
-	pipeline_config_x_start_write(213 + (800-640)/2);
-	pipeline_config_y_start_write(27 +  (600-512)/2);
-	pipeline_config_x_stop_write(640 + pipeline_config_x_start_read());
-	pipeline_config_y_stop_write(512 + pipeline_config_y_start_read());
-
+	/* Toggle bank, will be applied on write to update_values() */
+	pipeline_config_scaler_bank_write(pipeline_config_scaler_bank_read() == 0 ? 1 : 0);
 	pipeline_config_scaler_fill_write(0);
-	pipeline_config_scaler_enable_write(0);
 
+	if(mode == 0){ /* 1:1 */
+		pipeline_config_x_start_write(213 + (800-640)/2);
+		pipeline_config_y_start_write(27 +  (600-512)/2);
+		pipeline_config_x_stop_write(640 + pipeline_config_x_start_read());
+		pipeline_config_y_stop_write(512 + pipeline_config_y_start_read());
 
-	pipeline_config_update_values_write(1);
-	msleep(250);
-
-
+		pipeline_config_scaler_enable_write(0);
+	}
+	
 	if(mode == 1){ /* Full Screen */
 		pipeline_config_x_start_write(213);
 		pipeline_config_y_start_write(27);
@@ -104,9 +116,6 @@ void switch_mode(int mode){
 		init_scaler_640x512_upto_800x600();
 
 		pipeline_config_scaler_enable_write(1);
-		
-		/* Use new parameters */
-		pipeline_config_update_values_write(1);
 	}
 
 	if(mode == 2){ /* Fit Screen */
@@ -118,9 +127,6 @@ void switch_mode(int mode){
 		init_scaler_640x512_upto_750x600();
 
 		pipeline_config_scaler_enable_write(1);
-		
-		/* Use new parameters */
-		pipeline_config_update_values_write(1);
 	}
 
 	if(mode == 3){ /* Fill Screen */
@@ -133,9 +139,8 @@ void switch_mode(int mode){
 
 		pipeline_config_scaler_enable_write(1);
 		pipeline_config_scaler_fill_write(1);
-		
-		/* Use new parameters */
-		pipeline_config_update_values_write(1);
 	}
 	
+	/* Use new parameters */
+	pipeline_config_update_values_write(1);
 }

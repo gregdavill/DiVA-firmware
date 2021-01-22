@@ -261,6 +261,7 @@ class DiVA_SoC(SoCCore):
             [
                 ("scaler_enable", 1),
                 ("scaler_fill", 1),
+                ("scaler_bank", 1),
             ] + framer_params()
         )  
 
@@ -328,6 +329,7 @@ class DiVA_SoC(SoCCore):
             ),
 
             writer.short.eq(pipeline_config.scaler_fill),
+            scaler.bank.eq(pipeline_config.scaler_bank)
         ]
 
         boson_sink_start = Signal()
@@ -347,22 +349,24 @@ class DiVA_SoC(SoCCore):
         self.submodules.vsync_fall_term = vsync_fall_term = EdgeDetect(mode="fall", input_cd="video", output_cd="video")
         self.comb += vsync_fall_term.i.eq(terminal.vsync)
 
-
-
         self.submodules.vsync_boson = vsync_boson = EdgeDetect(mode="fall", input_cd="boson_rx", output_cd="sys")
         self.comb += vsync_boson.i.eq(boson.vsync)
 
 
         self.comb += [
-            boson_sink_start.eq(vsync_rise.o),
             scaler.reset_video.eq(vsync_rise_term.o),
             fifo2.reset.eq(vsync_rise_term.o),
 
             fifo0.reset_read.eq(vsync_rise_term.o),
             fifo0.reset_write.eq(vsync_rise.o),
 
-            pipeline_config.csr_sync.eq(vsync_fall_term.o)
+            pipeline_config.csr_sync.eq(vsync_rise_term.o)
         ]
+
+        reader_ps = PulseSynchronizer("video", "sys")
+        self.comb += reader_ps.i.eq(vsync_rise_term.o)
+        self.comb += boson_sink_start.eq(reader_ps.o)
+        self.submodules += reader_ps
         
         # delay vsync pulse from boson by 500 clocks, then use it to reset the fifo
         fifo_rst = Signal()
@@ -381,7 +385,6 @@ class DiVA_SoC(SoCCore):
         self.comb += fifo.reset_write.eq(fifo_rst_ps.o)
         self.comb += fifo.reset_read.eq(fifo_rst)
         self.submodules += fifo_rst_ps
-       
 
         terminal_mask = Signal()
         ## Connect VGA pins

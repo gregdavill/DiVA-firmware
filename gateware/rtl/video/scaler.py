@@ -157,11 +157,13 @@ class MultiTapFilter(Module, AutoCSR):
 
         self.phase_ce = Signal()
 
+        self.bank = Signal()
 
         self.coeff_data = CSRStorage(32)
-        cfg_coeff_phase = self.coeff_data.storage[16:24]
-        cfg_coeff_tap = self.coeff_data.storage[24:31]
         cfg_coeff_stall = self.coeff_data.storage[31]
+        cfg_coeff_bank = self.coeff_data.storage[30]
+        cfg_coeff_tap = self.coeff_data.storage[24:30]
+        cfg_coeff_phase = self.coeff_data.storage[16:24]
         cfg_coeff_dat = self.coeff_data.storage[0:10]
 
         
@@ -169,7 +171,7 @@ class MultiTapFilter(Module, AutoCSR):
         self.comb += _coeff_data_we_ps.i.eq(self.coeff_data.re)
         self.submodules += _coeff_data_we_ps
 
-        coeff_memory = Memory(10*n_taps + 1, n_phase)
+        coeff_memory = Memory(10*n_taps + 1, n_phase * 2)
         self.specials += coeff_memory
 
         coeff_memory_we_port = coeff_memory.get_port(write_capable=True)
@@ -177,7 +179,11 @@ class MultiTapFilter(Module, AutoCSR):
         # Give CSR storage time to load, and then coeff_memory a cycle to have dat_r prepared
         self.comb += [
             coeff_memory_we_port.we.eq(_coeff_data_we_ps.o),
-            coeff_memory_we_port.adr.eq(cfg_coeff_phase),
+            If(cfg_coeff_bank,
+               coeff_memory_we_port.adr.eq(cfg_coeff_phase + n_phase),
+            ).Else(
+               coeff_memory_we_port.adr.eq(cfg_coeff_phase),
+            )
         ]
 
         for i in range(n_taps):
@@ -207,7 +213,11 @@ class MultiTapFilter(Module, AutoCSR):
 
         self.comb += [
             coeff_memory_port.re.eq(self.pipe_ce),
-            coeff_memory_port.adr.eq(phase),
+            If(self.bank,
+                coeff_memory_port.adr.eq(phase + n_phase),
+            ).Else(
+                coeff_memory_port.adr.eq(phase),
+            )
         ]
 
         # Connect up CSRs to filters
@@ -292,6 +302,7 @@ class ScaleHeight(StallablePipelineActor, MultiTapFilter, AutoCSR):
     def __init__(self, line_length = 640):
         self.sink = sink = Endpoint([("data", 32)])
         self.source = source = Endpoint([("data", 32)])
+
         n_taps = 4
         n_phase = 128
 
@@ -412,11 +423,16 @@ class Scaler(Module, AutoCSR):
         self.sink = sink = Endpoint([("data", 32)])
         self.source = source = Endpoint([("data", 32)])
 
-
         self.submodules.height = ScaleHeight(line_length)
         self.submodules.width = ScalerWidth()
-
         self.submodules.fifo = SyncFIFO([("data", 32)], 8, True)
+
+        # Filter coeff bank selection
+        self.bank = bank = Signal()
+        self.comb += [
+            self.height.bank.eq(bank),
+            self.width.bank.eq(bank),
+        ]
         
 
         self.submodules.pipeline = Pipeline(

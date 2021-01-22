@@ -16,14 +16,12 @@ class BufferedCSRBlock(Module, AutoCSR):
 
         # Populate CSR storage
         for name,size in params:
-            csr = CSRStorage(name=name, size = size)
+            csr = CSRStorage(name=name, size=size)
             setattr(self, f'{name}_csr', csr)
 
             # output signal
             sig = Signal(size, name=name)
             setattr(self, f'{name}', sig)
-
-            print(name, size)
 
         # CSR control
         self.update_values = CSR(1)
@@ -34,15 +32,15 @@ class BufferedCSRBlock(Module, AutoCSR):
         for name,size in params:
             self.comb += getattr(fifo.sink, name).eq(getattr(self, f'{name}_csr').storage)
             self.sync.video += [
+                fifo.source.ready.eq(csr_sync),
                 If(csr_sync,
                     If(fifo.source.valid,
-                        getattr(self, f'{name}').eq(getattr(fifo.source, name))
+                        getattr(self, f'{name}').eq(getattr(fifo.source, name)),
                     )
                 )
             ]
 
         self.comb += [
             fifo.sink.valid.eq(self.update_values.re),
-            fifo.source.ready.eq(csr_sync),
         ]
      

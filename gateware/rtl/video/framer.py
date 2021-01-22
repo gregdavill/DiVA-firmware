@@ -52,7 +52,6 @@ class Framer(Module, AutoCSR):
             )
         ]
 
-
         self.sync.video += [
             # Default values
             red.eq(0),

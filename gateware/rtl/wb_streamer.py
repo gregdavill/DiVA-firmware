@@ -190,9 +190,9 @@ class StreamWriter(Module, AutoCSR):
         self.comb += [
             burst_end.eq(last_address | (burst_cnt == self.burst_size.storage - 1)),
             If(self.short,
-                last_address.eq(tx_cnt == self.transfer_size.storage - 1 - 28*640),
+                last_address.eq(tx_cnt >= self.transfer_size.storage - 1 - 28*640),
             ).Else(
-                last_address.eq(tx_cnt == self.transfer_size.storage - 1),
+                last_address.eq(tx_cnt >= self.transfer_size.storage - 1),
             )
         ]
 
