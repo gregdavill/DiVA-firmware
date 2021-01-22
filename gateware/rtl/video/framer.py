@@ -8,9 +8,20 @@ from rtl.edge_detect import EdgeDetect
 from litex.soc.interconnect.csr import AutoCSR, CSR, CSRStatus, CSRStorage
 from litex.soc.interconnect.stream import Endpoint, EndpointDescription, AsyncFIFO
 
+def framer_params():
+    return [
+        ("x_start", 16),
+        ("y_start", 16),
+        ("x_stop", 16),
+        ("y_stop", 16),
+    ]
+
 class Framer(Module, AutoCSR):
     def __init__(self):
         self.sink = sink = Endpoint([("data", 32)])
+
+        self.params = params = Endpoint(framer_params())
+
         self.hsync = hsync = Signal()
         self.vsync = vsync = Signal()
 
@@ -21,50 +32,9 @@ class Framer(Module, AutoCSR):
         self.blue  = blue  = Signal(8)
         self.data_valid = data_valid = Signal()
 
-        # CSR control
-        self.width = CSRStorage(16)
-        self.height = CSRStorage(16)
-        self.x_start = CSRStorage(16)
-        self.y_start = CSRStorage(16)
-        self.scaler_en = CSRStorage(1)
-        self._scaler_fill = CSRStorage(1)
-        self.update_values = CSR(1)
-
-        # output signal
-        self.scaler_enable = scaler_enable = Signal()
-        self.scaler_fill = scaler_fill = Signal()
-        
-        params = [
-            ("width", 16),
-            ("height", 16),
-            ("x_start", 16),
-            ("y_start", 16),
-            ("scaler_en", 1),
-            ("scaler_fill", 1),
-        ]
-
-        # fifo
-        self.submodules.fifo = fifo = ClockDomainsRenamer({"read":"video","write":"sys"})(AsyncFIFO(params, depth=4))
-        
-        self.comb += [
-            fifo.sink.width.eq(self.width.storage),
-            fifo.sink.height.eq(self.height.storage),
-            fifo.sink.x_start.eq(self.x_start.storage),
-            fifo.sink.y_start.eq(self.y_start.storage),
-            fifo.sink.scaler_en.eq(self.scaler_en.storage),
-            fifo.sink.scaler_fill.eq(self._scaler_fill.storage),
-            fifo.sink.valid.eq(self.update_values.re)
-        ]
-
+        # parameters
         pixel_counter = Signal(14)
         line_counter  = Signal(14)
-
-        x_start = Signal(16)
-        y_start = Signal(16)
-        x_stop = Signal(16)
-        y_stop = Signal(16)
-        
-
 
         h_det = EdgeDetect(mode="fall", input_cd="video", output_cd="video")
         v_det = EdgeDetect(mode="fall", input_cd="video", output_cd="video")
@@ -72,13 +42,11 @@ class Framer(Module, AutoCSR):
         self.comb += [
             h_det.i.eq(hsync),
             v_det.i.eq(vsync),
-
-            fifo.source.ready.eq(v_det.o),
         ]
 
         self.comb += [
-            If((line_counter >= y_start) & (line_counter < y_stop),
-                If((pixel_counter >= x_start) & (pixel_counter < x_stop),
+            If((line_counter >= params.y_start) & (line_counter < params.y_stop),
+                If((pixel_counter >= params.x_start) & (pixel_counter < params.x_stop),
                     sink.ready.eq(1)
                 )
             )
@@ -93,8 +61,8 @@ class Framer(Module, AutoCSR):
             data_valid.eq(0),
 
             # Show pixels
-            If((line_counter >= y_start) & (line_counter < y_stop),
-                If((pixel_counter >= x_start) & (pixel_counter < x_stop),
+            If((line_counter >= params.y_start) & (line_counter < params.y_stop),
+                If((pixel_counter >= params.x_start) & (pixel_counter < params.x_stop),
                     data_valid.eq(1),
                     If(sink.valid,
                         red.eq(sink.data[0:8]),
@@ -117,14 +85,5 @@ class Framer(Module, AutoCSR):
             ),
             If(v_det.o,
                 line_counter.eq(0),
-
-                If(fifo.source.valid,
-                    x_stop.eq(fifo.source.x_start + fifo.source.width),
-                    y_stop.eq(fifo.source.y_start + fifo.source.height),
-                    x_start.eq(fifo.source.x_start),
-                    y_start.eq(fifo.source.y_start),
-                    scaler_enable.eq(fifo.source.scaler_en),
-                    scaler_fill.eq(fifo.source.scaler_fill),
-                )
             )
         ]

@@ -105,26 +105,18 @@ int main(int i, char **c)
 	buffers_adr1_write(0x180000);
 	buffers_adr2_write(0x300000);
 
+	switch_mode(_settings.scaler_enable);
+	
 	reader_reset_write(1);
 	reader_transfer_size_write(640*512);
 	reader_burst_size_write(128);
 	reader_enable_write(1);
-
 
 	writer_reset_write(1);
 	writer_transfer_size_write(640*512);
 	writer_burst_size_write(128);
 	writer_enable_write(1);
 	
-
-	framer_width_write(800);
-	framer_height_write(600);
-
-	framer_x_start_write(213 + (800-640)/2);
-	framer_y_start_write(27 +  (600-512)/2);
-
-	switch_mode(_settings.scaler_enable);
-
 	bool debug_window_open = false;
 
     while(1) {

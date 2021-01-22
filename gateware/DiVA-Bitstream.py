@@ -50,6 +50,7 @@ from rtl.rgb_led import RGB
 from rtl.reboot import Reboot
 from rtl.buttons import Button
 from rtl.streamable_hyperram import StreamableHyperRAM
+from rtl.buffered_csr_block import BufferedCSRBlock
 
 from rtl.video.terminal import Terminal
 from rtl.video.boson import Boson
@@ -58,7 +59,7 @@ from rtl.video.YCrCb import YCbCr2RGB, YCbCr422to444, ycbcr444_layout
 from rtl.video.simulated_video import SimulatedVideo
 from rtl.video.video_debug import VideoDebug
 from rtl.video.video_stream import VideoStream
-from rtl.video.framer import Framer
+from rtl.video.framer import Framer, framer_params
 from rtl.video.scaler import Scaler
 
 class _CRG(Module, AutoCSR):
@@ -182,6 +183,7 @@ class DiVA_SoC(SoCCore):
         "framer"     :  27,
         "scaler"     :  28,
         "boson"      :  29,
+        "pipeline_config" : 30,
     }
     csr_map.update(SoCCore.csr_map)
 
@@ -255,9 +257,20 @@ class DiVA_SoC(SoCCore):
         
         self.submodules.video_debug = video_debug = ClockDomainsRenamer({"pixel":"boson_rx"})(VideoDebug(int(self.clk_freq)))
         
-        
+        self.submodules.pipeline_config = pipeline_config = BufferedCSRBlock(
+            [
+                ("scaler_enable", 1),
+                ("scaler_fill", 1),
+            ] + framer_params()
+        )  
 
         self.submodules.framer = framer = Framer()
+        self.comb += [
+            framer.params.x_start.eq(pipeline_config.x_start),
+            framer.params.y_start.eq(pipeline_config.y_start),
+            framer.params.x_stop.eq(pipeline_config.x_stop),
+            framer.params.y_stop.eq(pipeline_config.y_stop),
+        ]
 
         self.submodules.scaler = scaler = ResetInserter(["video"])(ClockDomainsRenamer({"sys":"video", "cpu":"sys"})((Scaler())))
         self.submodules.fifo2 = fifo2 = ResetInserter()(ClockDomainsRenamer({"sys":"video"})(SyncFIFO([("data", 32)], depth=32)))
@@ -306,7 +319,7 @@ class DiVA_SoC(SoCCore):
         self.submodules += fifo0
 
         self.comb += [
-            If(framer.scaler_enable,
+            If(pipeline_config.scaler_enable,
                 fifo0.source.connect(scaler.sink),
                 scaler.source.connect(fifo2.sink),
                 fifo2.source.connect(framer.sink),
@@ -314,7 +327,7 @@ class DiVA_SoC(SoCCore):
                 fifo0.source.connect(framer.sink),
             ),
 
-            writer.short.eq(framer.scaler_fill),
+            writer.short.eq(pipeline_config.scaler_fill),
         ]
 
         boson_sink_start = Signal()
@@ -331,6 +344,8 @@ class DiVA_SoC(SoCCore):
 
         self.submodules.vsync_rise_term = vsync_rise_term = EdgeDetect(mode="rise", input_cd="video", output_cd="video")
         self.comb += vsync_rise_term.i.eq(terminal.vsync)
+        self.submodules.vsync_fall_term = vsync_fall_term = EdgeDetect(mode="fall", input_cd="video", output_cd="video")
+        self.comb += vsync_fall_term.i.eq(terminal.vsync)
 
 
 
@@ -345,6 +360,8 @@ class DiVA_SoC(SoCCore):
 
             fifo0.reset_read.eq(vsync_rise_term.o),
             fifo0.reset_write.eq(vsync_rise.o),
+
+            pipeline_config.csr_sync.eq(vsync_fall_term.o)
         ]
         
         # delay vsync pulse from boson by 500 clocks, then use it to reset the fifo

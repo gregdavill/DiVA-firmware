@@ -118,62 +118,62 @@ void init_scaler_640x512_upto_800x640(void){
 void switch_mode(int mode){
 
 	/* 1:1 */
-	framer_width_write(640);
-	framer_height_write(512);
 
-	framer_x_start_write(213 + (800-640)/2);
-	framer_y_start_write(27 +  (600-512)/2);
+	pipeline_config_x_start_write(213 + (800-640)/2);
+	pipeline_config_y_start_write(27 +  (600-512)/2);
+	pipeline_config_x_stop_write(640 + pipeline_config_x_start_read());
+	pipeline_config_y_stop_write(512 + pipeline_config_y_start_read());
 
-	framer_scaler_fill_write(0);
-	framer_scaler_en_write(0);
+	pipeline_config_scaler_fill_write(0);
+	pipeline_config_scaler_enable_write(0);
 
 
-	framer_update_values_write(1);
+	pipeline_config_update_values_write(1);
 	msleep(250);
 
 
 	if(mode == 1){ /* Full Screen */
-		framer_x_start_write(213);
-		framer_y_start_write(27);
+		pipeline_config_x_start_write(213);
+		pipeline_config_y_start_write(27);
+		pipeline_config_x_stop_write(800 + pipeline_config_x_start_read());
+		pipeline_config_y_stop_write(600-2 + pipeline_config_y_start_read());
 
-		framer_width_write(800);
+
 		init_scaler_640x512_upto_800x600();
 
-		framer_height_write(600 - 2);
-		framer_scaler_en_write(1);
+		pipeline_config_scaler_enable_write(1);
 		
 		/* Use new parameters */
-		framer_update_values_write(1);
+		pipeline_config_update_values_write(1);
 	}
 
 	if(mode == 2){ /* Fit Screen */
-		framer_x_start_write(213 + 25);
-		framer_y_start_write(27);
+		pipeline_config_x_start_write(213 + 25);
+		pipeline_config_y_start_write(27);
+		pipeline_config_x_stop_write(750 + pipeline_config_x_start_read());
+		pipeline_config_y_stop_write(600-2 + pipeline_config_y_start_read());
 
-		framer_width_write(750);
 		init_scaler_640x512_upto_750x600();
 
-		framer_height_write(600 - 2);
-		framer_scaler_en_write(1);
+		pipeline_config_scaler_enable_write(1);
 		
 		/* Use new parameters */
-		framer_update_values_write(1);
+		pipeline_config_update_values_write(1);
 	}
 
 	if(mode == 3){ /* Fill Screen */
+		pipeline_config_x_start_write(213);
+		pipeline_config_y_start_write(24);
+		pipeline_config_x_stop_write(800 + pipeline_config_x_start_read());
+		pipeline_config_y_stop_write(618 + pipeline_config_y_start_read());
 
-		framer_x_start_write(213);
-		framer_y_start_write(24);
-
-		framer_width_write(800);
 		init_scaler_640x512_upto_800x640();
 
-		framer_height_write(618);
-		framer_scaler_fill_write(1);
-		framer_scaler_en_write(1);
+		pipeline_config_scaler_enable_write(1);
+		pipeline_config_scaler_fill_write(1);
 		
 		/* Use new parameters */
-		framer_update_values_write(1);
+		pipeline_config_update_values_write(1);
 	}
 	
 }
