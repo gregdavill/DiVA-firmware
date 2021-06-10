@@ -1,9 +1,7 @@
 from migen import *
 
-from litex.soc.interconnect.csr import AutoCSR, CSR, CSRStatus, CSRStorage
-from litex.soc.interconnect.stream import Endpoint, EndpointDescription, SyncFIFO, AsyncFIFO, Monitor
-from litex.soc.interconnect.wishbone import InterconnectShared, Arbiter, SRAM, InterconnectPointToPoint, Interface
-from migen.genlib.cdc import PulseSynchronizer, MultiReg, BusSynchronizer
+from litex.soc.interconnect.csr import AutoCSR, CSRStorage
+from litex.soc.interconnect.wishbone import Arbiter, Interface
 
 from litehyperbus.core.hyperram_ddrx2 import HyperRAMX2
 

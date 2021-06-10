@@ -1,4 +1,4 @@
-from migen import Module, Signal, If, Instance
+from migen import *
 from litex.soc.interconnect.csr import AutoCSR, CSRStorage
 
 class Reboot(Module, AutoCSR):

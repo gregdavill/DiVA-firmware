@@ -6,12 +6,9 @@ import unittest
 from migen import *
 
 from litex.soc.interconnect import wishbone
-from litex.soc.interconnect.stream import SyncFIFO,EndpointDescription, Endpoint, AsyncFIFO
-from litex.soc.interconnect import stream_sim
+from litex.soc.interconnect.stream import EndpointDescription, Endpoint
 
 from litex.soc.interconnect.csr import *
-
-import random
 
 def data_stream_description(dw):
     payload_layout = [("data", dw)]

@@ -531,7 +531,7 @@ def main():
         os.makedirs(os.path.join(builder.output_dir,'gateware'), exist_ok=True)
         os.makedirs(os.path.join(builder.output_dir,'software'), exist_ok=True)
 
-        os.system(f"ecpbram  --generate {rand_rom} --seed {0} --width {32} --depth {soc.integrated_rom_size}")
+        os.system(f"ecpbram  --generate {rand_rom} --seed {0} --width {32} --depth {soc.integrated_rom_size // 4}")
 
         # patch random file into BRAM
         data = []

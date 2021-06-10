@@ -7,9 +7,9 @@ from migen import *
 
 from litex.soc.interconnect import wishbone
 
-from litex.soc.interconnect.stream import Endpoint, EndpointDescription, SyncFIFO, AsyncFIFO
+from litex.soc.interconnect.stream import Endpoint, EndpointDescription
 
-from litex.soc.interconnect.csr import AutoCSR, CSR, CSRStatus, CSRStorage
+from litex.soc.interconnect.csr import AutoCSR, CSRStatus, CSRStorage
 
 # Terminal emulation with 640 x 480 pixels, 80 x 30 characters, individual foreground and background
 # color per character (VGA palette) and user definable font, with code page 437 VGA font initialized.

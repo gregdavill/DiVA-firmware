@@ -5,8 +5,7 @@ import os
 
 from migen import *
 
-from litex.soc.interconnect.stream import Endpoint, EndpointDescription, SyncFIFO, AsyncFIFO
-from litex.soc.interconnect.csr import AutoCSR, CSR, CSRStatus, CSRStorage
+from litex.soc.interconnect.csr import AutoCSR, CSR, CSRStatus
 
 from litex.soc.cores.freqmeter import FreqMeter
 from rtl.edge_detect import EdgeDetect

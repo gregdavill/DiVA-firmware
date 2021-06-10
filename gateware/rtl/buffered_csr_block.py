@@ -2,8 +2,6 @@
 # License: BSD
 
 from migen import *
-from litex.soc.interconnect.stream import Endpoint
-from rtl.edge_detect import EdgeDetect
 
 from litex.soc.interconnect.csr import AutoCSR, CSR, CSRStorage
 from litex.soc.interconnect.stream import AsyncFIFO

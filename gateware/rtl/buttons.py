@@ -1,6 +1,6 @@
 from migen import *
 from migen.genlib.cdc import MultiReg
-from litex.soc.interconnect.csr import AutoCSR, CSRStatus, CSRField
+from litex.soc.interconnect.csr import AutoCSR, CSRStatus
 
 class Button(Module, AutoCSR):
     def __init__(self, pads):

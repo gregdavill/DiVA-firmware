@@ -2,7 +2,7 @@
 # License: BSD
 
 from migen import *
-from litex.soc.interconnect.stream import EndpointDescription, Endpoint
+from litex.soc.interconnect.stream import Endpoint
 from litex.soc.interconnect.csr import CSR, CSRStatus, AutoCSR
 from litex.soc.cores.prbs import PRBS31Generator
 

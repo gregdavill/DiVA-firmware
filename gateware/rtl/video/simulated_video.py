@@ -6,8 +6,6 @@ import os
 
 from migen import *
 
-from litex.soc.interconnect.csr import AutoCSR, CSR, CSRStatus, CSRStorage
-
 class SimulatedVideo(Module):
     def __init__(self):
         
