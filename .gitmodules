@@ -19,3 +19,6 @@
 [submodule "gateware/deps/litehyperbus"]
 	path = gateware/deps/litehyperbus
 	url = https://github.com/litex-hub/litehyperbus.git
+[submodule "gateware/deps/pythondata-cpu-vexriscv"]
+	path = gateware/deps/pythondata-cpu-vexriscv
+	url = https://github.com/litex-hub/pythondata-cpu-vexriscv.git
