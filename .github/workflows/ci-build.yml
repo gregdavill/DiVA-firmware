@@ -11,7 +11,7 @@ jobs:
     steps:
     # Checkout Repository
     - name: Checkout
-    - uses: actions/checkout@v2
+      uses: actions/checkout@v2
       with:
         submodules: false # Note: not Recursive (Causes error with serv)
 
