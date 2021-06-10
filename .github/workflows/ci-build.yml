@@ -1,4 +1,4 @@
-name: build-SoC
+name: ci-build
 
 on:
   push:
@@ -9,28 +9,21 @@ jobs:
   build-soc:
     runs-on: ubuntu-18.04
     steps:
+    # Checkout Repository
+    - name: Checkout
     - uses: actions/checkout@v2
       with:
         submodules: false # Note: not Recursive (Causes error with serv)
 
-    - name: submodule init
+    - name: Checkout Submodule
       run: git submodule init
 
-    - name: configure fpga-toolchain
-      run: |
-        export VERSION=nightly-20201020
-        wget https://github.com/open-tool-forge/fpga-toolchain/releases/download/$VERSION/fpga-toolchain-linux_x86_64-$VERSION.tar.xz
-        tar -xf fpga-toolchain-linux_x86_64-$VERSION.tar.xz
-        rm -rf fpga-toolchain-linux_x86_64-$VERSION.tar.xz
-        echo "$(pwd)/fpga-toolchain/bin" >> $GITHUB_PATH
-
-    - name: configure riscv-toolchain
-      run: |
-        wget https://static.dev.sifive.com/dev-tools/riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-ubuntu14.tar.gz
-        tar -xzf riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-ubuntu14.tar.gz
-        rm -rf riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-ubuntu14.tar.gz
-        echo "$(pwd)/riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-ubuntu14/bin" >> $GITHUB_PATH
-
+    - name: YosysHQ setup
+      uses: YosysHQ/setup-oss-cad-suite@v1
+      
+    - name: RISC-V GNU setup
+      uses: gregdavill/setup-riscv-gnu-toolchain@v1.0
+    
     - name: configure python
       run: |
         python3 -m pip install setuptools
