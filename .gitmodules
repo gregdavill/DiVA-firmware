@@ -22,3 +22,6 @@
 [submodule "gateware/deps/pythondata-cpu-vexriscv"]
 	path = gateware/deps/pythondata-cpu-vexriscv
 	url = https://github.com/litex-hub/pythondata-cpu-vexriscv.git
+[submodule "gateware/deps/litevideo"]
+	path = gateware/deps/litevideo
+	url = https://github.com/enjoy-digital/litevideo.git
