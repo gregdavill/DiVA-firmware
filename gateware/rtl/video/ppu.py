@@ -308,7 +308,7 @@ class PPU(Module, AutoCSR):
 
             inactive_line_dat_w.eq(pal_mux.o),
             inactive_line_we.eq(pal_mux.we_o),
-            pal_mux.mode.eq(1)
+            pal_mux.mode.eq(0)
         ]
         
 
