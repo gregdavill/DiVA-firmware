@@ -7,7 +7,7 @@ on:
 jobs:
   # Main build, creates firmware update image
   build-soc:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
     # Checkout Repository
     - name: Checkout
