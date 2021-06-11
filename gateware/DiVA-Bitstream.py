@@ -100,7 +100,7 @@ class _CRG(Module, AutoCSR):
         self.comb += self.cd_sys.clk.eq(self.cd_hr.clk)
         self.comb += self.cd_init.clk.eq(clk48)
 
-        pixel_clk = 40e6
+        pixel_clk = 64e6
         self.clock_domains.cd_usb_12 = ClockDomain()
         self.clock_domains.cd_usb_48 = ClockDomain()
 
@@ -108,7 +108,7 @@ class _CRG(Module, AutoCSR):
         video_pll.register_clkin(clk48, 48e6)
         video_pll.create_clkout(self.cd_video,    pixel_clk,  margin=0)
         video_pll.create_clkout(self.cd_video_shift,  pixel_clk*5, margin=0)
-        video_pll.create_clkout(self.cd_usb_12,    12e6,  margin=0)
+        #video_pll.create_clkout(self.cd_usb_12,    12e6,  margin=0)
 
 
         self.comb += self.cd_usb_48.clk.eq(clk48)
@@ -207,15 +207,16 @@ class DiVA_SoC(SoCCore):
         
         self.platform = platform = bosonHDMI_r0d3.Platform()
         
-        sys_clk_freq = 82.5e6
+        sys_clk_freq = 75e6
         SoCCore.__init__(self, platform, clk_freq=sys_clk_freq,
-                          cpu_type='vexriscv', cpu_variant='minimal', with_uart=True, uart_name='stream',
+                          cpu_type='vexriscv', cpu_variant='lite', with_uart=True, uart_name='stream',
                           csr_data_width=32,
                           ident_version=False, wishbone_timeout_cycles=128,
-                          integrated_rom_size=32*1024)
+                          integrated_rom_size=32*1024, integrated_sram_size=32*1024)
 
-        self.platform.toolchain.build_template[0] = "yosys -q -l {build_name}.rpt {build_name}.ys"
-        self.platform.toolchain.build_template[1] += f" --log {platform.name}.log --router router1"
+        platform.toolchain.build_template[0] = "yosys -q -l {build_name}.rpt {build_name}.ys"
+        platform.toolchain.build_template[1] += f" --log {platform.name}.log --router router1"
+        platform.toolchain.yosys_template[-1] += ' -abc2 -nowidelut'
 
         # Fake a UART stream, to enable easy firmware reuse.
         self.comb += self.uart.source.ready.eq(1)
@@ -229,14 +230,14 @@ class DiVA_SoC(SoCCore):
         # Pixel Processing Unit
         self.submodules.ppu = ppu = VideoCore()
 
-        #self.add_interrupt("ppu")
-        #self.add_wb_master(ppu.bus)
+        self.add_interrupt("ppu")
+        self.add_wb_master(ppu.bus)
 
         self.comb += [
-        #    ppu.source.connect(hdmi.sink, omit=['data']),
-        #    hdmi.sink.r.eq(ppu.source.data[0:8]),
-        #    hdmi.sink.g.eq(ppu.source.data[8:16]),
-        #    hdmi.sink.b.eq(ppu.source.data[16:24]),
+            ppu.source.connect(hdmi.sink, omit=['data']),
+            hdmi.sink.r.eq(ppu.source.data[0:8]),
+            hdmi.sink.g.eq(ppu.source.data[8:16]),
+            hdmi.sink.b.eq(ppu.source.data[16:24]),
         ]
 
 
@@ -244,6 +245,10 @@ class DiVA_SoC(SoCCore):
         button = platform.request("button")
         self.submodules.button = Button(button)
 
+        # Auto Reset, for dev
+        self.comb += [
+            platform.request("rst_n").eq(button.a),
+        ]
         self.submodules.rgb = RGB(platform.request("rgb_led"))
         
         # HyperRAM
@@ -259,8 +264,8 @@ class DiVA_SoC(SoCCore):
         ]
 
 
-        self.submodules.hyperram = hyperram = StreamableHyperRAM(platform.request("hyperRAM"), devices=[reader, writer])
-        self.register_mem("hyperram", self.mem_map['hyperram'], hyperram.bus, size=0x800000)
+        #self.submodules.hyperram = hyperram = StreamableHyperRAM(platform.request("hyperRAM"), devices=[reader, writer])
+        #self.register_mem("hyperram", self.mem_map['hyperram'], hyperram.bus, size=0x800000)
 
         # Boson video stream
         self.submodules.boson = boson = Boson(platform, platform.request("boson"), sys_clk_freq)
@@ -327,7 +332,7 @@ class DiVA_SoC(SoCCore):
         # I2C
         self.submodules.i2c0 = I2CMaster(platform.request("i2c"))
 
-        self.submodules.reboot = Reboot(platform.request("rst_n"))
+        #self.submodules.reboot = Reboot(platform.request("rst_n"))
 
 
         fifo0 = AsyncFIFO([("data", 32)], depth=128)
@@ -557,7 +562,7 @@ def main():
         soc.initialize_rom(data)
 
         # Build gateware
-        vns = builder.build(nowidelut=False)
+        vns = builder.build()
         soc.do_exit(vns)    
 
 

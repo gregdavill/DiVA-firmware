@@ -34,11 +34,11 @@ _io = [
     ),
     ("hdmi", 0,
         #Subsignal("p", Pins("F17 G18 J18 K17"), IOStandard("LVCMOS33D"), Misc("SLEWRATE=FAST")),
-        Subsignal("clk_p",       Pins("F17")),
-        Subsignal("data0_p",     Pins("G18")),
-        Subsignal("data1_p",     Pins("J18")),
-        Subsignal("data2_p",     Pins("K17")),
-        Misc("DRIVE=4"),IOStandard("LVCMOS33D"),
+        Subsignal("clk_p",       Pins("K17")),
+        Subsignal("data0_p",     Pins("J18")),
+        Subsignal("data1_p",     Pins("G18")),
+        Subsignal("data2_p",     Pins("F17")),
+        IOStandard("LVCMOS33D"),Misc("SLEWRATE=FAST"),
 
     ),
 

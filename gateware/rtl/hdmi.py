@@ -4,7 +4,7 @@ from litevideo.output.hdmi.encoder import Encoder
 from litex.build.io import DDROutput
 
 class _ECP5OutSerializer(Module):
-    def __init__(self, pad):
+    def __init__(self, pad, invert=False):
         self.submodules.encoder = ClockDomainsRenamer("video")(Encoder())
         self.d, self.c, self.de = self.encoder.d, self.encoder.c, self.encoder.de
         self.load_sr = Signal()
@@ -17,8 +17,10 @@ class _ECP5OutSerializer(Module):
             )
         ]
 
-        self.specials += DDROutput(_data[0],_data[1], pad, ClockSignal("video_shift"))
-
+        if invert:
+            self.specials += DDROutput(~_data[0],~_data[1], pad, ClockSignal("video_shift"))
+        else:
+            self.specials += DDROutput(_data[0],_data[1], pad, ClockSignal("video_shift"))
 
 
 
@@ -33,9 +35,9 @@ class HDMI(Module):
         self.sync.video_shift += count.eq(Cat(count[-1],count[:-1]))
         self.comb             += load_sr.eq(count[0])
         
-        self.submodules.es0 = _ECP5OutSerializer(pins.data0_p)
+        self.submodules.es0 = _ECP5OutSerializer(pins.data0_p, invert=True) # Due to layout reasons these pins are inverted
         self.submodules.es1 = _ECP5OutSerializer(pins.data1_p)
-        self.submodules.es2 = _ECP5OutSerializer(pins.data2_p)
+        self.submodules.es2 = _ECP5OutSerializer(pins.data2_p, invert=True) # Due to layout reasons these pins are inverted
 
         self.comb += [
                 sink.ready.eq(1),
@@ -53,5 +55,5 @@ class HDMI(Module):
                 self.es2.de.eq(sink.de)
         ]
 
-        self.specials += DDROutput(0,1, pins.clk_p, ClockSignal("video"))
+        self.specials += DDROutput(1,0, pins.clk_p, ClockSignal("video"))
         

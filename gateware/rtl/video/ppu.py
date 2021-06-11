@@ -168,7 +168,7 @@ class PalletteMux(Module):
         self.comb += [
             pm.adr.eq(self.i),
         
-            self.o.eq(Mux(self.mode, pm.dat_r, i_r))
+            self.o.eq(Mux(self.mode, pm.dat_r, (i_r << 4+16) | (i_r << 4+8) | (i_r << 4)))
         ]
 
 
