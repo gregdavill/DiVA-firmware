@@ -188,7 +188,7 @@ class DiVA_SoC(SoCCore):
     csr_map.update(SoCCore.csr_map)
 
     mem_map = {
-        "hyperram"  : 0x10000000,
+        "hyperram"  : 0x20000000,
         "terminal"  : 0x30000000,
     }
     mem_map.update(SoCCore.mem_map)
@@ -204,10 +204,10 @@ class DiVA_SoC(SoCCore):
         
         sys_clk_freq = 82.5e6
         SoCCore.__init__(self, platform, clk_freq=sys_clk_freq,
-                          cpu_type='serv', with_uart=True, uart_name='stream',
+                          cpu_type='vexriscv', cpu_variant='minimal', with_uart=True, uart_name='stream',
                           csr_data_width=32,
                           ident="Boson DiVA SoC", ident_version=True, wishbone_timeout_cycles=128,
-                          integrated_rom_size=32*1024)
+                          integrated_rom_size=24*1024)
 
         self.platform.toolchain.build_template[0] = "yosys -q -l {build_name}.rpt {build_name}.ys"
         self.platform.toolchain.build_template[1] += f" --log {platform.name}.log --router router1"
