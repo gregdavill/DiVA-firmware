@@ -206,8 +206,8 @@ class DiVA_SoC(SoCCore):
         SoCCore.__init__(self, platform, clk_freq=sys_clk_freq,
                           cpu_type='vexriscv', cpu_variant='minimal', with_uart=True, uart_name='stream',
                           csr_data_width=32,
-                          ident="Boson DiVA SoC", ident_version=True, wishbone_timeout_cycles=128,
-                          integrated_rom_size=24*1024)
+                          ident_version=False, wishbone_timeout_cycles=128,
+                          integrated_rom_size=32*1024)
 
         self.platform.toolchain.build_template[0] = "yosys -q -l {build_name}.rpt {build_name}.ys"
         self.platform.toolchain.build_template[1] += f" --log {platform.name}.log --router router1"
