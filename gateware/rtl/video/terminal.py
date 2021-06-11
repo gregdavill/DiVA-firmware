@@ -86,7 +86,7 @@ class Terminal(Module, AutoCSR):
         self.specials += mem
         wrport = mem.get_port(write_capable=True, clock_domain="sys")
         self.specials += wrport
-        rdport = mem.get_port(write_capable=False, clock_domain="vga")
+        rdport = mem.get_port(write_capable=False, clock_domain="vga", mode=READ_FIRST)
         self.specials += rdport
 
         # Memory map internal block RAM to Wishbone interface
