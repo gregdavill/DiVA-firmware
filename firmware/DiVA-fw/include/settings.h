@@ -19,7 +19,6 @@ typedef struct {
 
 } settings_t;
 
-settings_t _settings;
 
 
 typedef struct menu_item menu_item_t;
@@ -35,7 +34,8 @@ typedef struct menu_item {
 } menu_item_t;
 
 
-const menu_item_t* setting_menu_items[4];
+extern settings_t _settings;
+extern const menu_item_t* setting_menu_items[4];
 
 
 void init_settings(bool load_defaults);

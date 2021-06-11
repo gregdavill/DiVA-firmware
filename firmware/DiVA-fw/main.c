@@ -23,11 +23,9 @@
 /* prototypes */
 void isr(void);
 
-
 void isr(void){
 
 }
-
 
 
 int main(int i, char **c)
