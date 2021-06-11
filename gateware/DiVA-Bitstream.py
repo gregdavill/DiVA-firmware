@@ -45,7 +45,6 @@ from migen.genlib.cdc import MultiReg, PulseSynchronizer
 from rtl.prbs import PRBSStream
 from rtl.edge_detect import EdgeDetect
 from rtl.wb_streamer import StreamReader, StreamWriter, StreamBuffers
-from rtl.hdmi import HDMI
 from rtl.rgb_led import RGB
 from rtl.reboot import Reboot
 from rtl.buttons import Button
@@ -61,6 +60,11 @@ from rtl.video.video_debug import VideoDebug
 from rtl.video.video_stream import VideoStream
 from rtl.video.framer import Framer, framer_params
 from rtl.video.scaler import Scaler
+
+
+from rtl.hdmi import HDMI
+from rtl.video.ppu import VideoCore
+
 
 class _CRG(Module, AutoCSR):
     def __init__(self, platform, sys_clk_freq):
@@ -183,6 +187,7 @@ class DiVA_SoC(SoCCore):
         "framer"     :  27,
         "scaler"     :  28,
         "boson"      :  29,
+        "ppu"          :31,
         "pipeline_config" : 30,
     }
     csr_map.update(SoCCore.csr_map)
@@ -218,9 +223,22 @@ class DiVA_SoC(SoCCore):
         # crg
         self.submodules.crg = _CRG(platform, sys_clk_freq)
      
-        ## Create VGA terminal
-        self.submodules.terminal = terminal = ClockDomainsRenamer({'vga':'video'})(Terminal())
-        self.register_mem("terminal", self.mem_map["terminal"], terminal.bus, size=0x100000)
+        # DVI output
+        self.submodules.hdmi = hdmi = HDMI(platform.request("hdmi"))
+
+        # Pixel Processing Unit
+        self.submodules.ppu = ppu = VideoCore()
+
+        #self.add_interrupt("ppu")
+        #self.add_wb_master(ppu.bus)
+
+        self.comb += [
+        #    ppu.source.connect(hdmi.sink, omit=['data']),
+        #    hdmi.sink.r.eq(ppu.source.data[0:8]),
+        #    hdmi.sink.g.eq(ppu.source.data[8:16]),
+        #    hdmi.sink.b.eq(ppu.source.data[16:24]),
+        ]
+
 
         # User inputs
         button = platform.request("button")
@@ -303,8 +321,6 @@ class DiVA_SoC(SoCCore):
 
 
         ## HDMI output
-        hdmi_pins = platform.request('hdmi')
-        self.submodules.hdmi = hdmi =  HDMI(platform, hdmi_pins)
         self.submodules.hdmi_i2c = I2CMaster(platform.request("hdmi_i2c"))
 
 
@@ -342,12 +358,12 @@ class DiVA_SoC(SoCCore):
 
         # enable
         self.submodules.vsync_rise = vsync_rise = EdgeDetect(mode="rise", input_cd="video", output_cd="sys")
-        self.comb += vsync_rise.i.eq(terminal.vsync)
+        #self.comb += vsync_rise.i.eq(terminal.vsync)
 
         self.submodules.vsync_rise_term = vsync_rise_term = EdgeDetect(mode="rise", input_cd="video", output_cd="video")
-        self.comb += vsync_rise_term.i.eq(terminal.vsync)
+        #self.comb += vsync_rise_term.i.eq(terminal.vsync)
         self.submodules.vsync_fall_term = vsync_fall_term = EdgeDetect(mode="fall", input_cd="video", output_cd="video")
-        self.comb += vsync_fall_term.i.eq(terminal.vsync)
+        #self.comb += vsync_fall_term.i.eq(terminal.vsync)
 
         self.submodules.vsync_boson = vsync_boson = EdgeDetect(mode="fall", input_cd="boson_rx", output_cd="sys")
         self.comb += vsync_boson.i.eq(boson.vsync)
@@ -386,36 +402,36 @@ class DiVA_SoC(SoCCore):
         self.comb += fifo.reset_read.eq(fifo_rst)
         self.submodules += fifo_rst_ps
 
-        terminal_mask = Signal()
+        #terminal_mask = Signal()
         ## Connect VGA pins
         self.comb += [
             fifo.reset_read.eq(fifo_rst),
             ycrcb.reset.eq(fifo_rst),
             ycrcb422_444.reset.eq(fifo_rst),
 
-            # attach framer to video generator
-            framer.vsync.eq(terminal.vsync),
-            framer.hsync.eq(terminal.hsync),
+            # # attach framer to video generator
+            # framer.vsync.eq(terminal.vsync),
+            # framer.hsync.eq(terminal.hsync),
             
 
-            hdmi.vsync.eq(terminal.vsync),
-            hdmi.hsync.eq(terminal.hsync),
-            hdmi.blank.eq(terminal.blank),
+            # hdmi.vsync.eq(terminal.vsync),
+            # hdmi.hsync.eq(terminal.hsync),
+            # hdmi.blank.eq(terminal.blank),
 
-            # Mask Through on 0xFFFF00 pixels
-            terminal_mask.eq((terminal.red == 0xaa) & (terminal.green == 0x00) & (terminal.blue == 0xaa)),
+            # # Mask Through on 0xFFFF00 pixels
+            # terminal_mask.eq((terminal.red == 0xaa) & (terminal.green == 0x00) & (terminal.blue == 0xaa)),
             
-            If(terminal_mask,
-                If(framer.data_valid,
-                    hdmi.r.eq(framer.red),
-                    hdmi.g.eq(framer.green),
-                    hdmi.b.eq(framer.blue),
-                )
-            ).Else(
-                hdmi.r.eq(terminal.red),
-                hdmi.g.eq(terminal.green),
-                hdmi.b.eq(terminal.blue),  
-            )
+            # If(terminal_mask,
+            #     If(framer.data_valid,
+            #         hdmi.r.eq(framer.red),
+            #         hdmi.g.eq(framer.green),
+            #         hdmi.b.eq(framer.blue),
+            #     )
+            # ).Else(
+            #     hdmi.r.eq(terminal.red),
+            #     hdmi.g.eq(terminal.green),
+            #     hdmi.b.eq(terminal.blue),  
+            # )
         ]
 
         

@@ -34,7 +34,7 @@ int main(int i, char **c)
 
 	console_set_write_hook((console_write_hook)terminal_write);
 	
-	terminal_enable_write(1);
+	//terminal_enable_write(1);
 
 	//rgb_div_m_write(400000);
     //rgb_config_write(2);

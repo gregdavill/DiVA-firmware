@@ -33,7 +33,13 @@ _io = [
         Subsignal("cec", Pins("L15")),
     ),
     ("hdmi", 0,
-        Subsignal("p", Pins("F17 G18 J18 K17"), IOStandard("LVCMOS33D"), Misc("SLEWRATE=FAST")),
+        #Subsignal("p", Pins("F17 G18 J18 K17"), IOStandard("LVCMOS33D"), Misc("SLEWRATE=FAST")),
+        Subsignal("clk_p",       Pins("F17")),
+        Subsignal("data0_p",     Pins("G18")),
+        Subsignal("data1_p",     Pins("J18")),
+        Subsignal("data2_p",     Pins("K17")),
+        Misc("DRIVE=4"),IOStandard("LVCMOS33D"),
+
     ),
 
     ("i2c", 0,
