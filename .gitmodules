@@ -1,12 +1,12 @@
 [submodule "gateware/deps/valentyusb"]
 	path = gateware/deps/valentyusb
-	url = https://github.com/gregdavill/valentyusb
+	url = https://github.com/im-tomu/valentyusb.git
 [submodule "gateware/deps/litex"]
 	path = gateware/deps/litex
-	url = https://github.com/enjoy-digital/litex
+	url = https://github.com/enjoy-digital/litex.git
 [submodule "gateware/deps/migen"]
 	path = gateware/deps/migen
-	url = https://github.com/m-labs/migen
+	url = https://github.com/m-labs/migen.git
 [submodule "gateware/deps/pythondata-software-compiler_rt"]
 	path = gateware/deps/pythondata-software-compiler_rt
 	url = https://github.com/litex-hub/pythondata-software-compiler_rt.git
