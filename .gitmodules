@@ -28,3 +28,6 @@
 [submodule "gateware/deps/litedram"]
 	path = gateware/deps/litedram
 	url = https://github.com/enjoy-digital/litedram.git
+[submodule "firmware/deps/tinyusb"]
+	path = firmware/deps/tinyusb
+	url = https://github.com/hathach/tinyusb.git
