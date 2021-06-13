@@ -226,7 +226,7 @@ class DiVA_SoC(SoCCore):
                           cpu_type='vexriscv', cpu_variant='standard', with_uart=True, uart_name='stream',
                           csr_data_width=32,
                           ident_version=False, wishbone_timeout_cycles=128,
-                          integrated_rom_size=32*1024, integrated_sram_size=32*1024)
+                          integrated_rom_size=54*1024, integrated_sram_size=16*1024)
 
         platform.toolchain.build_template[0] = "yosys -q -l {build_name}.rpt {build_name}.ys"
         platform.toolchain.build_template[1] += f" --log {platform.name}.log --router router1"
@@ -306,8 +306,8 @@ class DiVA_SoC(SoCCore):
 
         os.makedirs(builder.output_dir, exist_ok=True)
 
-        src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "firmware", "DiVA-fw"))
-        builder.add_software_package("DiVA-fw", src_dir)
+        builder.add_software_package("tinyusb", "{}/../firmware/tinyusb".format(os.getcwd()))
+        builder.add_software_package("DiVA-fw", "{}/../firmware/DiVA-fw".format(os.getcwd()))
 
         builder._prepare_rom_software()
         builder._generate_includes()

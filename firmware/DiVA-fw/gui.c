@@ -3,7 +3,7 @@
 #include <ppu.h>
 #include <generated/csr.h>
 
-#include <gui/font.h>
+//#include <gui/font.h>
 
 
 
@@ -57,20 +57,14 @@ void gui_init(){
 	//ptr += cproc_fill(ptr, 0,255,0);
 	//ptr += cproc_sync(ptr);
 
-	for(int i = 0; i < sizeof(font)/sizeof(uint32_t); i++){
-		ptr[i + 512] = ~font[i];
-	}
+	//for(int i = 0; i < sizeof(font)/sizeof(uint32_t); i++){
+	//	ptr[i + 512] = ~font[i];
+	//}
 }
 
 
 void gui_isr(){
-	timer0_en_write(0);
-	timer0_reload_write(0);
-	timer0_load_write(CONFIG_CLOCK_FREQUENCY/30);
-	timer0_en_write(1);
-	timer0_update_value_write(1);
-
-//	cycle_cnt = val;
+	
 	val = sin[counter]/4;
 
 			cnt0++;
@@ -159,6 +153,6 @@ void gui_isr(){
 
 
 	ptr += cproc_sync(ptr);
-	timer0_update_value_write(1);
+	
     cycle_cnt = ((uint32_t)(ptr) >> 2) & 0xFFFF;//CONFIG_CLOCK_FREQUENCY/30 - timer0_value_read();
 }
