@@ -283,6 +283,8 @@ class DiVA_SoC(SoCCore):
         usb_iobuf = USBIoBuf(usb_pads.d_p, usb_pads.d_n, usb_pads.pullup)
         self.submodules.usb = USBTriEndpointInterface(usb_iobuf, cdc=True, relax_timing=True)
 
+        self.add_interrupt("usb")
+
 
         # Add git version into firmware 
         def get_git_revision():
