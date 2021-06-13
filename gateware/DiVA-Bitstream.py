@@ -116,7 +116,16 @@ class _CRG(Module, AutoCSR):
         #video_pll.create_clkout(self.cd_usb_12,    12e6,  margin=0)
 
 
+        
+
+
         self.comb += self.cd_usb_48.clk.eq(clk48)
+
+        _div_counter = Signal(2)
+        self.sync.usb_48 += [
+            _div_counter.eq(_div_counter + 1),
+            ClockSignal('usb_12').eq(_div_counter[1])
+        ]
 
 
         platform.add_period_constraint(self.cd_usb_12.clk, period_ns(12e6))
