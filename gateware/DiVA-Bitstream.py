@@ -209,7 +209,7 @@ class DiVA_SoC(SoCCore):
         
         sys_clk_freq = 75e6
         SoCCore.__init__(self, platform, clk_freq=sys_clk_freq,
-                          cpu_type='vexriscv', cpu_variant='lite', with_uart=True, uart_name='stream',
+                          cpu_type='vexriscv', cpu_variant='standard', with_uart=True, uart_name='stream',
                           csr_data_width=32,
                           ident_version=False, wishbone_timeout_cycles=128,
                           integrated_rom_size=32*1024, integrated_sram_size=32*1024)
