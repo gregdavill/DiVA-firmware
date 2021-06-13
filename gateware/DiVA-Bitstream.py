@@ -306,6 +306,11 @@ class DiVA_SoC(SoCCore):
 
         os.makedirs(builder.output_dir, exist_ok=True)
 
+        # Remove un-needed sw packages
+        builder.software_packages = []
+        builder.add_software_package("libcompiler_rt")
+        builder.add_software_package("libbase")
+        
         builder.add_software_package("tinyusb", "{}/../firmware/tinyusb".format(os.getcwd()))
         builder.add_software_package("DiVA-fw", "{}/../firmware/DiVA-fw".format(os.getcwd()))
 
