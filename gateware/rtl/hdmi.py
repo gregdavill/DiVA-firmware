@@ -9,6 +9,7 @@ class _ECP5OutSerializer(Module):
         self.d, self.c, self.de = self.encoder.d, self.encoder.c, self.encoder.de
         self.load_sr = Signal()
 
+        # Stage 1: 1:5 gearbox
         _data = Signal(10)
         self.sync.video_shift += [
             _data.eq(_data[2:]),
@@ -17,11 +18,15 @@ class _ECP5OutSerializer(Module):
             )
         ]
 
+        # Stage 2: Optional invert
+        data_out = Signal(2)
         if invert:
-            self.specials += DDROutput(~_data[0],~_data[1], pad, ClockSignal("video_shift"))
+            self.sync.video_shift += data_out.eq(~_data[0:2])
         else:
-            self.specials += DDROutput(_data[0],_data[1], pad, ClockSignal("video_shift"))
+            self.sync.video_shift += data_out.eq(_data[0:2])
 
+        self.specials += DDROutput(data_out[0],data_out[1], pad, ClockSignal("video_shift"))
+            
 
 
 class HDMI(Module):
