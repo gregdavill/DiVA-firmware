@@ -39,6 +39,10 @@ from litex.soc.interconnect import stream, wishbone
 from litex.soc.interconnect.stream import Endpoint, EndpointDescription, SyncFIFO, AsyncFIFO, Monitor
 from litex.soc.interconnect.csr import *
 
+from valentyusb.usbcore.io import IoBuf as USBIoBuf
+from valentyusb.usbcore.cpu.eptri import TriEndpointInterface as USBTriEndpointInterface
+
+
 from migen.genlib.misc import timeline
 from migen.genlib.cdc import MultiReg, PulseSynchronizer
 
@@ -64,6 +68,7 @@ from rtl.video.scaler import Scaler
 
 from rtl.hdmi import HDMI
 from rtl.video.ppu import VideoCore
+
 
 
 class _CRG(Module, AutoCSR):
@@ -183,7 +188,7 @@ class DiVA_SoC(SoCCore):
         "buffers"    :  21,
         "prbs"       :  23,
         "reboot"     :  25,
-        "video_debug":  26,
+        "usb":  26,
         "framer"     :  27,
         "scaler"     :  28,
         "boson"      :  29,
@@ -245,238 +250,30 @@ class DiVA_SoC(SoCCore):
         button = platform.request("button")
         self.submodules.button = Button(button)
 
-        # Auto Reset, for dev
-        self.comb += [
-            platform.request("rst_n").eq(button.a),
-        ]
         self.submodules.rgb = RGB(platform.request("rgb_led"))
-        
-        # HyperRAM
-        self.submodules.writer = writer = StreamWriter()
-        self.submodules.reader = reader = StreamReader()
-
-        # Attach a StreamBuffer module to handle buffering of frames
-        self.submodules.buffers = buffers = StreamBuffers()
-        self.comb += [
-            buffers.rx_release.eq(reader.evt_done),
-            reader.start_address.eq(buffers.rx_buffer),
-            writer.start_address.eq(buffers.tx_buffer),
-        ]
-
-
-        #self.submodules.hyperram = hyperram = StreamableHyperRAM(platform.request("hyperRAM"), devices=[reader, writer])
-        #self.register_mem("hyperram", self.mem_map['hyperram'], hyperram.bus, size=0x800000)
-
-        # Boson video stream
-        self.submodules.boson = boson = Boson(platform, platform.request("boson"), sys_clk_freq)
-
-        self.submodules.YCbCr = ycrcb = ClockDomainsRenamer({"sys":"boson_rx"})(ResetInserter()(YCbCr2RGB()))
-        self.submodules.YCbCr422_444 = ycrcb422_444 = ClockDomainsRenamer({"sys":"boson_rx"})(YCbCr422to444())
-
-        
-        fifo = AsyncFIFO([("data", 32)], depth=512)
-        fifo = ResetInserter(["read","write"])(fifo)
-        fifo = ClockDomainsRenamer({"read":"sys","write":"boson_rx"})(fifo)
-        
-        self.submodules.video_debug = video_debug = ClockDomainsRenamer({"pixel":"boson_rx"})(VideoDebug(int(self.clk_freq)))
-        
-        self.submodules.pipeline_config = pipeline_config = BufferedCSRBlock(
-            [
-                ("scaler_enable", 1),
-                ("scaler_fill", 1),
-                ("scaler_bank", 1),
-            ] + framer_params()
-        )  
-
-        self.submodules.framer = framer = Framer()
-        self.comb += [
-            framer.params.x_start.eq(pipeline_config.x_start),
-            framer.params.y_start.eq(pipeline_config.y_start),
-            framer.params.x_stop.eq(pipeline_config.x_stop),
-            framer.params.y_stop.eq(pipeline_config.y_stop),
-        ]
-
-        self.submodules.scaler = scaler = ResetInserter(["video"])(ClockDomainsRenamer({"sys":"video", "cpu":"sys"})((Scaler())))
-        self.submodules.fifo2 = fifo2 = ResetInserter()(ClockDomainsRenamer({"sys":"video"})(SyncFIFO([("data", 32)], depth=32)))
-
-        self.submodules += fifo
-
-        self.comb += [
-            video_debug.vsync.eq(boson.vsync),
-            video_debug.hsync.eq(boson.hsync),
-
-            boson.source.connect(ycrcb422_444.sink, omit=['data']),
-            ycrcb422_444.source.connect(ycrcb.sink),
-            ycrcb.source.connect(fifo.sink, omit=['r','g','b']),
-
-            ycrcb422_444.sink.y.eq(boson.source.data[0:8]),
-            ycrcb422_444.sink.cb_cr.eq(boson.source.data[8:16]),
-
-            fifo.sink.data[0:8].eq(ycrcb.source.r),
-            fifo.sink.data[8:16].eq(ycrcb.source.g),
-            fifo.sink.data[16:24].eq(ycrcb.source.b),
-
-            fifo.source.connect(reader.sink),
-        ]
-
-        boson_stream_start = Signal()
-        reader.add_source(fifo.source, "boson_stream", boson_stream_start)
-
-
-
-
+    
         ## HDMI output
         self.submodules.hdmi_i2c = I2CMaster(platform.request("hdmi_i2c"))
 
 
-        # I2C
+        # I2C EEPROM
         self.submodules.i2c0 = I2CMaster(platform.request("i2c"))
 
-        #self.submodules.reboot = Reboot(platform.request("rst_n"))
-
-
-        fifo0 = AsyncFIFO([("data", 32)], depth=128)
-        fifo0 = ResetInserter(["read","write"])(fifo0)
-        fifo0 = ClockDomainsRenamer({"read":"video","write":"sys"})(fifo0)
-        self.submodules += fifo0
-
-        self.comb += [
-            If(pipeline_config.scaler_enable,
-                fifo0.source.connect(scaler.sink),
-                scaler.source.connect(fifo2.sink),
-                fifo2.source.connect(framer.sink),
-            ).Else(
-                fifo0.source.connect(framer.sink),
-            ),
-
-            writer.short.eq(pipeline_config.scaler_fill),
-            scaler.bank.eq(pipeline_config.scaler_bank)
-        ]
-
-        boson_sink_start = Signal()
-        writer.add_sink(fifo0.sink, "boson", boson_sink_start)
-
-        # prbs tester
-        self.submodules.prbs = PRBSStream()
-        reader.add_source(self.prbs.source.source, "prbs")
-        writer.add_sink(self.prbs.sink.sink, "prbs")
-
-        # enable
-        self.submodules.vsync_rise = vsync_rise = EdgeDetect(mode="rise", input_cd="video", output_cd="sys")
-        #self.comb += vsync_rise.i.eq(terminal.vsync)
-
-        self.submodules.vsync_rise_term = vsync_rise_term = EdgeDetect(mode="rise", input_cd="video", output_cd="video")
-        #self.comb += vsync_rise_term.i.eq(terminal.vsync)
-        self.submodules.vsync_fall_term = vsync_fall_term = EdgeDetect(mode="fall", input_cd="video", output_cd="video")
-        #self.comb += vsync_fall_term.i.eq(terminal.vsync)
-
-        self.submodules.vsync_boson = vsync_boson = EdgeDetect(mode="fall", input_cd="boson_rx", output_cd="sys")
-        self.comb += vsync_boson.i.eq(boson.vsync)
-
-
-        self.comb += [
-            scaler.reset_video.eq(vsync_rise_term.o),
-            fifo2.reset.eq(vsync_rise_term.o),
-
-            fifo0.reset_read.eq(vsync_rise_term.o),
-            fifo0.reset_write.eq(vsync_rise.o),
-
-            pipeline_config.csr_sync.eq(vsync_rise_term.o)
-        ]
-
-        reader_ps = PulseSynchronizer("video", "sys")
-        self.comb += reader_ps.i.eq(vsync_rise_term.o)
-        self.comb += boson_sink_start.eq(reader_ps.o)
-        self.submodules += reader_ps
-        
-        # delay vsync pulse from boson by 500 clocks, then use it to reset the fifo
-        fifo_rst = Signal()
-        self.sync += [
-             timeline(vsync_boson.o, [
-                (101,  [fifo_rst.eq(1)]),   # Reset FIFO
-                (102,  [fifo_rst.eq(0)]),  # Clear Reset
-                (110,  [boson_stream_start.eq(1)]),
-                (111,  [boson_stream_start.eq(0)])
-            ])
-        ]
-        #self.specials += MultiReg(fifo_rst, fifo.reset_write, odomain="boson_rx")
-
-        fifo_rst_ps = PulseSynchronizer("sys", "boson_rx")
-        self.comb += fifo_rst_ps.i.eq(fifo_rst)
-        self.comb += fifo.reset_write.eq(fifo_rst_ps.o)
-        self.comb += fifo.reset_read.eq(fifo_rst)
-        self.submodules += fifo_rst_ps
-
-        #terminal_mask = Signal()
-        ## Connect VGA pins
-        self.comb += [
-            fifo.reset_read.eq(fifo_rst),
-            ycrcb.reset.eq(fifo_rst),
-            ycrcb422_444.reset.eq(fifo_rst),
-
-            # # attach framer to video generator
-            # framer.vsync.eq(terminal.vsync),
-            # framer.hsync.eq(terminal.hsync),
-            
-
-            # hdmi.vsync.eq(terminal.vsync),
-            # hdmi.hsync.eq(terminal.hsync),
-            # hdmi.blank.eq(terminal.blank),
-
-            # # Mask Through on 0xFFFF00 pixels
-            # terminal_mask.eq((terminal.red == 0xaa) & (terminal.green == 0x00) & (terminal.blue == 0xaa)),
-            
-            # If(terminal_mask,
-            #     If(framer.data_valid,
-            #         hdmi.r.eq(framer.red),
-            #         hdmi.g.eq(framer.green),
-            #         hdmi.b.eq(framer.blue),
-            #     )
-            # ).Else(
-            #     hdmi.r.eq(terminal.red),
-            #     hdmi.g.eq(terminal.green),
-            #     hdmi.b.eq(terminal.blue),  
-            # )
-        ]
-
+        self.submodules.reboot = Reboot(platform.request("rst_n"))
         
         usb_pads = self.platform.request("usb")
 
         # Select Boson as USB target
         if hasattr(usb_pads, "sw_sel"):
-            self.comb += usb_pads.sw_sel.eq(0)
+            self.comb += usb_pads.sw_sel.eq(1)
         
         # Enable USB
         if hasattr(usb_pads, "sw_oe"):
             self.comb += usb_pads.sw_oe.eq(0)
 
-        analyser = False
-        if analyser:
-            # USB with Clock-Domain-Crossing support
-            import os
-            import sys
-            os.system("git clone https://github.com/gregdavill/valentyusb -b hw_cdc_eptri")
-            sys.path.append("valentyusb")
+        usb_iobuf = USBIoBuf(usb_pads.d_p, usb_pads.d_n, usb_pads.pullup)
+        self.submodules.usb = USBTriEndpointInterface(usb_iobuf, cdc=True, relax_timing=True)
 
-            import valentyusb.usbcore.io as usbio
-            import valentyusb.usbcore.cpu.cdc_eptri as cdc_eptri
-            usb_pads = self.platform.request("usb")
-            usb_iobuf = usbio.IoBuf(usb_pads.d_p, usb_pads.d_n, usb_pads.pullup)
-            self.submodules.uart_usb = cdc_eptri.CDCUsb(usb_iobuf)
-
-            # Select ECP5 as USB target
-            if hasattr(usb_pads, "sw_sel"):
-                self.comb += usb_pads.sw_sel.eq(1)
-            
-            # Enable USB
-            if hasattr(usb_pads, "sw_oe"):
-                self.comb += usb_pads.sw_oe.eq(0)
-            
-
-            self.submodules.bridge = Stream2Wishbone(self.uart_usb, sys_clk_freq)
-            self.add_wb_master(self.bridge.wishbone)
-
-            self.submodules.analyzer = LiteScopeAnalyzer(hyperram.dbg, 64)
 
         # Add git version into firmware 
         def get_git_revision():
