@@ -30,5 +30,5 @@ CFLAGS += \
 	-I$(BUILDINC_DIRECTORY)/generated \
 	-Wno-char-subscripts \
 	-fno-strict-aliasing -fpack-struct \
-	-DCFG_TUSB_MCU=OPT_MCU_VALENTYUSB_EPTRI \
-  -Os
+	-DCFG_TUSB_MCU=OPT_MCU_VALENTYUSB_EPTRI  \
+  -nostdlib

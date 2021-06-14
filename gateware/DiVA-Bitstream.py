@@ -25,6 +25,8 @@ from migen import *
 from rtl.platform import bosonHDMI_r0d3
 
 
+
+from migen.genlib.resetsync import AsyncResetSynchronizer
 from litex.build.generic_platform import *
 from litex.soc.cores.clock import *
 from rtl.ecp5_dynamic_pll import ECP5PLL, period_ns
@@ -39,8 +41,8 @@ from litex.soc.interconnect import stream, wishbone
 from litex.soc.interconnect.stream import Endpoint, EndpointDescription, SyncFIFO, AsyncFIFO, Monitor
 from litex.soc.interconnect.csr import *
 
-from valentyusb.usbcore.io import IoBuf as USBIoBuf
-from valentyusb.usbcore.cpu.eptri import TriEndpointInterface as USBTriEndpointInterface
+from valentyusb.usbcore.io import IoBuf
+from valentyusb.usbcore.cpu.eptri import TriEndpointInterface
 
 
 from migen.genlib.misc import timeline
@@ -64,6 +66,9 @@ from rtl.video.video_debug import VideoDebug
 from rtl.video.video_stream import VideoStream
 from rtl.video.framer import Framer, framer_params
 from rtl.video.scaler import Scaler
+
+
+from rtl.cdc_csr import CSRClockDomainWrapper
 
 
 from rtl.hdmi import HDMI
@@ -99,34 +104,44 @@ class _CRG(Module, AutoCSR):
         pll.create_clkout(self.cd_hr2x, sys_clk_freq*2, margin=0)
         pll.create_clkout(self.cd_hr2x_90, sys_clk_freq*2, phase=1, margin=0) # SW tunes this phase during init
         
-        self.specials += [
-        ]
-
-        self.comb += self.cd_sys.clk.eq(self.cd_hr.clk)
         self.comb += self.cd_init.clk.eq(clk48)
 
         pixel_clk = 64e6
         self.clock_domains.cd_usb_12 = ClockDomain()
+        self.clock_domains.cd_usb_24 = ClockDomain()
         self.clock_domains.cd_usb_48 = ClockDomain()
 
         self.submodules.video_pll = video_pll = ECP5PLL()
         video_pll.register_clkin(clk48, 48e6)
         video_pll.create_clkout(self.cd_video,    pixel_clk,  margin=0)
         video_pll.create_clkout(self.cd_video_shift,  pixel_clk*5, margin=0)
-        #video_pll.create_clkout(self.cd_usb_12,    12e6,  margin=0)
-
-
         
-
-
+        
         self.comb += self.cd_usb_48.clk.eq(clk48)
-
-        _div_counter = Signal(2)
-        self.sync.usb_48 += [
-            _div_counter.eq(_div_counter + 1),
-            ClockSignal('usb_12').eq(_div_counter[1])
+        self.specials += [
+            AsyncResetSynchronizer(self.cd_usb_48, ~pll.locked),
+            AsyncResetSynchronizer(self.cd_usb_24, ~pll.locked),
+            AsyncResetSynchronizer(self.cd_usb_12, ~pll.locked),
         ]
 
+        self.comb += self.cd_sys.clk.eq(self.cd_hr.clk)
+
+        self.specials += [
+            Instance("CLKDIVF",
+                p_DIV     = "2.0",
+                i_ALIGNWD = 0,
+                i_CLKI    = self.cd_usb_48.clk,
+                i_RST     = ~pll.locked,
+                o_CDIVX   = self.cd_usb_24.clk),
+
+
+            Instance("CLKDIVF",
+                p_DIV     = "2.0",
+                i_ALIGNWD = 0,
+                i_CLKI    = self.cd_usb_24.clk,
+                i_RST     = ~pll.locked,
+                o_CDIVX   = self.cd_usb_12.clk),
+        ]
 
         platform.add_period_constraint(self.cd_usb_12.clk, period_ns(12e6))
         platform.add_period_constraint(self.cd_usb_48.clk, period_ns(48e6))
@@ -153,8 +168,9 @@ class _CRG(Module, AutoCSR):
                 i_CLKI    = self.cd_hr2x_90.clk,
                 i_RST     = ~pll.locked,
                 o_CDIVX   = self.cd_hr_90.clk),
-            #AsyncResetSynchronizer(self.cd_hr, reset),
-            #AsyncResetSynchronizer(self.cd_sys, reset)
+            AsyncResetSynchronizer(self.cd_hr2x, ~pll.locked),
+            AsyncResetSynchronizer(self.cd_hr, ~pll.locked),
+            AsyncResetSynchronizer(self.cd_sys, ~pll.locked),
         ]
 
 
@@ -197,7 +213,6 @@ class DiVA_SoC(SoCCore):
         "buffers"    :  21,
         "prbs"       :  23,
         "reboot"     :  25,
-        "usb":  26,
         "framer"     :  27,
         "scaler"     :  28,
         "boson"      :  29,
@@ -213,7 +228,6 @@ class DiVA_SoC(SoCCore):
     mem_map.update(SoCCore.mem_map)
 
     interrupt_map = {
-
     }
     interrupt_map.update(SoCCore.interrupt_map)
 
@@ -226,7 +240,7 @@ class DiVA_SoC(SoCCore):
                           cpu_type='vexriscv', cpu_variant='standard', with_uart=True, uart_name='stream',
                           csr_data_width=32,
                           ident_version=False, wishbone_timeout_cycles=128,
-                          integrated_rom_size=54*1024, integrated_sram_size=16*1024)
+                          integrated_rom_size=42*1024, integrated_sram_size=16*1024)
 
         platform.toolchain.build_template[0] = "yosys -q -l {build_name}.rpt {build_name}.ys"
         platform.toolchain.build_template[1] += f" --log {platform.name}.log --router router1"
@@ -270,7 +284,7 @@ class DiVA_SoC(SoCCore):
 
         self.submodules.reboot = Reboot(platform.request("rst_n"))
         
-        usb_pads = self.platform.request("usb")
+        usb_pads = platform.request("usb")
 
         # Select Boson as USB target
         if hasattr(usb_pads, "sw_sel"):
@@ -280,11 +294,20 @@ class DiVA_SoC(SoCCore):
         if hasattr(usb_pads, "sw_oe"):
             self.comb += usb_pads.sw_oe.eq(0)
 
-        usb_iobuf = USBIoBuf(usb_pads.d_p, usb_pads.d_n, usb_pads.pullup)
-        self.submodules.usb = USBTriEndpointInterface(usb_iobuf, cdc=True, relax_timing=True)
+        
+        # Attach USB to a seperate CSR bus that's decoupled from our CPU clock
+        usb_iobuf = IoBuf(usb_pads.d_p, usb_pads.d_n, usb_pads.pullup)
+        self.submodules.usb = CSRClockDomainWrapper(usb_iobuf)
+        self.comb += self.cpu.interrupt[4].eq(self.usb.irq)
 
-        self.add_interrupt("usb")
+        from litex.soc.integration.soc_core import SoCRegion
+        self.bus.add_slave('usb',  self.usb.bus, SoCRegion(origin=0x90000000, size=0x1000, cached=False))
 
+
+
+        #self.submodules.usb = TriEndpointInterface(usb_iobuf, cdc=True)
+        #self.add_csr("usb")
+        #self.add_interrupt("usb")
 
         # Add git version into firmware 
         def get_git_revision():
@@ -295,6 +318,19 @@ class DiVA_SoC(SoCCore):
                 r = "--------"
             return r
         self.add_constant("DIVA_GIT_SHA1", get_git_revision())
+   
+    # Generate the CSR for the USB
+    def write_usb_csr(self, directory):
+        csrs = self.usb.get_csr()
+
+        from litex.soc.integration import export
+        from litex.build.tools import write_to_file
+        from litex.soc.integration.soc_core import SoCCSRRegion
+        os.makedirs(directory, exist_ok=True)
+        write_to_file(
+            os.path.join(directory, "csr_usb.h"),
+            export.get_csr_header({"usb" : SoCCSRRegion(0x90000000, 32, csrs)}, self.constants)
+        )
 
     def do_exit(self, vns):
         if hasattr(self, "analyzer"):
@@ -344,6 +380,8 @@ def main():
 
     soc = DiVA_SoC()
     builder = Builder(soc, output_dir="build", csr_csv="build/csr.csv")
+
+    soc.write_usb_csr(builder.generated_dir)
 
     # Build firmware
     soc.PackageFirmware(builder)

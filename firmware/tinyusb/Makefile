@@ -30,8 +30,7 @@ SRC_C += \
 
 TINYUSBCOREOBJS=$(addprefix $(LIBTINYUSBDIR)/,$(SRC_C:.c=.o))
 
-TINYUSBARCHOBJS=\
-	$(LIBTINYUSBDIR)/src/portable/valentyusb/eptri/dcd_eptri.o \
+TINYUSBARCHOBJS= dcd_eptri.o 
 
 TINYUSBOBJS=$(TINYUSBCOREOBJS) $(TINYUSBARCHOBJS)
 OBJS_LIB+=$(TINYUSBOBJS)

@@ -24,34 +24,16 @@
  * This file is part of the TinyUSB stack.
  */
 
-#include <stdint.h>
-#include <stdbool.h>
-#include <generated/csr.h>
-#include <irq.h>
+#ifndef _TUSB_DCD_VALENTYUSB_EPTRI_H_
+#define _TUSB_DCD_VALENTYUSB_EPTRI_H_
 
-//--------------------------------------------------------------------+
-// Board porting API
-//--------------------------------------------------------------------+
-
-volatile uint32_t system_ticks = 0;
-void timer_init(void)
-{
-	int t;
-
-	timer0_en_write(0);
-	t = CONFIG_CLOCK_FREQUENCY / 1000; // 1000 kHz tick
-	timer0_reload_write(t);
-	timer0_load_write(t);
-	timer0_en_write(1);
-    timer0_ev_enable_write(1);
-    timer0_ev_pending_write(1);
-	irq_setmask(irq_getmask() | (1 << TIMER0_INTERRUPT));
-}
-
-
-#if CFG_TUSB_OS == OPT_OS_NONE
-uint32_t board_millis(void)
-{
-  return system_ticks;
-}
+#include "common/tusb_common.h"
+#ifdef __cplusplus
+ extern "C" {
 #endif
+
+#ifdef __cplusplus
+ }
+#endif
+
+#endif /* _TUSB_DCD_VALENTYUSB_EPTRI_H_ */

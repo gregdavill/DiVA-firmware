@@ -32,6 +32,7 @@
 /* prototypes */
 void isr(void);
 
+#define USB_INTERRUPT 4
 
 extern volatile uint32_t system_ticks;
 void isr(void){
@@ -39,39 +40,19 @@ void isr(void){
 
 	irqs = irq_pending() & irq_getmask();
 
-	if(irqs & (1 << PPU_INTERRUPT)){
-		gui_isr();
-		ppu_ev_pending_write(-1);
-	}
-
 	
-#if CFG_TUSB_RHPORT0_MODE == OPT_MODE_DEVICE
   if (irqs & (1 << USB_INTERRUPT)) {
     tud_int_handler(0);
   }
-#endif
+  
   if (irqs & (1 << TIMER0_INTERRUPT)) {
     system_ticks++;
     timer0_ev_pending_write(1);
   }
 }
 
-/* Blink pattern
- * - 250 ms  : device not mounted
- * - 1000 ms : device mounted
- * - 2500 ms : device is suspended
- */
-enum  {
-  BLINK_NOT_MOUNTED = 250,
-  BLINK_MOUNTED = 1000,
-  BLINK_SUSPENDED = 2500,
-};
-
-static uint32_t blink_interval_ms = BLINK_NOT_MOUNTED;
-
 void led_blinking_task(void);
 void cdc_task(void);
-
 
 int main(int i, char **c)
 {	
@@ -91,10 +72,26 @@ int main(int i, char **c)
 
 	while(1){
     tud_task(); // tinyusb device task
-  //  led_blinking_task();
-
     cdc_task();
+    led_blinking_task();
 
+    int b_val = button_raw_read();
+    if(b_val & BUTTON_A_HOLD){
+      reboot_ctrl_write(0xac);
+    }
+
+
+    if(button_events_read()){
+        static count = 0;
+      //printf("Hello\n");
+      //if( tud_cdc_available()){
+        char str[256];
+        sprintf(str, "Hello! %u\r\n", count++);
+
+        tud_cdc_write_str(str);
+        tud_cdc_write_flush();
+      //}
+    }
 	}
 
 
@@ -152,4 +149,35 @@ void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts)
 void tud_cdc_rx_cb(uint8_t itf)
 {
   (void) itf;
+}
+
+
+
+//--------------------------------------------------------------------+
+// BLINKING TASK
+//--------------------------------------------------------------------+
+void led_blinking_task(void)
+{
+  static uint32_t start_ms = 0;
+  static bool led_state = false;
+
+  // Blink every interval ms
+  if(start_ms++ > 10000){
+    start_ms = 0;
+  }
+  else{
+    return;
+  }
+  
+  
+  static count = 0;
+  //printf("Hello\n");
+  if( tud_cdc_available()){
+    char str[256];
+    sprintf(str, "Hello! %u\r\n", count++);
+
+    tud_cdc_write_str(str);
+    tud_cdc_write_flush();
+  }
+  led_state = 1 - led_state; // toggle
 }
