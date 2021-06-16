@@ -10,6 +10,10 @@ _io = [
     ("clk48", 0, Pins("M1"),  IOStandard("LVCMOS18")),
     ("rst_n", 0, Pins("V17"), IOStandard("LVCMOS33")),
 
+    # Leds
+    ("user_led", 0, Pins("L16"), IOStandard("LVCMOS33")), # rgb_led.r
+    ("user_led", 1, Pins("J16"), IOStandard("LVCMOS33")), # rgb_led.g
+    ("user_led", 2, Pins("J17"), IOStandard("LVCMOS33")), # rgb_led.b
     ("rgb_led", 0,
         Subsignal("r", Pins("L16"), IOStandard("LVCMOS33")),
         Subsignal("g", Pins("J16"), IOStandard("LVCMOS33")),

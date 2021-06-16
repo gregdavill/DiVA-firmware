@@ -41,6 +41,8 @@ from litex.soc.interconnect import stream, wishbone
 from litex.soc.interconnect.stream import Endpoint, EndpointDescription, SyncFIFO, AsyncFIFO, Monitor
 from litex.soc.interconnect.csr import *
 
+from litex.soc.cores.led import LedChaser
+
 from valentyusb.usbcore.io import IoBuf
 from valentyusb.usbcore.cpu.eptri import TriEndpointInterface
 
@@ -200,7 +202,7 @@ class _CRG(Module, AutoCSR):
 
 class DiVA_SoC(SoCCore):
     csr_map = {
-        "rgb"        :  10, 
+        "led"        :  10, 
         "crg"        :  11, 
         "hyperram"   :  12,
         "terminal"   :  13,
@@ -273,7 +275,14 @@ class DiVA_SoC(SoCCore):
         button = platform.request("button")
         self.submodules.button = Button(button)
 
-        self.submodules.rgb = RGB(platform.request("rgb_led"))
+
+        # Leds -------------------------------------------------------------------------------------
+        _led_pins = platform.request_all("user_led")
+        led_pins = Signal(len(_led_pins))
+        self.comb += _led_pins.eq(~led_pins)
+        self.submodules.leds = LedChaser(
+            pads         = led_pins,
+            sys_clk_freq = sys_clk_freq)
     
         ## HDMI output
         self.submodules.hdmi_i2c = I2CMaster(platform.request("hdmi_i2c"))

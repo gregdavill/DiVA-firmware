@@ -89,6 +89,20 @@ int main(int i, char **c)
 
 
 
+
+/* Blink pattern
+ * - 250 ms  : device not mounted
+ * - 1000 ms : device mounted
+ * - 2500 ms : device is suspended
+ */
+enum  {
+  BLINK_NOT_MOUNTED = 250,
+  BLINK_MOUNTED = 1000,
+  BLINK_SUSPENDED = 2500,
+};
+
+static uint32_t blink_interval_ms = BLINK_NOT_MOUNTED;
+
 //--------------------------------------------------------------------+
 // USB CDC
 //--------------------------------------------------------------------+
@@ -138,6 +152,37 @@ void tud_cdc_rx_cb(uint8_t itf)
   (void) itf;
 }
 
+//--------------------------------------------------------------------+
+// Device callbacks
+//--------------------------------------------------------------------+
+
+// Invoked when device is mounted
+void tud_mount_cb(void)
+{
+  blink_interval_ms = BLINK_MOUNTED;
+}
+
+// Invoked when device is unmounted
+void tud_umount_cb(void)
+{
+  blink_interval_ms = BLINK_NOT_MOUNTED;
+}
+
+// Invoked when usb bus is suspended
+// remote_wakeup_en : if host allow us  to perform remote wakeup
+// Within 7ms, device must draw an average of current less than 2.5 mA from bus
+void tud_suspend_cb(bool remote_wakeup_en)
+{
+  (void) remote_wakeup_en;
+  blink_interval_ms = BLINK_SUSPENDED;
+}
+
+// Invoked when usb bus is resumed
+void tud_resume_cb(void)
+{
+  blink_interval_ms = BLINK_MOUNTED;
+}
+
 
 
 //--------------------------------------------------------------------+
@@ -149,15 +194,12 @@ void led_blinking_task(void)
   static bool led_state = false;
 
   // Blink every interval ms
-  if(start_ms++ > 1000000){
-    start_ms = 0;
-  }
-  else{
-    return;
-  }
+  if ( board_millis() - start_ms < blink_interval_ms) return; // not enough time
+  start_ms += blink_interval_ms;
+
   
-  
-  static count = 0;
+  board_led_write(led_state);
+    static count = 0;
   //printf("Hello\n");
   if( tud_cdc_connected()){
     char str[256];
@@ -167,4 +209,11 @@ void led_blinking_task(void)
     tud_cdc_write_flush();
   }
   led_state = 1 - led_state; // toggle
+}
+
+
+
+void board_led_write(bool state)
+{
+	leds_out_write(state ? 1 : 0);
 }
