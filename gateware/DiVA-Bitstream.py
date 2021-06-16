@@ -359,6 +359,7 @@ class DiVA_SoC(SoCCore):
     def PackageFirmware(self, builder):  
         self.finalize()
 
+
         os.makedirs(builder.output_dir, exist_ok=True)
 
         # Remove un-needed sw packages

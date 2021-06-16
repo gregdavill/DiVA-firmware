@@ -53,7 +53,6 @@ clean:
 
 size:
 	$(TARGET_PREFIX)size DiVA-fw.elf
-	riscv64-unknown-elf-objdump -DS DiVA-fw.elf > DiVA-fw.lst
 
 
 .PHONY: all clean

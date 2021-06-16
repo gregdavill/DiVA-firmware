@@ -2,13 +2,14 @@ include ../include/generated/variables.mak
 include $(SOC_DIRECTORY)/software/common.mak
 
 CFLAGS += -Os \
-  -I.
+  -I. \
+  -lto 
 
 OBJECTS=crt0.o main.o spi.o
 
 vpath % $(BOOTER_DIRECTORY)
 
-all: booter.bin lst
+all: booter.bin
 
 %.bin: %.elf
 	$(OBJCOPY) -O binary $< $@
@@ -43,9 +44,5 @@ endif
 
 clean:
 	$(RM) $(OBJECTS) booter.elf booter.bin .*~ *~
-
-lst:
-	riscv64-unknown-elf-objdump -DS booter.elf > booter.lst
-
 
 .PHONY: all clean
