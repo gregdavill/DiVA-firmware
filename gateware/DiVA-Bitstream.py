@@ -297,7 +297,7 @@ class DiVA_SoC(SoCCore):
         
         # Attach USB to a seperate CSR bus that's decoupled from our CPU clock
         usb_iobuf = IoBuf(usb_pads.d_p, usb_pads.d_n, usb_pads.pullup)
-        self.submodules.usb = CSRClockDomainWrapper(usb_iobuf)
+        self.submodules.usb = CSRClockDomainWrapper(usb_iobuf, platform)
         self.comb += self.cpu.interrupt[4].eq(self.usb.irq)
 
         from litex.soc.integration.soc_core import SoCRegion

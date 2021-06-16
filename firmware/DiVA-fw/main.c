@@ -79,19 +79,6 @@ int main(int i, char **c)
     if(b_val & BUTTON_A_HOLD){
       reboot_ctrl_write(0xac);
     }
-
-
-    if(button_events_read()){
-        static count = 0;
-      //printf("Hello\n");
-      //if( tud_cdc_available()){
-        char str[256];
-        sprintf(str, "Hello! %u\r\n", count++);
-
-        tud_cdc_write_str(str);
-        tud_cdc_write_flush();
-      //}
-    }
 	}
 
 
@@ -162,7 +149,7 @@ void led_blinking_task(void)
   static bool led_state = false;
 
   // Blink every interval ms
-  if(start_ms++ > 10000){
+  if(start_ms++ > 1000000){
     start_ms = 0;
   }
   else{
@@ -172,7 +159,7 @@ void led_blinking_task(void)
   
   static count = 0;
   //printf("Hello\n");
-  if( tud_cdc_available()){
+  if( tud_cdc_connected()){
     char str[256];
     sprintf(str, "Hello! %u\r\n", count++);
 

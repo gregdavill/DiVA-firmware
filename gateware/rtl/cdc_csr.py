@@ -1,6 +1,5 @@
 
-#from migen import *
-from migen import Module, Signal, Instance, ClockDomain, If
+from migen import *
 from migen.fhdl.specials import TSTriple
 from migen.fhdl.decorators import ClockDomainsRenamer
 
@@ -19,45 +18,7 @@ from migen.genlib.fsm import FSM, NextState
 
 from valentyusb.usbcore.cpu import eptri
 
-# Custom WB2CSR that breaks out an external Ack for reads
-class WB2CSR(Module):
-    def __init__(self, bus_wishbone=None, bus_csr=None):
-        if bus_wishbone is None:
-            bus_wishbone = wishbone.Interface()
-        self.wishbone = bus_wishbone
-        if bus_csr is None:
-            bus_csr = csr_bus.Interface()
-        self.csr = bus_csr
-
-        self.ack = Signal()
-        self.en = Signal()
-        
-
-        # # #
-
-        self.comb += [
-            self.csr.dat_w.eq(self.wishbone.dat_w),
-            self.wishbone.dat_r.eq(self.csr.dat_r)
-        ]
-
-        count = Signal(8)
-
-        fsm = FSM(reset_state="WRITE-READ")
-        self.submodules += fsm
-        fsm.act("WRITE-READ",
-            If(self.wishbone.cyc & self.wishbone.stb,
-                self.csr.adr.eq(self.wishbone.adr),
-                self.csr.we.eq(self.wishbone.we),
-                self.en.eq(1),
-                NextState("ACK"),
-            )
-        )
-        fsm.act("ACK",
-            If(self.wishbone.we | self.ack,
-                self.wishbone.ack.eq(1),
-                NextState("WRITE-READ")
-            )
-        )
+import os
 
 from litex.soc.interconnect.csr import _make_gatherer, _CSRBase, csrprefix
 
@@ -65,76 +26,49 @@ class CSRClockDomainWrapper(Module):
     def get_csr(self):
         return self.usb.get_csrs()
 
-    def __init__(self, usb_iobuf):
+    def __init__(self, usb_iobuf, platform):
         self.bus = wishbone.Interface()
-
+        
+        usb12_bus = wishbone.Interface()
         # create a new custom CSR bus
-        self.submodules.csr = WB2CSR(self.bus)
+        self.submodules.csr = ClockDomainsRenamer({'sys':'usb_12'})(wishbone.Wishbone2CSR(usb12_bus))
         csr_cpu = self.csr.csr
 
         self.submodules.usb = usb = ClockDomainsRenamer({'sys':'usb_12'})(eptri.TriEndpointInterface(usb_iobuf, debug=False))
         csrs = self.usb.get_csrs()
         # create a CSRBank for the eptri CSRs
-        self.submodules.csr_bank = ClockDomainsRenamer({'sys':'usb_12'})(CSRBank(csrs, 0))
-        csr_usb12 = self.csr_bank.bus
+        self.submodules.csr_bank = ClockDomainsRenamer({'sys':'usb_12'})(CSRBank(csrs, 0,  self.csr.csr))
+        
+        
+        self.specials += Instance("wb_cdc",
+            i_wbm_clk=ClockSignal(),
+            i_wbm_rst=ResetSignal(),
+            i_wbm_adr_i=self.bus.adr,
+            i_wbm_dat_i=self.bus.dat_w,
+            o_wbm_dat_o=self.bus.dat_r,
+            i_wbm_we_i=self.bus.we,
+            i_wbm_sel_i=self.bus.sel,
+            i_wbm_stb_i=self.bus.stb,
+            o_wbm_ack_o=self.bus.ack,
+            #o_wbm_err_o=self.bus.err,
+            #o_wbm_rty_o=,
+            i_wbm_cyc_i=self.bus.cyc,
 
-        if hasattr(usb, 'debug_bridge'):
-            self.debug_bridge = usb.debug_bridge.wishbone
-            
-        # patch these two CSRs together with an Async FIFO
-        _layout = [
-            ("adr",    32),
-            ("dat_w",   32),
-            ("we", 1)
-        ]
+            i_wbs_clk=ClockSignal("usb_12"),
+            i_wbs_rst=ResetSignal("usb_12"),
+            o_wbs_adr_o=usb12_bus.adr,
+            i_wbs_dat_i=usb12_bus.dat_r,
+            o_wbs_dat_o=usb12_bus.dat_w,
+            o_wbs_we_o=usb12_bus.we,
+            o_wbs_sel_o=usb12_bus.sel,
+            o_wbs_stb_o=usb12_bus.stb,
+            i_wbs_ack_i=usb12_bus.ack,
+            #i_wbs_err_i=usb12_bus.err,
+            #i_wbs_rty_i=0,
+            o_wbs_cyc_o=usb12_bus.cyc)
 
-        self.submodules.fifo = fifo = ClockDomainsRenamer({'write':'sys', 'read':'usb_12'})(AsyncFIFO(_layout, 64, False))
-
-        bus_adr = Signal(32)
-
-        self.comb += [
-            # Data into FIFO
-            fifo.sink.adr.eq(csr_cpu.adr),
-            fifo.sink.dat_w.eq(csr_cpu.dat_w),
-            fifo.sink.we.eq(csr_cpu.we),
-            fifo.sink.valid.eq(self.csr.en),
-
-            # Always clear FIFO on clock cycle
-            fifo.source.ready.eq(1),
-            If(fifo.source.valid,
-                csr_usb12.dat_w.eq(fifo.source.dat_w),
-                csr_usb12.adr.eq(fifo.source.adr),
-                bus_adr.eq(fifo.source.adr),
-                csr_usb12.we.eq(fifo.source.we),
-            ),
-        ]
-
-        self.submodules.fifo_r = fifo_r = ClockDomainsRenamer({'write':'usb_12', 'read':'sys'})(AsyncFIFO([("adr",    32),("dat_r",32)], 64, False))
-
-
-        valid = Signal()
-        source_adr = Signal(32)
-
-        self.sync.usb_12 += [
-            valid.eq(fifo.source.valid & ~csr_usb12.we),
-            source_adr.eq(bus_adr)
-        ]
-
-        self.comb += [
-            # Data into FIFO
-            fifo_r.sink.dat_r.eq(csr_usb12.dat_r),
-            fifo_r.sink.adr.eq(source_adr),
-            fifo_r.sink.valid.eq(valid),
-            fifo_r.source.ready.eq(1),
-        ]
-
-        self.sync += [
-            self.csr.ack.eq(0),
-            If(fifo_r.source.valid,
-                self.csr.ack.eq(self.bus.adr[:14] == fifo_r.source.adr),
-                csr_cpu.dat_r.eq(fifo_r.source.dat_r),
-            ),
-        ]
+        # add verilog sources
+        platform.add_source_dir("{}/rtl/verilog".format(os.getcwd()))
 
         # Patch interrupt through
         self.irq = Signal()

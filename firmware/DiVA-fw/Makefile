@@ -1,8 +1,8 @@
 include ../include/generated/variables.mak
 include $(SOC_DIRECTORY)/software/common.mak
 
-CFLAGS += -fpack-struct -Os -I$(DIVA-FW_DIRECTORY)/include -fdata-sections -ffunction-sections
-CFLAGS += -I$(TINYUSB_DIRECTORY)/../deps/tinyusb/src -I$(TINYUSB_DIRECTORY) -DCFG_TUSB_MCU=OPT_MCU_VALENTYUSB_EPTRI -Wno-char-subscripts -fno-strict-aliasing -fpack-struct 
+CFLAGS += -O3 -I$(DIVA-FW_DIRECTORY)/include -fdata-sections -ffunction-sections
+CFLAGS += -I$(TINYUSB_DIRECTORY)/../deps/tinyusb/src -I$(TINYUSB_DIRECTORY) -DCFG_TUSB_MCU=OPT_MCU_VALENTYUSB_EPTRI -Wno-char-subscripts -fno-strict-aliasing -fpack-struct
 
 OBJECTS=main.o time.o hyperram.o hdmi_edid.o terminal.o i2c.o boson.o settings.o flirCRC.o Serializer_BuiltIn.o terminal_menu.o dma.o scaler.o ppu.o gui.o
 OBJECTS+= usb.o usb_descriptors.o msc_disk.o bswapsi2.o
