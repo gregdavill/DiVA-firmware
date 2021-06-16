@@ -179,7 +179,7 @@ const settings_t setting_defaults = {
 
 void init_settings(bool load_defaults){
     /* Calculate our Firmware CRC */
-    _firmware_hash = crc16(ROM_BASE, ROM_SIZE);
+    _firmware_hash = 0;//crc16(ROM_BASE, ROM_SIZE);
     
     settings_t loaded_settings;
     /* Read settings from EEPROM */

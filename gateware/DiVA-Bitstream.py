@@ -226,6 +226,7 @@ class DiVA_SoC(SoCCore):
     mem_map = {
         "hyperram"  : 0x20000000,
         "terminal"  : 0x30000000,
+        "spiflash"  : 0x40000000,
     }
     mem_map.update(SoCCore.mem_map)
 
@@ -242,7 +243,8 @@ class DiVA_SoC(SoCCore):
                           cpu_type='vexriscv', cpu_variant='standard', with_uart=True, uart_name='stream',
                           csr_data_width=32,
                           ident_version=False, wishbone_timeout_cycles=128,
-                          integrated_rom_size=42*1024, integrated_sram_size=16*1024)
+                          integrated_rom_size=0, integrated_sram_size=16*1024,
+                          cpu_reset_address=0x40000000 + 0x000D0000)
 
         platform.toolchain.build_template[0] = "yosys -q -l {build_name}.rpt {build_name}.ys"
         platform.toolchain.build_template[1] += f" --log {platform.name}.log --router router1"
@@ -283,6 +285,12 @@ class DiVA_SoC(SoCCore):
         self.submodules.leds = LedChaser(
             pads         = led_pins,
             sys_clk_freq = sys_clk_freq)
+
+        # SPI Flash --------------------------------------------------------------------------------
+        self.add_spi_flash(mode="1x", dummy_cycles=8)
+        self.add_constant("SPIFLASH_PAGE_SIZE", 256)
+        self.add_constant("SPIFLASH_SECTOR_SIZE", 4096)
+        
     
         ## HDMI output
         self.submodules.hdmi_i2c = I2CMaster(platform.request("hdmi_i2c"))
@@ -364,8 +372,8 @@ class DiVA_SoC(SoCCore):
         builder._generate_rom_software(compile_bios=False)
 
         firmware_file = os.path.join(builder.output_dir, "software", "DiVA-fw","DiVA-fw.bin")
-        firmware_data = get_mem_data(firmware_file, self.cpu.endianness)
-        self.initialize_rom(firmware_data)
+        #firmware_data = get_mem_data(firmware_file, self.cpu.endianness)
+        #self.initialize_rom(firmware_data)
 
         # lock out compiling firmware during build steps
         builder.compile_software = False
@@ -402,36 +410,29 @@ def main():
     firmware_init = os.path.join(builder.output_dir, "software", "DiVA-fw", "DiVA-fw.init")
     CreateFirmwareInit(firmware_data, firmware_init)
     
-    rand_rom = os.path.join(builder.output_dir, "gateware", "rand.data")
-    
     input_config = os.path.join(builder.output_dir, "gateware", f"{soc.platform.name}.config")
-    output_config = os.path.join(builder.output_dir, "gateware", f"{soc.platform.name}_patched.config")
     
     # If we don't have a random file, create one, and recompile gateware
-    if (os.path.exists(rand_rom) == False) or (args.update_firmware == False):
-        os.makedirs(os.path.join(builder.output_dir,'gateware'), exist_ok=True)
-        os.makedirs(os.path.join(builder.output_dir,'software'), exist_ok=True)
-
-        os.system(f"ecpbram  --generate {rand_rom} --seed {0} --width {32} --depth {soc.integrated_rom_size // 4}")
-
-        # patch random file into BRAM
-        data = []
-        with open(rand_rom, 'r') as inp:
-            for d in inp.readlines():
-                data += [int(d, 16)]
-        soc.initialize_rom(data)
-
+    if args.update_firmware == False:
+    
         # Build gateware
         vns = builder.build()
         soc.do_exit(vns)    
 
-
-    # Insert Firmware into Gateware
-    os.system(f"ecpbram  --input {input_config} --output {output_config} --from {rand_rom} --to {firmware_init}")
-
     # create a compressed bitstream
     output_bit = os.path.join(builder.output_dir, "gateware", "DiVA.dfu")
-    os.system(f"ecppack --freq 38.8 --compress --input {output_config} --bit {output_bit}")
+    os.system(f"ecppack --freq 38.8 --compress --input {input_config} --bit {output_bit}")
+
+    # Combine FLASH firmware
+    from util.combine import CombineBinaryFiles
+    flash_regions_final = {
+    #                                                         "0x00000000", # Bootloader
+        "build/gateware/DiVA.dfu":                            "0x00080000", # SoC ECP5 Bitstream
+        "build/software/DiVA-fw/DiVA-fw.bin":                 "0x000D0000", # Circuit PYthon
+    }
+    CombineBinaryFiles(flash_regions_final)
+
+
 
     # Add DFU suffix
     os.system(f"dfu-suffix -p 16d0 -d 0fad -a {output_bit}")
@@ -439,8 +440,8 @@ def main():
     print(
     f"""DiVA build complete!  Output files:
     
-    Bitstream file. (Compressed, Higher CLK)  Load this into FLASH.
-        {builder.output_dir}/gateware/DiVA.bit
+    Bitstream file. Load this using `dfu-util -D DiVA.dfu`
+        {builder.output_dir}/gateware/DiVA.dfu
     
     Source Verilog file.  Useful for debugging issues.
         {builder.output_dir}/gateware/top.v

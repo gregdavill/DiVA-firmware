@@ -60,6 +60,8 @@ int main(int i, char **c)
 
 //	gui_init();
 
+board_led_write(2);
+
 
 //	ppu_start();
 
