@@ -3,7 +3,12 @@ ENTRY(_start)
 
 __DYNAMIC = 0;
 
-INCLUDE regions.ld
+MEMORY {
+	sram : ORIGIN = 0x10000000, LENGTH = 0x00004000
+	spiflash : ORIGIN = 0x300D0000, LENGTH = 0x01000000
+	usb : ORIGIN = 0x90000000, LENGTH = 0x00001000
+	csr : ORIGIN = 0xf0000000, LENGTH = 0x00010000
+}
 
 SECTIONS
 {
@@ -13,7 +18,7 @@ SECTIONS
 		*(.text.start)
 		*(.text .stub .text.* .gnu.linkonce.t.*)
 		_etext = .;
-	} > rom
+	} > spiflash
 
 	.rodata :
 	{
@@ -24,7 +29,7 @@ SECTIONS
 		*(.srodata)
 		*(.srodata.*)
 		_erodata = .;
-	} > rom
+	} > spiflash
 
 	.data : AT (ADDR(.rodata) + SIZEOF (.rodata))
 	{

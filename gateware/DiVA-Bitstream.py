@@ -31,7 +31,7 @@ from litex.build.generic_platform import *
 from litex.soc.cores.clock import *
 from rtl.ecp5_dynamic_pll import ECP5PLL, period_ns
 from litex.soc.integration.soc_core import *
-from litex.soc.integration.soc import SoCRegion
+from litex.soc.integration.soc import SoC, SoCRegion
 from litex.soc.integration.builder import *
 
 from litex.soc.cores.bitbang import I2CMaster
@@ -223,12 +223,13 @@ class DiVA_SoC(SoCCore):
     }
     csr_map.update(SoCCore.csr_map)
 
-    mem_map = {
+    mem_map = {**SoCCore.mem_map, **{
+        "sram":           0x10000000,
+        "csr":            0xf0000000,
+        "vexriscv_debug": 0xf00f0000,
         "hyperram"  : 0x20000000,
-        "terminal"  : 0x30000000,
-        "spiflash"  : 0x40000000,
-    }
-    mem_map.update(SoCCore.mem_map)
+        "spiflash"  : 0x30000000,
+        }}
 
     interrupt_map = {
     }
@@ -243,8 +244,9 @@ class DiVA_SoC(SoCCore):
                           cpu_type='vexriscv', cpu_variant='standard', with_uart=True, uart_name='stream',
                           csr_data_width=32,
                           ident_version=False, wishbone_timeout_cycles=128,
-                          integrated_rom_size=0, integrated_sram_size=16*1024,
-                          cpu_reset_address=0x40000000 + 0x000D0000)
+                          integrated_sram_size=16*1024,
+                          cpu_reset_address=self.mem_map['sram'])
+        
 
         platform.toolchain.build_template[0] = "yosys -q -l {build_name}.rpt {build_name}.ys"
         platform.toolchain.build_template[1] += f" --log {platform.name}.log --router router1"
@@ -287,7 +289,7 @@ class DiVA_SoC(SoCCore):
             sys_clk_freq = sys_clk_freq)
 
         # SPI Flash --------------------------------------------------------------------------------
-        self.add_spi_flash(mode="1x", dummy_cycles=8)
+        self.add_spi_flash(mode="4x", dummy_cycles=6)
         self.add_constant("SPIFLASH_PAGE_SIZE", 256)
         self.add_constant("SPIFLASH_SECTOR_SIZE", 4096)
         
@@ -365,15 +367,15 @@ class DiVA_SoC(SoCCore):
         builder.add_software_package("libbase")
         
         builder.add_software_package("tinyusb", "{}/../firmware/tinyusb".format(os.getcwd()))
+        builder.add_software_package("booter", "{}/../firmware/booter".format(os.getcwd()))
         builder.add_software_package("DiVA-fw", "{}/../firmware/DiVA-fw".format(os.getcwd()))
 
         builder._prepare_rom_software()
         builder._generate_includes()
         builder._generate_rom_software(compile_bios=False)
 
-        firmware_file = os.path.join(builder.output_dir, "software", "DiVA-fw","DiVA-fw.bin")
-        #firmware_data = get_mem_data(firmware_file, self.cpu.endianness)
-        #self.initialize_rom(firmware_data)
+        firmware_file = "{}/software/booter/booter.bin".format(builder.output_dir)
+        self.init_rom('sram', get_mem_data(firmware_file, self.cpu.endianness))
 
         # lock out compiling firmware during build steps
         builder.compile_software = False
