@@ -39,17 +39,17 @@ jobs:
       run: |
         python3 DiVA-Bitstream.py
 
-    - name: Upload build
-      uses: actions/upload-artifact@v2
-      with:
-        name: DiVA build Folder
-        path: ${{ github.workspace }}/gateware/build
+#    - name: Upload build
+#      uses: actions/upload-artifact@v2
+#      with:
+#        name: DiVA build Folder
+#        path: ${{ github.workspace }}/gateware/build
 
     - name: Upload dfu update file
       uses: actions/upload-artifact@v2
       with:
         name: DiVA firmware update
-        path: ${{ github.workspace }}/gateware/build/gateware/DiVA.dfu
+        path: ${{ github.workspace }}/gateware/build/gateware/diva.dfu
   
   # Software build, create windows app to perform the dfu update
   build-sw:
@@ -64,7 +64,7 @@ jobs:
         name: DiVA firmware update
 
     - shell: bash
-      run: mv DiVA.dfu software/fw-updater/Resources/DiVA.dfu
+      run: mv diva.dfu software/fw-updater/Resources/DiVA.dfu
 
     - name: Add msbuild to PATH
       uses: microsoft/setup-msbuild@v1.0.2
