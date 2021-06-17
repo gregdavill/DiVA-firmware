@@ -28,6 +28,7 @@
 #include <string.h>
 
 #include "tusb.h"
+#include "usb/cdc.h"
 
 /* prototypes */
 void isr(void);
@@ -52,29 +53,26 @@ void isr(void){
 }
 
 void led_blinking_task(void);
-void cdc_task(void);
 
 int main(int i, char **c)
 {	
-//	irq_setie(1);
+  console_set_write_hook((console_write_hook)cdc_write_hook);
+  board_led_write(6);
 
-//	gui_init();
-
-board_led_write(2);
-
-
-//	ppu_start();
-
-  //board_init();
   irq_setmask(0);
   irq_setie(1);
   
   timer_init();
   tusb_init();
 
+  board_led_write(2);
+//	ppu_start();
+
+  //board_init();
+
 	while(1){
     tud_task(); // tinyusb device task
-    cdc_task();
+    //cdc_task();
     led_blinking_task();
 
     int b_val = button_raw_read();
@@ -104,55 +102,6 @@ enum  {
 };
 
 static uint32_t blink_interval_ms = BLINK_NOT_MOUNTED;
-
-//--------------------------------------------------------------------+
-// USB CDC
-//--------------------------------------------------------------------+
-void cdc_task(void)
-{
-  // connected() check for DTR bit
-  // Most but not all terminal client set this when making connection
-  // if ( tud_cdc_connected() )
-  {
-    // connected and there are data available
-    if ( tud_cdc_available() )
-    {
-      // read datas
-      char buf[64];
-      uint32_t count = tud_cdc_read(buf, sizeof(buf));
-      (void) count;
-
-      // Echo back
-      // Note: Skip echo by commenting out write() and write_flush()
-      // for throughput test e.g
-      //    $ dd if=/dev/zero of=/dev/ttyACM0 count=10000
-      tud_cdc_write(buf, count);
-      tud_cdc_write_flush();
-    }
-  }
-}
-
-// Invoked when cdc when line state changed e.g connected/disconnected
-void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts)
-{
-  (void) itf;
-  (void) rts;
-
-  // TODO set some indicator
-  if ( dtr )
-  {
-    // Terminal connected
-  }else
-  {
-    // Terminal disconnected
-  }
-}
-
-// Invoked when CDC interface received data from host
-void tud_cdc_rx_cb(uint8_t itf)
-{
-  (void) itf;
-}
 
 //--------------------------------------------------------------------+
 // Device callbacks
@@ -186,7 +135,6 @@ void tud_resume_cb(void)
 }
 
 
-
 //--------------------------------------------------------------------+
 // BLINKING TASK
 //--------------------------------------------------------------------+
@@ -201,16 +149,38 @@ void led_blinking_task(void)
 
   
   board_led_write(led_state);
-    static count = 0;
-  //printf("Hello\n");
-  if( tud_cdc_connected()){
-    char str[256];
-    sprintf(str, "Hello! %u\r\n", count++);
-
-    tud_cdc_write_str(str);
-    tud_cdc_write_flush();
-  }
+  static count = 0;
+  printf("count=%u\r\n", count++);
   led_state = 1 - led_state; // toggle
+
+  static int welcome = 0;
+  if(tud_cdc_connected()){
+    if(!welcome){
+      welcome = 1;
+      
+
+    printf("     ______    ___   __   __   _______ \n");
+    printf("    |      |  |___| |  | |  | |   _   |\n");
+    printf("    |  _    |  ___  |  |_|  | |  |_|  |\n");
+    printf("    | | |   | |   | |       | |       |\n");
+    printf("    | |_|   | |   | |       | |       |\n");
+    printf("    |       | |   |  |     |  |   _   |\n");
+    printf("    |______|  |___|   |___|   |__| |__|\n");
+
+
+    printf("   - Digital Video Interface for Boson -\n");
+    printf("\n (c) Copyright 2019-2021 GetLabs \n");
+    printf(" fw built: "__DATE__ " " __TIME__ " \n\n");
+
+    printf("   Firmware git sha1: "DIVA_GIT_SHA1"\n");
+    printf("      Migen git sha1: "MIGEN_GIT_SHA1"\n");
+    printf("      LiteX git sha1: "LITEX_GIT_SHA1"\n");
+
+
+    }
+  }else{
+    welcome = 0;
+  }
 }
 
 

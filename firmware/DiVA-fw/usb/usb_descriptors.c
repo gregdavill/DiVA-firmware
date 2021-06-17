@@ -52,8 +52,8 @@ tusb_desc_device_t const desc_device =
 
     .bMaxPacketSize0    = CFG_TUD_ENDPOINT0_SIZE,
 
-    .idVendor           = 0xCafe,
-    .idProduct          = USB_PID,
+    .idVendor           = 0x16d0,
+    .idProduct          = 0x0fad,
     .bcdDevice          = 0x0100,
 
     .iManufacturer      = 0x01,
@@ -176,11 +176,11 @@ uint8_t const * tud_descriptor_configuration_cb(uint8_t index)
 char const* string_desc_arr [] =
 {
   (const char[]) { 0x09, 0x04 }, // 0: is supported language is English (0x0409)
-  "TinyUSB",                     // 1: Manufacturer
-  "TinyUSB Device",              // 2: Product
-  "123456",                      // 3: Serials, should use chip ID
-  "TinyUSB CDC",                 // 4: CDC Interface
-  "TinyUSB MSC",                 // 5: MSC Interface
+  "Get Labs",                    // 1: Manufacturer
+  "Boson Digital Video Adapter", // 2: Product
+  "sssssssssssss",               // 3: Serials, should use chip ID
+  "Boson DiVA CDC",                 // 4: CDC Interface
+  "Boson DiVA MSC",                 // 5: MSC Interface
 };
 
 static uint16_t _desc_str[32];
