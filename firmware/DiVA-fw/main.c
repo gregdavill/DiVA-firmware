@@ -50,6 +50,10 @@ void isr(void){
     system_ticks++;
     timer0_ev_pending_write(1);
   }
+
+  if (irqs & (1 << PPU_INTERRUPT)) {
+    gui_isr();
+  }
 }
 
 void led_blinking_task(void);
@@ -63,17 +67,17 @@ int main(int i, char **c)
   irq_setie(1);
   
   timer_init();
-  tusb_init();
+  //tusb_init();
 
   board_led_write(2);
-//	ppu_start();
 
-  //board_init();
+  gui_init();
+  ppu_start();
 
 	while(1){
-    tud_task(); // tinyusb device task
+    //tud_task(); // tinyusb device task
     //cdc_task();
-    led_blinking_task();
+    //led_blinking_task();
 
     int b_val = button_raw_read();
     if(b_val & BUTTON_A_HOLD){

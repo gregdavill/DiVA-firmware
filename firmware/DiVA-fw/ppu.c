@@ -9,10 +9,10 @@ void ppu_start(void){
 
     ppu_initiator_enable_write(0);
 
+	irq_setmask(irq_getmask() | (1 << PPU_INTERRUPT));
     ppu_ev_pending_write(ppu_ev_pending_read());
 	ppu_ev_enable_write(1);
 
-	irq_setmask( (1 << PPU_INTERRUPT));
 
     /* Start GDPI output at 1280x720 */
 	ppu_initiator_hres_write(1280);

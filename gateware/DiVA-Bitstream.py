@@ -226,7 +226,7 @@ class DiVA_SoC(SoCCore):
                           cpu_type='vexriscv', cpu_variant='standard', with_uart=False,
                           csr_data_width=32,
                           ident_version=False, wishbone_timeout_cycles=128,
-                          integrated_sram_size=16*1024,
+                          integrated_sram_size=32*1024,
                           cpu_reset_address=self.mem_map['sram'])
         
         # Toolchain config

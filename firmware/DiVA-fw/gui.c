@@ -3,11 +3,13 @@
 #include <ppu.h>
 #include <generated/csr.h>
 
-//#include <gui/font.h>
+#include <gui/font.h>
 
 
 
-static volatile uint32_t array[1024];
+static volatile uint32_t array0[1024];
+static volatile uint32_t array1[1024];
+static volatile uint32_t* buffer;
 
 const int sin[] = {200, 219, 238, 258, 276, 294, 311, 326, 341, 354, 366, 376, 384, 391, 396, 399, 399, 399, 396, 391, 384, 376, 366, 354, 341, 327, 311, 294, 276, 258, 239, 219, 200, 180, 161, 142, 123, 106, 89, 73, 58, 45, 33, 23, 15, 8, 3, 1, 0, 0, 3, 8, 15, 23, 33, 45, 58, 72, 88, 105, 122, 141, 160, 179};
 
@@ -42,7 +44,7 @@ size_t square(ppu_instr_t *prog, int x0, int y0, int x1, int y1, int r, int g, i
 }
 
 size_t blit(ppu_instr_t *prog, int x, int y, int c){
-	prog += cproc_blit(prog, PPU_SIZE_16, x, y, ((uint32_t)array >> 2) + (512 + (c*16)));
+	prog += cproc_blit(prog, PPU_SIZE_16, x, y, ((uint32_t)array0 >> 2) + (512 + (c*16)));
 	return 2;
 }
 
@@ -50,21 +52,26 @@ size_t blit(ppu_instr_t *prog, int x, int y, int c){
 
 void gui_init(){
 
-    ppu_ppu_pc_write((uint32_t)array >> 2);
-	uint32_t* ptr = (ppu_instr_t*)array;
+	buffer = array0;
+    ppu_ppu_pc_write((uint32_t)buffer >> 2);
+
 
 	//ptr += cproc_clip(ptr, 0, 40);
 	//ptr += cproc_fill(ptr, 0,255,0);
-	//ptr += cproc_sync(ptr);
+	cproc_sync(buffer);
 
-	//for(int i = 0; i < sizeof(font)/sizeof(uint32_t); i++){
-	//	ptr[i + 512] = ~font[i];
-	//}
+	for(int i = 0; i < sizeof(font)/sizeof(uint32_t); i++){
+		array0[i + 512] = ~font[i];
+		array1[i + 512] = ~font[i];
+	}
 }
 
 
 void gui_isr(){
+	timer1_update_value_write(1);
+    cycle_cnt =  -timer1_value_read();
 	
+
 	val = sin[counter]/4;
 
 			cnt0++;
@@ -81,7 +88,17 @@ void gui_isr(){
 	}
 
 
-	ppu_instr_t* ptr = (ppu_instr_t*)array;
+
+	/* Swap buffers */
+	//ppu_ppu_pc_write((uint32_t)buffer >> 2);
+	if(buffer == array1){
+		buffer = array0;
+	}else{
+		buffer = array1;
+	}
+	ppu_instr_t* ptr = (ppu_instr_t*)array0;
+
+
 
 	uint32_t* vector;
 
@@ -154,5 +171,11 @@ void gui_isr(){
 
 	ptr += cproc_sync(ptr);
 	
-    cycle_cnt = ((uint32_t)(ptr) >> 2) & 0xFFFF;//CONFIG_CLOCK_FREQUENCY/30 - timer0_value_read();
+
+    ppu_ev_pending_write(ppu_ev_pending_read());
+
+	timer1_en_write(0);
+	timer1_reload_write(0);
+	timer1_load_write(-1);
+	timer1_en_write(1);
 }
