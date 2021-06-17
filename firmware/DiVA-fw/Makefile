@@ -11,7 +11,7 @@ OBJECTS+= usb.o usb_descriptors.o msc_disk.o bswapsi2.o
 vpath % $(DIVA-FW_DIRECTORY) $(DIVA-FW_DIRECTORY)/boson
 vpath % $(DIVA-FW_DIRECTORY) $(DIVA-FW_DIRECTORY)/usb
 
-all: DiVA-fw.bin size
+all: DiVA-fw.bin size lst
 
 %.bin: %.elf
 	$(OBJCOPY) -O binary $< $@
@@ -53,6 +53,9 @@ clean:
 
 size:
 	$(TARGET_PREFIX)size DiVA-fw.elf
+
+lst:
+	$(TARGET_PREFIX)objdump -d DiVA-fw.elf > DiVA-fw.lst
 
 
 .PHONY: all clean

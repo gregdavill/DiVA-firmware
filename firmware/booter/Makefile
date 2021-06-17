@@ -9,7 +9,7 @@ OBJECTS=crt0.o main.o spi.o
 
 vpath % $(BOOTER_DIRECTORY)
 
-all: booter.bin
+all: booter.bin lst
 
 %.bin: %.elf
 	$(OBJCOPY) -O binary $< $@
@@ -44,5 +44,9 @@ endif
 
 clean:
 	$(RM) $(OBJECTS) booter.elf booter.bin .*~ *~
+
+lst:
+	$(TARGET_PREFIX)objdump -d booter.elf > booter.lst
+
 
 .PHONY: all clean
