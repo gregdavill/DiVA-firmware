@@ -6,18 +6,16 @@ import struct
 import binascii
 
 
-def CombineBinaryFiles(flash_regions_final):
+def CombineBinaryFiles(flash_regions_final, output_file):
     flash_regions = {}
 
-    offset = int("0x00080000", 16)
+    offset = 0x00080000
     for filename, base in flash_regions_final.items():
-        base = int(base, 16)
         new_address = base - offset
         print(f'Moving {filename} from 0x{base:08x} to 0x{new_address:08x}')
         flash_regions[filename] = new_address
 
 
-    output_file = 'combine.dfu'
     total_len = 0
     with open(output_file, "wb") as f:
         for filename, base in flash_regions.items():

@@ -357,29 +357,34 @@ class DiVA_SoC(SoCCore):
 
 
     def PackageFirmware(self, builder):  
-        self.finalize()
-
-
-        os.makedirs(builder.output_dir, exist_ok=True)
-
         # Remove un-needed sw packages
         builder.software_packages = []
         builder.add_software_package("libcompiler_rt")
         builder.add_software_package("libbase")
         
         builder.add_software_package("tinyusb", "{}/../firmware/tinyusb".format(os.getcwd()))
-        builder.add_software_package("booter", "{}/../firmware/booter".format(os.getcwd()))
         builder.add_software_package("DiVA-fw", "{}/../firmware/DiVA-fw".format(os.getcwd()))
 
         builder._prepare_rom_software()
         builder._generate_includes()
         builder._generate_rom_software(compile_bios=False)
 
-        firmware_file = "{}/software/booter/booter.bin".format(builder.output_dir)
-        self.init_rom('sram', get_mem_data(firmware_file, self.cpu.endianness))
-
         # lock out compiling firmware during build steps
         builder.compile_software = False
+
+    def PackageBooter(self, builder):  
+        self.finalize()
+        os.makedirs(builder.output_dir, exist_ok=True)
+
+        # Remove un-needed sw packages
+        builder.software_packages = []
+        builder.add_software_package("booter", "{}/../firmware/booter".format(os.getcwd()))
+        
+        builder._prepare_rom_software()
+        builder._generate_includes()
+        builder._generate_rom_software(compile_bios=False)
+
+        
 
 
 def CreateFirmwareInit(init, output_file):
@@ -403,42 +408,82 @@ def main():
 
     soc.write_usb_csr(builder.generated_dir)
 
-    # Build firmware
-    soc.PackageFirmware(builder)
         
 
     # Check if we have the correct files
     firmware_file = os.path.join(builder.output_dir, "software", "DiVA-fw", "DiVA-fw.bin")
-    firmware_data = get_mem_data(firmware_file, soc.cpu.endianness)
-    firmware_init = os.path.join(builder.output_dir, "software", "DiVA-fw", "DiVA-fw.init")
-    CreateFirmwareInit(firmware_data, firmware_init)
+    
+    
+    rand_rom = os.path.join(builder.output_dir, "gateware", "rand.data")
     
     input_config = os.path.join(builder.output_dir, "gateware", f"{soc.platform.name}.config")
     
-    # If we don't have a random file, create one, and recompile gateware
-    if args.update_firmware == False:
-    
+    # Create 256bytes rand fill for BRAM
+    if (os.path.exists(rand_rom) == False) or (args.update_firmware == False):
+        os.makedirs(os.path.join(builder.output_dir,'software'), exist_ok=True)
+        os.makedirs(os.path.join(builder.output_dir,'gateware'), exist_ok=True)
+        os.system(f"ecpbram  --generate {rand_rom} --seed {0} --width {32} --depth {2048 // 4}")
+
+        # patch random file into BRAM
+        data = []
+        with open(rand_rom, 'r') as inp:
+            for d in inp.readlines():
+                data += [int(d, 16)]
+        soc.sram.mem.init = data
+
         # Build gateware
-        vns = builder.build()
+        vns = builder.build(nowidelut=False)
         soc.do_exit(vns)    
 
     # create a compressed bitstream
-    output_bit = os.path.join(builder.output_dir, "gateware", "DiVA.dfu")
+    output_bit = os.path.join(builder.output_dir, "gateware", "diva.bit")
     os.system(f"ecppack --freq 38.8 --compress --input {input_config} --bit {output_bit}")
+    
+    # Determine Bitstream size
+    stage_1_filesize = os.path.getsize(output_bit)
+    firmware_offset = (stage_1_filesize + 0x200) & ~(0x100-1) # Add some fudge factor.
+    firmware_offset += 0x00080000 # bitstream offset
+    print(f"Compressed file size: 0x{stage_1_filesize:0x}")
+    print(f"Placing firmware at: 0x{firmware_offset:0x}")
+
+    
+
+    # Finalise the gateware aspects of the design. 
+    # Alter the spiflash origin so that our actual address is valid in the linker when compiling
+    # Compile booter, it makes use of SPIFLASH_BASE for the boot address
+    soc.finalize()
+    soc.mem_regions['spiflash'].origin += firmware_offset
+    soc.PackageBooter(builder)
+    
+    booter_file = "{}/software/booter/booter.bin".format(builder.output_dir)
+    booter_init = "{}/software/booter/booter.init".format(builder.output_dir)
+    CreateFirmwareInit(get_mem_data(booter_file, soc.cpu.endianness), booter_init)
+    
+    # Insert Firmware into Gateware
+    os.system(f"ecpbram  --input {input_config} --output {input_config} --from {rand_rom} --to {booter_init}")
+
+    # create a compressed bitstream
+    output_dfu = os.path.join(builder.output_dir, "gateware", "diva.dfu")
+    os.system(f"ecppack --freq 38.8 --compress --input {input_config} --bit {output_bit}")
+
+    # Due to bitstream compression the final size might change when we patch in the booter firmware.
+    stage_2_filesize = os.path.getsize(output_bit)
+    assert firmware_offset > stage_2_filesize # Sanity check that our bitstream didn't change too much.
+    print(f"Compressed file size: 0x{stage_2_filesize:0x}")
+    
+    # Build firmware
+    soc.PackageFirmware(builder)
 
     # Combine FLASH firmware
     from util.combine import CombineBinaryFiles
     flash_regions_final = {
-    #                                                         "0x00000000", # Bootloader
-        "build/gateware/DiVA.dfu":                            "0x00080000", # SoC ECP5 Bitstream
-        "build/software/DiVA-fw/DiVA-fw.bin":                 "0x000D0000", # Circuit PYthon
+        "build/gateware/diva.bit":            0x00080000, # SoC ECP5 Bitstream
+        "build/software/DiVA-fw/DiVA-fw.bin": firmware_offset, # Circuit PYthon
     }
-    CombineBinaryFiles(flash_regions_final)
-
-
+    CombineBinaryFiles(flash_regions_final, output_dfu)
 
     # Add DFU suffix
-    os.system(f"dfu-suffix -p 16d0 -d 0fad -a {output_bit}")
+    os.system(f"dfu-suffix -p 16d0 -d 0fad -a {output_dfu}")
 
     print(
     f"""DiVA build complete!  Output files:
