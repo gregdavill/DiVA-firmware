@@ -202,24 +202,6 @@ class _CRG(Module, AutoCSR):
 
 class DiVA_SoC(SoCCore):
     csr_map = {
-        "led"        :  10, 
-        "crg"        :  11, 
-        "hyperram"   :  12,
-        "terminal"   :  13,
-        "analyzer"   :  14,
-        "hdmi_i2c"   :  15,
-        "i2c0"       :  16,
-        "button"     :  18,
-        "reader"     :  19,
-        "writer"     :  20,
-        "buffers"    :  21,
-        "prbs"       :  23,
-        "reboot"     :  25,
-        "framer"     :  27,
-        "scaler"     :  28,
-        "boson"      :  29,
-        "ppu"          :31,
-        "pipeline_config" : 30,
     }
     csr_map.update(SoCCore.csr_map)
 
@@ -241,44 +223,26 @@ class DiVA_SoC(SoCCore):
         
         sys_clk_freq = 75e6
         SoCCore.__init__(self, platform, clk_freq=sys_clk_freq,
-                          cpu_type='vexriscv', cpu_variant='standard', with_uart=True, uart_name='stream',
+                          cpu_type='vexriscv', cpu_variant='standard', with_uart=False,
                           csr_data_width=32,
                           ident_version=False, wishbone_timeout_cycles=128,
                           integrated_sram_size=16*1024,
                           cpu_reset_address=self.mem_map['sram'])
         
-
+        # Toolchain config
         platform.toolchain.build_template[0] = "yosys -q -l {build_name}.rpt {build_name}.ys"
         platform.toolchain.build_template[1] += f" --log {platform.name}.log --router router1"
-        platform.toolchain.yosys_template[-1] += ' -abc2 -nowidelut'
-
-        # Fake a UART stream, to enable easy firmware reuse.
-        self.comb += self.uart.source.ready.eq(1)
+        platform.toolchain.yosys_template[-1] += ' -abc2 -nowidelut' # abc2/nowidelut generally give higher freq
     
-        # crg
+        # crg -------------------------------------------------------------------------------------
         self.submodules.crg = _CRG(platform, sys_clk_freq)
      
-        # DVI output
-        self.submodules.hdmi = hdmi = HDMI(platform.request("hdmi"))
+        # Timers -----------------------------------------------------------------------------------
+        self.add_timer(name="timer1")
+        self.add_timer(name="timer2")
 
-        # Pixel Processing Unit
-        self.submodules.ppu = ppu = VideoCore()
-
-        self.add_interrupt("ppu")
-        self.add_wb_master(ppu.bus)
-
-        self.comb += [
-            ppu.source.connect(hdmi.sink, omit=['data']),
-            hdmi.sink.r.eq(ppu.source.data[0:8]),
-            hdmi.sink.g.eq(ppu.source.data[8:16]),
-            hdmi.sink.b.eq(ppu.source.data[16:24]),
-        ]
-
-
-        # User inputs
-        button = platform.request("button")
-        self.submodules.button = Button(button)
-
+        # User inputs -----------------------------------------------------------------------------
+        self.submodules.button = Button(platform.request("button"))
 
         # Leds -------------------------------------------------------------------------------------
         _led_pins = platform.request_all("user_led")
@@ -293,16 +257,48 @@ class DiVA_SoC(SoCCore):
         self.add_constant("SPIFLASH_PAGE_SIZE", 256)
         self.add_constant("SPIFLASH_SECTOR_SIZE", 4096)
         
-    
-        ## HDMI output
+        # HyperRAM with DMAs -----------------------------------------------------------------------    
+        self.submodules.writer = writer = StreamWriter()
+        self.submodules.reader = reader = StreamReader()
+        self.submodules.hyperram = hyperram = StreamableHyperRAM(platform.request("hyperRAM"), devices=[reader, writer])
+        self.register_mem("hyperram", self.mem_map['hyperram'], hyperram.bus, size=0x800000)
+
+        # Attach a StreamBuffer module to handle buffering of frames
+        self.submodules.buffers = buffers = StreamBuffers()
+        self.comb += [
+            buffers.rx_release.eq(reader.evt_done),
+            reader.start_address.eq(buffers.rx_buffer),
+            writer.start_address.eq(buffers.tx_buffer),
+        ]
+
+        # PRBS Tester, used to test HyperRAM DMAs --------------------------------------------------
+        self.submodules.prbs = PRBSStream()
+        reader.add_source(self.prbs.source.source, "prbs")
+        writer.add_sink(self.prbs.sink.sink, "prbs")
+
+        # Pixel Processing Unit
+        self.submodules.ppu = ppu = VideoCore()
+        self.add_interrupt("ppu")
+        self.add_wb_master(ppu.bus)
+
+        # DVI output, over HDMI connector ---------------------------------------------------------
         self.submodules.hdmi_i2c = I2CMaster(platform.request("hdmi_i2c"))
+        self.submodules.hdmi = hdmi = HDMI(platform.request("hdmi"))
+        self.comb += [
+            ppu.source.connect(hdmi.sink, omit=['data']),
+            hdmi.sink.r.eq(ppu.source.data[0:8]),
+            hdmi.sink.g.eq(ppu.source.data[8:16]),
+            hdmi.sink.b.eq(ppu.source.data[16:24]),
+        ]
 
-
-        # I2C EEPROM
+        # i2c0 -----------------------------------------------------------------------------------
+        # Connected to I2C EEPROM used to store setting
         self.submodules.i2c0 = I2CMaster(platform.request("i2c"))
 
+        # Reboot ---------------------------------------------------------------------------------
         self.submodules.reboot = Reboot(platform.request("rst_n"))
-        
+
+        # USB -------------------------------------------------------------------------------------
         usb_pads = platform.request("usb")
 
         # Select Boson as USB target
@@ -313,20 +309,14 @@ class DiVA_SoC(SoCCore):
         if hasattr(usb_pads, "sw_oe"):
             self.comb += usb_pads.sw_oe.eq(0)
 
-        
         # Attach USB to a seperate CSR bus that's decoupled from our CPU clock
+        # This is a pretty ugly solution. It would be nice to be able to handle this in a neater fashion.
         usb_iobuf = IoBuf(usb_pads.d_p, usb_pads.d_n, usb_pads.pullup)
         self.submodules.usb = CSRClockDomainWrapper(usb_iobuf, platform)
         self.comb += self.cpu.interrupt[4].eq(self.usb.irq)
 
         from litex.soc.integration.soc_core import SoCRegion
         self.bus.add_slave('usb',  self.usb.bus, SoCRegion(origin=0x90000000, size=0x1000, cached=False))
-
-
-
-        #self.submodules.usb = TriEndpointInterface(usb_iobuf, cdc=True)
-        #self.add_csr("usb")
-        #self.add_interrupt("usb")
 
         # Add git version into firmware 
         def get_git_revision():

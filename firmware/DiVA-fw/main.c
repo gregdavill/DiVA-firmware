@@ -176,6 +176,17 @@ void led_blinking_task(void)
     printf("      Migen git sha1: "MIGEN_GIT_SHA1"\n");
     printf("      LiteX git sha1: "LITEX_GIT_SHA1"\n");
 
+	/* On power up we need these to be set to 0 so that 
+	 * PRBS memtest still works */
+	buffers_adr0_write(0x0);
+	buffers_adr1_write(0x0);
+	buffers_adr2_write(0x0);
+
+hyperram_init();
+
+	printf("\n");	
+
+	prbs_memtest(HYPERRAM_BASE, HYPERRAM_SIZE);
 
     }
   }else{

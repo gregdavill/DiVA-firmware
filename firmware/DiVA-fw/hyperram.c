@@ -54,10 +54,14 @@ void set_clk_delay(int cnt){
 static int basic_memtest(void){
 
 	*((volatile uint32_t*)HYPERRAM_BASE) = 0xFF55AACD;
+	flush_cpu_dcache();
 	if(*((volatile uint32_t*)HYPERRAM_BASE) != 0xFF55AACD)
 		return 0;
 //
+
+flush_cpu_icache();
 	*((volatile uint32_t*)HYPERRAM_BASE) = 0xA3112233;
+	flush_cpu_dcache();
 	if(*((volatile uint32_t*)HYPERRAM_BASE) != 0xA3112233)
 		return 0;
 	
@@ -140,15 +144,16 @@ void prbs_memtest(uint32_t base, uint32_t len){
 		uint32_t end;
 
 		/* init timer */
-	timer0_en_write(0);
-	timer0_reload_write(0);
-	timer0_load_write(0xffffffff);
-	timer0_en_write(1);
+	timer1_en_write(0);
+	timer1_reload_write(0);
+	timer1_load_write(0xffffffff);
+	timer1_en_write(1);
 
-	uint32_t burst = 320;
+	uint32_t burst = (4e-6 * CONFIG_CLOCK_FREQUENCY);
+	printf("Setting Burst to %u for 4us cycle\n", burst);
 
-	reader_source_mux_write(1);
-	writer_sink_mux_write(1);
+	reader_source_mux_write(0);
+	writer_sink_mux_write(0);
 
 	prbs_source_reset_write(1);
 
@@ -160,14 +165,14 @@ void prbs_memtest(uint32_t base, uint32_t len){
 
 
 	/* write speed */
-	timer0_update_value_write(1);
-	start = timer0_value_read();
+	timer1_update_value_write(1);
+	start = timer1_value_read();
 
 	reader_enable_write(1);
 	while(reader_done_read() == 0);
 
-	timer0_update_value_write(1);
-	end = timer0_value_read();
+	timer1_update_value_write(1);
+	end = timer1_value_read();
 
 	uint32_t rate = (CONFIG_CLOCK_FREQUENCY*10)/((start-end)/8);
 	printf("Write Speed: %u.%u MBytes/s ( %u cycles )\n", rate / 10, rate % 10, start-end);
@@ -182,14 +187,14 @@ void prbs_memtest(uint32_t base, uint32_t len){
 
 
 	/* write speed */
-	timer0_update_value_write(1);
-	start = timer0_value_read();
+	timer1_update_value_write(1);
+	start = timer1_value_read();
 
 	writer_enable_write(1);
 	while(writer_done_read() == 0);
 
-	timer0_update_value_write(1);
-	end = timer0_value_read();
+	timer1_update_value_write(1);
+	end = timer1_value_read();
 	
 	rate = (CONFIG_CLOCK_FREQUENCY*10)/((start-end)/8);
 	printf("Read Speed:  %u.%u MBytes/s ( %u cycles )\n", rate / 10, rate % 10, start-end);
