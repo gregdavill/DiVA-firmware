@@ -38,8 +38,7 @@
 
 #include "device/dcd.h"
 #include "dcd_eptri.h"
-#include "csr_usb.h"
-#define USB_INTERRUPT 4
+#include "csr.h"
 #include "irq.h"
 void fomu_error(uint32_t line);
 

@@ -13,14 +13,16 @@ from migen.genlib.cdc import BusSynchronizer, PulseSynchronizer, MultiReg
 
 
 
-from litex.soc.interconnect import csr_bus, wishbone
-from migen.genlib.fsm import FSM, NextState
+from litex.soc.interconnect import wishbone
 
 from valentyusb.usbcore.cpu import eptri
 
 import os
 
-from litex.soc.interconnect.csr import _make_gatherer, _CSRBase, csrprefix
+# LiteX looks for our irq signal inside the EventManager submodule
+class MockEventManager(Module):
+    def __init__(self):
+        self.irq = Signal()
 
 class CSRClockDomainWrapper(Module):
     def get_csr(self):
@@ -28,6 +30,7 @@ class CSRClockDomainWrapper(Module):
 
     def __init__(self, usb_iobuf, platform):
         self.bus = wishbone.Interface()
+        self.submodules.ev = MockEventManager()
         
         usb12_bus = wishbone.Interface()
         # create a new custom CSR bus
@@ -71,6 +74,5 @@ class CSRClockDomainWrapper(Module):
         platform.add_source_dir("{}/rtl/verilog".format(os.getcwd()))
 
         # Patch interrupt through
-        self.irq = Signal()
-        self.specials += MultiReg(usb.ev.irq, self.irq)
+        self.specials += MultiReg(usb.ev.irq, self.ev.irq)
         

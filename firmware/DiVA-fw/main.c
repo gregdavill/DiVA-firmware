@@ -33,8 +33,6 @@
 /* prototypes */
 void isr(void);
 
-#define USB_INTERRUPT 4
-
 extern volatile uint32_t system_ticks;
 void isr(void){
 	__attribute__((unused)) unsigned int irqs;
@@ -52,7 +50,7 @@ void isr(void){
   }
 
   if (irqs & (1 << PPU_INTERRUPT)) {
-    gui_isr();
+    //gui_isr();
   }
 }
 
@@ -67,16 +65,16 @@ int main(int i, char **c)
   irq_setie(1);
   
   timer_init();
-  //tusb_init();
+  tusb_init();
 
   board_led_write(2);
 
-  gui_init();
-  ppu_start();
+  //gui_init();
+  //ppu_start();
 
 	while(1){
-    //tud_task(); // tinyusb device task
-    //cdc_task();
+    tud_task(); // tinyusb device task
+    cdc_task();
     //led_blinking_task();
 
     int b_val = button_raw_read();

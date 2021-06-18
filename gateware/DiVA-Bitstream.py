@@ -313,10 +313,10 @@ class DiVA_SoC(SoCCore):
         # This is a pretty ugly solution. It would be nice to be able to handle this in a neater fashion.
         usb_iobuf = IoBuf(usb_pads.d_p, usb_pads.d_n, usb_pads.pullup)
         self.submodules.usb = CSRClockDomainWrapper(usb_iobuf, platform)
-        self.comb += self.cpu.interrupt[4].eq(self.usb.irq)
+        self.add_interrupt('usb')
 
         from litex.soc.integration.soc_core import SoCRegion
-        self.bus.add_slave('usb',  self.usb.bus, SoCRegion(origin=0x90000000, size=0x1000, cached=False))
+        self.bus.add_slave('usb',  self.usb.bus, SoCRegion(origin=0xe0000000, size=0x1000, cached=False))
 
         # Add git version into firmware 
         def get_git_revision():
@@ -327,19 +327,12 @@ class DiVA_SoC(SoCCore):
                 r = "--------"
             return r
         self.add_constant("DIVA_GIT_SHA1", get_git_revision())
-   
-    # Generate the CSR for the USB
-    def write_usb_csr(self, directory):
-        csrs = self.usb.get_csr()
 
-        from litex.soc.integration import export
-        from litex.build.tools import write_to_file
-        from litex.soc.integration.soc_core import SoCCSRRegion
-        os.makedirs(directory, exist_ok=True)
-        write_to_file(
-            os.path.join(directory, "csr_usb.h"),
-            export.get_csr_header({"usb" : SoCCSRRegion(0x90000000, 32, csrs)}, self.constants)
-        )
+    def finalize(self, *args, **kwargs):
+        csrs = self.usb.get_csr()
+        self.add_csr_region("usb", 0xe0000000, 32, csrs)
+
+        return super().finalize(*args, **kwargs)
 
     def do_exit(self, vns):
         if hasattr(self, "analyzer"):
@@ -364,6 +357,7 @@ class DiVA_SoC(SoCCore):
 
     def PackageBooter(self, builder):  
         self.finalize()
+
         os.makedirs(builder.output_dir, exist_ok=True)
 
         # Remove un-needed sw packages
@@ -394,11 +388,7 @@ def main():
     args = parser.parse_args()
 
     soc = DiVA_SoC()
-    builder = Builder(soc, output_dir="build", csr_csv="build/csr.csv")
-
-    soc.write_usb_csr(builder.generated_dir)
-
-        
+    builder = Builder(soc, output_dir="build", csr_csv="build/csr.csv")        
 
     # Check if we have the correct files
     firmware_file = os.path.join(builder.output_dir, "software", "DiVA-fw", "DiVA-fw.bin")
