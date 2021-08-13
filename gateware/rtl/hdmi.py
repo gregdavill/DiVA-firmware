@@ -27,7 +27,7 @@ class _ECP5OutSerializer(Module):
         else:
             self.sync.video_shift += data_out.eq(_data[0:2])
 
-        self.specials += _DDROutput(data_out[0], data_out[1], pad,
+        self.specials += DDROutput(data_out[0], data_out[1], pad,
                                     ClockSignal("video_shift"))
 
 
