@@ -213,22 +213,19 @@ class PPU(Module, AutoCSR):
         ]
         hsync_ps = PulseSynchronizer('video', 'sys')
         vsync_ps = PulseSynchronizer('video', 'sys')
-        next_frame_ps = PulseSynchronizer('video', 'sys')
         de_ps = PulseSynchronizer('video', 'sys')
+        self.submodules += hsync_ps, vsync_ps, de_ps
         
-        self.submodules += hsync_ps, vsync_ps, de_ps, next_frame_ps
 
         starter = Signal(2)
         self.comb += [
             de_ps.i.eq(last_de & ~sink.de),
             hsync_ps.i.eq(~last_hsync & sink.hsync),
             vsync_ps.i.eq(last_vsync & ~sink.vsync),
-
-            next_frame_ps.i.eq(~last_vsync & sink.vsync),
             
             frame_end.eq(vsync_ps.o),
             buffer_swap.eq(((starter[0] | starter[1]) & hsync_ps.o) | de_ps.o),
-            self.next_frame.eq(next_frame_ps.o)
+            self.next_frame.eq(vsync_ps.o)
         ]
 
 
@@ -311,28 +308,35 @@ class PPU(Module, AutoCSR):
             pal_mux.mode.eq(0)
         ]
         
+        base_addr = Signal(32)
+
 
         fsm.act('RESET',
-            wb_ctrl.adr_w.eq(csr_pc.storage),
-            wb_ctrl.we.eq(1),
-            If(frame_end,
+             If(frame_end,
+                wb_ctrl.adr_w.eq(csr_pc.storage),
+                wb_ctrl.we.eq(1),
+                NextValue(base_addr,csr_pc.storage),
                 NextValue(y_counter,0),
-                NextState('IDLE')
-            )
+                NextState('DECODE0'),
+            ),
         )
 
         fsm.act('IDLE',
-            wb_ctrl.adr_w.eq(csr_pc.storage),
-            wb_ctrl.we.eq(1),
-            
             If(frame_end,
+                wb_ctrl.adr_w.eq(csr_pc.storage),
+                wb_ctrl.we.eq(1),
+                NextValue(base_addr,csr_pc.storage),
                 NextValue(y_counter,0),
-                NextState('DECODE'),
+                NextState('DECODE0'),
             ),
             If(buffer_swap,
-                NextState('DECODE'),
+                wb_ctrl.adr_w.eq(base_addr),
+                wb_ctrl.we.eq(1),
+                NextState('DECODE0'),
             )
         )
+
+        fsm.delayed_enter('DECODE0', 'DECODE', 1)
 
         fsm.act('DECODE',
             #NextValue(op_idx,op_idx + 1),

@@ -59,7 +59,7 @@ static inline size_t cproc_sync(ppu_instr_t *prog)
 }
 
 static inline size_t cproc_clip(ppu_instr_t *prog, uint16_t x_start, uint16_t x_end) {
-	*prog++ = PPU_CPROC_CLIP | (x_start & 0xfffu) | ((x_end & 0xfffu) << 12);
+	*prog++ = PPU_CPROC_CLIP | ((x_end & 0xfffu) << 12) | (x_start & 0xfffu) ;
 	return 1;
 }
 

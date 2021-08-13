@@ -54,7 +54,7 @@ size:
 	$(TARGET_PREFIX)size DiVA-fw.elf
 
 lst:
-	$(TARGET_PREFIX)objdump -d DiVA-fw.elf > DiVA-fw.lst
+	$(TARGET_PREFIX)objdump -dS DiVA-fw.elf > DiVA-fw.lst
 
 
 .PHONY: all clean

@@ -30,6 +30,8 @@
 #include "tusb.h"
 #include "usb/cdc.h"
 
+volatile uint8_t flag = 0;
+
 /* prototypes */
 void isr(void);
 
@@ -49,9 +51,15 @@ void isr(void){
     timer0_ev_pending_write(1);
   }
 
-  if (irqs & (1 << PPU_INTERRUPT)) {
-    //gui_isr();
+   if (irqs & (1 << TIMER1_INTERRUPT)) {
+    timer0_ev_pending_write(1);
   }
+
+  if (irqs & (1 << PPU_INTERRUPT)) {
+    ppu_ev_pending_write(1);
+    flag = 1;
+  }
+
 }
 
 void led_blinking_task(void);
@@ -59,7 +67,7 @@ void led_blinking_task(void);
 int main(int i, char **c)
 {	
   console_set_write_hook((console_write_hook)cdc_write_hook);
-  board_led_write(6);
+  leds_out_write(1);
 
   irq_setmask(0);
   irq_setie(1);
@@ -67,15 +75,23 @@ int main(int i, char **c)
   timer_init();
   tusb_init();
 
-  board_led_write(2);
+  leds_out_write(2);
 
-  //gui_init();
-  //ppu_start();
+  gui_init();
+  leds_out_write(4);
+  ppu_start();
+
+  leds_out_write(0xF);
 
 	while(1){
     tud_task(); // tinyusb device task
     cdc_task();
-    //led_blinking_task();
+    led_blinking_task();
+
+    if(flag){
+      flag = 0;
+       gui_render();
+    }
 
     int b_val = button_raw_read();
     if(b_val & BUTTON_A_HOLD){
@@ -177,6 +193,10 @@ void led_blinking_task(void)
     printf("   Firmware git sha1: "DIVA_GIT_SHA1"\n");
     printf("      Migen git sha1: "MIGEN_GIT_SHA1"\n");
     printf("      LiteX git sha1: "LITEX_GIT_SHA1"\n");
+
+
+    printf("   Clock Frequency: %u.%02uMHz\n", (int)(CONFIG_CLOCK_FREQUENCY / 1e6), (int)(CONFIG_CLOCK_FREQUENCY/ 1e4) % 100);
+    printf("   HypeRAM Frequency: %u.%02uMHz\n", (int)(2*CONFIG_CLOCK_FREQUENCY / 1e6), (int)(2*CONFIG_CLOCK_FREQUENCY/ 1e4) % 100);
 
 	/* On power up we need these to be set to 0 so that 
 	 * PRBS memtest still works */

@@ -1,8 +1,6 @@
-
 from migen import *
 from migen.fhdl.specials import TSTriple
 from migen.fhdl.decorators import ClockDomainsRenamer
-
 
 #from litex.soc.interconnect.wishbone2csr import WB2CSR
 from litex.soc.interconnect.csr_bus import CSRBank
@@ -11,18 +9,18 @@ from litex.soc.interconnect.csr import AutoCSR
 from litex.soc.interconnect.stream import AsyncFIFO, SyncFIFO
 from migen.genlib.cdc import BusSynchronizer, PulseSynchronizer, MultiReg
 
-
-
 from litex.soc.interconnect import wishbone
 
 from valentyusb.usbcore.cpu import eptri
 
 import os
 
+
 # LiteX looks for our irq signal inside the EventManager submodule
 class MockEventManager(Module):
     def __init__(self):
         self.irq = Signal()
+
 
 class CSRClockDomainWrapper(Module):
     def get_csr(self):
@@ -31,19 +29,22 @@ class CSRClockDomainWrapper(Module):
     def __init__(self, usb_iobuf, platform):
         self.bus = wishbone.Interface()
         self.submodules.ev = MockEventManager()
-        
+
         usb12_bus = wishbone.Interface()
         # create a new custom CSR bus
-        self.submodules.csr = ClockDomainsRenamer({'sys':'usb_12'})(wishbone.Wishbone2CSR(usb12_bus))
+        self.submodules.csr = ClockDomainsRenamer({'sys': 'usb_12'})(
+            wishbone.Wishbone2CSR(usb12_bus))
         csr_cpu = self.csr.csr
 
-        self.submodules.usb = usb = ClockDomainsRenamer({'sys':'usb_12'})(eptri.TriEndpointInterface(usb_iobuf, debug=False))
+        self.submodules.usb = usb = ClockDomainsRenamer({'sys': 'usb_12'})(
+            eptri.TriEndpointInterface(usb_iobuf, debug=False))
         csrs = self.usb.get_csrs()
         # create a CSRBank for the eptri CSRs
-        self.submodules.csr_bank = ClockDomainsRenamer({'sys':'usb_12'})(CSRBank(csrs, 0,  self.csr.csr))
-        
-        
-        self.specials += Instance("wb_cdc",
+        self.submodules.csr_bank = ClockDomainsRenamer({'sys': 'usb_12'})(
+            CSRBank(csrs, 0, self.csr.csr))
+
+        self.specials += Instance(
+            "wb_cdc",
             i_wbm_clk=ClockSignal(),
             i_wbm_rst=ResetSignal(),
             i_wbm_adr_i=self.bus.adr,
@@ -56,7 +57,6 @@ class CSRClockDomainWrapper(Module):
             #o_wbm_err_o=self.bus.err,
             #o_wbm_rty_o=,
             i_wbm_cyc_i=self.bus.cyc,
-
             i_wbs_clk=ClockSignal("usb_12"),
             i_wbs_rst=ResetSignal("usb_12"),
             o_wbs_adr_o=usb12_bus.adr,
@@ -75,4 +75,3 @@ class CSRClockDomainWrapper(Module):
 
         # Patch interrupt through
         self.specials += MultiReg(usb.ev.irq, self.ev.irq)
-        

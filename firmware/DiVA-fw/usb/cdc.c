@@ -1,20 +1,20 @@
 #include "tusb.h"
 
 void cdc_write_hook(uint8_t c){
-    //if (tud_cdc_connected() ){
+  if (tud_cdc_connected() ){
     while(tud_cdc_write_available() == 0){
         tud_task();
     }
 
-        if(c == '\n')
-            tud_cdc_write_char('\r');
+    if(c == '\n')
+        tud_cdc_write_char('\r');
 
-        tud_cdc_write_char(c);
+    tud_cdc_write_char(c);
 
-        if(c == '\n'){
-            tud_cdc_write_flush();
-        }
-    //}
+    if(c == '\n'){
+        tud_cdc_write_flush();
+    }
+  }
 }
 
 void cdc_task(void)
