@@ -72,6 +72,7 @@ from rtl.video.ppu import VideoCore
 
 
 class _CRG(Module, AutoCSR):
+
     def __init__(self, platform, sys_clk_freq):
         self.clock_domains.cd_sys = ClockDomain()
         self.clock_domains.cd_video = ClockDomain()
@@ -94,8 +95,7 @@ class _CRG(Module, AutoCSR):
         self.submodules.pll = pll = ECP5PLL()
         pll.register_clkin(clk48, 48e6)
         pll.create_clkout(self.cd_hr2x, sys_clk_freq * 2, margin=0)
-        pll.create_clkout(self.cd_hr2x_90, sys_clk_freq * 2, phase=1,
-                          margin=0)  # SW tunes this phase during init
+        pll.create_clkout(self.cd_hr2x_90, sys_clk_freq * 2, phase=1, margin=0)  # SW tunes this phase during init
 
         self.comb += self.cd_init.clk.eq(clk48)
 
@@ -135,12 +135,10 @@ class _CRG(Module, AutoCSR):
 
         platform.add_period_constraint(self.cd_usb_12.clk, period_ns(12e6))
         platform.add_period_constraint(self.cd_usb_48.clk, period_ns(48e6))
-        platform.add_period_constraint(self.cd_sys.clk,
-                                       period_ns(sys_clk_freq))
+        platform.add_period_constraint(self.cd_sys.clk, period_ns(sys_clk_freq))
         platform.add_period_constraint(clk48, period_ns(48e6))
         platform.add_period_constraint(self.cd_video.clk, period_ns(pixel_clk))
-        platform.add_period_constraint(self.cd_video_shift.clk,
-                                       period_ns(pixel_clk * 5))
+        platform.add_period_constraint(self.cd_video_shift.clk, period_ns(pixel_clk * 5))
 
         self._slip_hr2x = CSRStorage()
         self._slip_hr2x90 = CSRStorage()
@@ -195,7 +193,7 @@ class DiVA_SoC(SoCCore):
             "vexriscv_debug": 0xf00f0000,
             "hyperram": 0x20000000,
             "spiflash": 0x30000000,
-        }
+        },
     }
 
     interrupt_map = {}
@@ -206,25 +204,24 @@ class DiVA_SoC(SoCCore):
         self.platform = platform = bosonHDMI_r0d3.Platform()
 
         sys_clk_freq = 82.5e6
-        SoCCore.__init__(self,
-                         platform,
-                         clk_freq=sys_clk_freq,
-                         cpu_type='vexriscv',
-                         cpu_variant='standard',
-                         with_uart=False,
-                         csr_data_width=32,
-                         ident_version=False,
-                         wishbone_timeout_cycles=128,
-                         integrated_sram_size=32 * 1024,
-                         cpu_reset_address=self.mem_map['sram'])
+        SoCCore.__init__(
+            self,
+            platform,
+            clk_freq=sys_clk_freq,
+            cpu_type='vexriscv',
+            cpu_variant='standard',
+            with_uart=False,
+            csr_data_width=32,
+            ident_version=False,
+            wishbone_timeout_cycles=128,
+            integrated_sram_size=32 * 1024,
+            cpu_reset_address=self.mem_map['sram'],
+        )
 
         # Toolchain config
-        platform.toolchain.build_template[
-            0] = "yosys -q -l {build_name}.rpt {build_name}.ys"
-        platform.toolchain.build_template[
-            1] += f" --log {platform.name}.log --router router1"
-        platform.toolchain.yosys_template[
-            -1] += ' -abc2 -nowidelut'  # abc2/nowidelut generally give higher freq
+        platform.toolchain.build_template[0] = "yosys -q -l {build_name}.rpt {build_name}.ys"
+        platform.toolchain.build_template[1] += f" --log {platform.name}.log --router router1"
+        platform.toolchain.yosys_template[-1] += ' -abc2 -nowidelut'  # abc2/nowidelut generally give higher freq
 
         # crg -------------------------------------------------------------------------------------
         self.submodules.crg = _CRG(platform, sys_clk_freq)
@@ -240,8 +237,7 @@ class DiVA_SoC(SoCCore):
         _led_pins = platform.request_all("user_led")
         led_pins = Signal(len(_led_pins))
         self.comb += _led_pins.eq(~led_pins)
-        self.submodules.leds = LedChaser(pads=led_pins,
-                                         sys_clk_freq=sys_clk_freq)
+        self.submodules.leds = LedChaser(pads=led_pins, sys_clk_freq=sys_clk_freq)
 
         # SPI Flash --------------------------------------------------------------------------------
         self.add_spi_flash(mode="4x", dummy_cycles=6)
@@ -251,12 +247,8 @@ class DiVA_SoC(SoCCore):
         # HyperRAM with DMAs -----------------------------------------------------------------------
         self.submodules.writer = writer = StreamWriter()
         self.submodules.reader = reader = StreamReader()
-        self.submodules.hyperram = hyperram = StreamableHyperRAM(
-            platform.request("hyperRAM"), devices=[reader, writer])
-        self.register_mem("hyperram",
-                          self.mem_map['hyperram'],
-                          hyperram.bus,
-                          size=0x800000)
+        self.submodules.hyperram = hyperram = StreamableHyperRAM(platform.request("hyperRAM"), devices=[reader, writer])
+        self.register_mem("hyperram", self.mem_map['hyperram'], hyperram.bus, size=0x800000)
 
         # Attach a StreamBuffer module to handle buffering of frames
         self.submodules.buffers = buffers = StreamBuffers()
@@ -288,13 +280,13 @@ class DiVA_SoC(SoCCore):
         self.add_constant("PPUMEM1_BASE", 0x41000000)
         self.add_constant("PPUMEM1_SIZE", 0x1000)
 
-        self.submodules += Crossbar(masters=[cpu_bus, ppu.bus],
-                                    slaves=[(mem_decoder(0x40000000,
-                                                         size=0x2000),
-                                             self.ppu_mem0.bus),
-                                            (mem_decoder(0x41000000,
-                                                         size=0x2000),
-                                             self.ppu_mem1.bus)])
+        self.submodules += Crossbar(
+            masters=[cpu_bus, ppu.bus],
+            slaves=[
+                (mem_decoder(0x40000000, size=0x2000), self.ppu_mem0.bus),
+                (mem_decoder(0x41000000, size=0x2000), self.ppu_mem1.bus),
+            ],
+        )
 
         # DVI output, over HDMI connector ---------------------------------------------------------
         self.submodules.hdmi_i2c = I2CMaster(platform.request("hdmi_i2c"))
@@ -331,16 +323,13 @@ class DiVA_SoC(SoCCore):
         self.add_interrupt('usb')
 
         from litex.soc.integration.soc_core import SoCRegion
-        self.bus.add_slave(
-            'usb', self.usb.bus,
-            SoCRegion(origin=0xe0000000, size=0x1000, cached=False))
+        self.bus.add_slave('usb', self.usb.bus, SoCRegion(origin=0xe0000000, size=0x1000, cached=False))
 
         # Add git version into firmware
         def get_git_revision():
             try:
-                r = subprocess.check_output(
-                    ["git", "rev-parse", "--short", "HEAD"],
-                    stderr=subprocess.DEVNULL)[:-1].decode("utf-8")
+                r = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"],
+                                            stderr=subprocess.DEVNULL)[:-1].decode("utf-8")
             except:
                 r = "--------"
             return r
@@ -363,10 +352,8 @@ class DiVA_SoC(SoCCore):
         builder.add_software_package("libcompiler_rt")
         builder.add_software_package("libbase")
 
-        builder.add_software_package(
-            "tinyusb", "{}/../firmware/tinyusb".format(os.getcwd()))
-        builder.add_software_package(
-            "DiVA-fw", "{}/../firmware/DiVA-fw".format(os.getcwd()))
+        builder.add_software_package("tinyusb", "{}/../firmware/tinyusb".format(os.getcwd()))
+        builder.add_software_package("DiVA-fw", "{}/../firmware/DiVA-fw".format(os.getcwd()))
 
         builder._prepare_rom_software()
         builder._generate_includes()
@@ -382,8 +369,7 @@ class DiVA_SoC(SoCCore):
 
         # Remove un-needed sw packages
         builder.software_packages = []
-        builder.add_software_package(
-            "booter", "{}/../firmware/booter".format(os.getcwd()))
+        builder.add_software_package("booter", "{}/../firmware/booter".format(os.getcwd()))
 
         builder._prepare_rom_software()
         builder._generate_includes()
@@ -410,23 +396,17 @@ def main():
     builder = Builder(soc, output_dir="build", csr_csv="build/csr.csv")
 
     # Check if we have the correct files
-    firmware_file = os.path.join(builder.output_dir, "software", "DiVA-fw",
-                                 "DiVA-fw.bin")
+    firmware_file = os.path.join(builder.output_dir, "software", "DiVA-fw", "DiVA-fw.bin")
 
     rand_rom = os.path.join(builder.output_dir, "gateware", "rand.data")
 
-    input_config = os.path.join(builder.output_dir, "gateware",
-                                f"{soc.platform.name}.config")
+    input_config = os.path.join(builder.output_dir, "gateware", f"{soc.platform.name}.config")
 
     # Create 256bytes rand fill for BRAM
     if (os.path.exists(rand_rom) == False) or (args.update_firmware == False):
-        os.makedirs(os.path.join(builder.output_dir, 'software'),
-                    exist_ok=True)
-        os.makedirs(os.path.join(builder.output_dir, 'gateware'),
-                    exist_ok=True)
-        os.system(
-            f"ecpbram  --generate {rand_rom} --seed {0} --width {32} --depth {2048 // 4}"
-        )
+        os.makedirs(os.path.join(builder.output_dir, 'software'), exist_ok=True)
+        os.makedirs(os.path.join(builder.output_dir, 'gateware'), exist_ok=True)
+        os.system(f"ecpbram  --generate {rand_rom} --seed {0} --width {32} --depth {2048 // 4}")
 
         # patch random file into BRAM
         data = []
@@ -441,14 +421,11 @@ def main():
 
     # create a compressed bitstream
     output_bit = os.path.join(builder.output_dir, "gateware", "diva.bit")
-    os.system(
-        f"ecppack --freq 38.8 --compress --input {input_config} --bit {output_bit}"
-    )
+    os.system(f"ecppack --freq 38.8 --compress --input {input_config} --bit {output_bit}")
 
     # Determine Bitstream size
     stage_1_filesize = os.path.getsize(output_bit)
-    firmware_offset = (stage_1_filesize +
-                       0x200) & ~(0x100 - 1)  # Add some fudge factor.
+    firmware_offset = (stage_1_filesize + 0x200) & ~(0x100 - 1)  # Add some fudge factor.
     firmware_offset += 0x00080000  # bitstream offset
     print(f"Compressed file size: 0x{stage_1_filesize:0x}")
     print(f"Placing firmware at: 0x{firmware_offset:0x}")
@@ -462,19 +439,14 @@ def main():
 
     booter_file = "{}/software/booter/booter.bin".format(builder.output_dir)
     booter_init = "{}/software/booter/booter.init".format(builder.output_dir)
-    CreateFirmwareInit(get_mem_data(booter_file, soc.cpu.endianness),
-                       booter_init)
+    CreateFirmwareInit(get_mem_data(booter_file, soc.cpu.endianness), booter_init)
 
     # Insert Firmware into Gateware
-    os.system(
-        f"ecpbram  --input {input_config} --output {input_config} --from {rand_rom} --to {booter_init}"
-    )
+    os.system(f"ecpbram  --input {input_config} --output {input_config} --from {rand_rom} --to {booter_init}")
 
     # create a compressed bitstream
     output_dfu = os.path.join(builder.output_dir, "gateware", "diva.dfu")
-    os.system(
-        f"ecppack --freq 38.8 --compress --input {input_config} --bit {output_bit}"
-    )
+    os.system(f"ecppack --freq 38.8 --compress --input {input_config} --bit {output_bit}")
 
     # Due to bitstream compression the final size might change when we patch in the booter firmware.
     stage_2_filesize = os.path.getsize(output_bit)
@@ -488,8 +460,7 @@ def main():
     from util.combine import CombineBinaryFiles
     flash_regions_final = {
         "build/gateware/diva.bit": 0x00080000,  # SoC ECP5 Bitstream
-        "build/software/DiVA-fw/DiVA-fw.bin":
-        firmware_offset,  # Circuit PYthon
+        "build/software/DiVA-fw/DiVA-fw.bin": firmware_offset,  # Circuit PYthon
     }
     CombineBinaryFiles(flash_regions_final, output_dfu)
 

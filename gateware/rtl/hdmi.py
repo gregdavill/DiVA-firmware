@@ -5,6 +5,7 @@ from litex.build.io import DDROutput
 
 
 class _ECP5OutSerializer(Module):
+
     def __init__(self, pad, invert=False):
         self.submodules.encoder = ClockDomainsRenamer("video")(Encoder())
         self.d, self.c, self.de = self.encoder.d, self.encoder.c, self.encoder.de
@@ -17,7 +18,7 @@ class _ECP5OutSerializer(Module):
             If(
                 self.load_sr,
                 _data.eq(self.encoder.out),
-            )
+            ),
         ]
 
         # Stage 2: Optional invert
@@ -27,11 +28,16 @@ class _ECP5OutSerializer(Module):
         else:
             self.sync.video_shift += data_out.eq(_data[0:2])
 
-        self.specials += DDROutput(data_out[0], data_out[1], pad,
-                                    ClockSignal("video_shift"))
+        self.specials += DDROutput(data_out[0], data_out[1], pad, ClockSignal("video_shift"))
 
 
 class HDMI(Module):
+
+    def add_tristate(self, pad):
+        t = TSTriple(len(pad))
+        self.specials += t.get_tristate(pad)
+        return t
+
     def __init__(self, pins):
         self.sink = sink = stream.Endpoint(phy_layout('rgb'))
 
@@ -41,13 +47,15 @@ class HDMI(Module):
         self.sync.video_shift += count.eq(Cat(count[-1], count[:-1]))
         self.comb += load_sr.eq(count[0])
 
-        self.submodules.es0 = _ECP5OutSerializer(
-            pins.data0_p,
-            invert=True)  # Due to layout reasons these pins are inverted
-        self.submodules.es1 = _ECP5OutSerializer(pins.data1_p)
-        self.submodules.es2 = _ECP5OutSerializer(
-            pins.data2_p,
-            invert=True)  # Due to layout reasons these pins are inverted
+        d0 = self.add_tristate(pins.data0_p)
+        d1 = self.add_tristate(pins.data1_p)
+        d2 = self.add_tristate(pins.data2_p)
+        clk = self.add_tristate(pins.clk_p)
+
+        # Due to layout reasons some pins are inverted
+        self.submodules.es0 = _ECP5OutSerializer(d0.o, invert=True)
+        self.submodules.es1 = _ECP5OutSerializer(d1.o)
+        self.submodules.es2 = _ECP5OutSerializer(d2.o, invert=True)
 
         self.comb += [
             sink.ready.eq(1),
@@ -62,7 +70,11 @@ class HDMI(Module):
             self.es2.c.eq(0),
             self.es0.de.eq(sink.de),
             self.es1.de.eq(sink.de),
-            self.es2.de.eq(sink.de)
+            self.es2.de.eq(sink.de),
+            d0.oe.eq(sink.valid),
+            d1.oe.eq(sink.valid),
+            d2.oe.eq(sink.valid),
+            clk.oe.eq(sink.valid),
         ]
 
-        self.specials += DDROutput(1, 0, pins.clk_p, ClockSignal("video"))
+        self.specials += DDROutput(1, 0, clk.o, ClockSignal("video"))
