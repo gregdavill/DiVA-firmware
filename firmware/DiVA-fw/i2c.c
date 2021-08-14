@@ -1,213 +1,107 @@
-// This file is Copyright (c) 2020 Antmicro <www.antmicro.com>
-#include <i2c.h>
-#include <generated/csr.h>
+#include "include/i2c.h"
 
-#ifdef CSR_I2C0_BASE
-
-#define I2C_PERIOD_CYCLES (CONFIG_CLOCK_FREQUENCY / I2C_FREQ_HZ)
-#define I2C_DELAY(n)	  cdelay((n)*I2C_PERIOD_CYCLES/4)
-
-static inline void cdelay(int i)
+/* I2C bit banging */
+int i2c_init(I2C *i2c)
 {
-	while(i > 0) {
-		__asm__ volatile(CONFIG_CPU_NOP);
-		i--;
-	}
+	unsigned int timeout;
+
+	i2c->started = 0;
+	i2c->w_write(I2C_SCL);
+	/* Check the I2C bus is ready */
+	timeout = 1000;
+	while((timeout > 0) && (!(i2c->r_read() & I2C_SDAIN))) timeout--;
+
+	return timeout;
 }
 
-static inline void i2c_oe_scl_sda(bool oe, bool scl, bool sda)
+void i2c_delay(void)
 {
-	i2c0_w_write(
-		((oe & 1)  << CSR_I2C0_W_OE_OFFSET)	|
-		((scl & 1) << CSR_I2C0_W_SCL_OFFSET) |
-		((sda & 1) << CSR_I2C0_W_SDA_OFFSET)
-	);
+	unsigned int i;
+
+	for(i=0;i<1000;i++) asm("nop");
 }
 
-// START condition: 1-to-0 transition of SDA when SCL is 1
-static void i2c_start(void)
+/* I2C bit-banging functions from http://en.wikipedia.org/wiki/I2c */
+unsigned int i2c_read_bit(I2C *i2c)
 {
-	i2c_oe_scl_sda(1, 1, 1);
-	I2C_DELAY(1);
-	i2c_oe_scl_sda(1, 1, 0);
-	I2C_DELAY(1);
-	i2c_oe_scl_sda(1, 0, 0);
-	I2C_DELAY(1);
+	unsigned int bit;
+
+	/* Let the slave drive data */
+	i2c->w_write(0);
+	i2c_delay();
+	i2c->w_write(I2C_SCL);
+	i2c_delay();
+	bit = i2c->r_read() & I2C_SDAIN;
+	i2c_delay();
+	i2c->w_write(0);
+	return bit;
 }
 
-// STOP condition: 0-to-1 transition of SDA when SCL is 1
-static void i2c_stop(void)
+void i2c_write_bit(I2C *i2c, unsigned int bit)
 {
-	i2c_oe_scl_sda(1, 0, 0);
-	I2C_DELAY(1);
-	i2c_oe_scl_sda(1, 1, 0);
-	I2C_DELAY(1);
-	i2c_oe_scl_sda(1, 1, 1);
-	I2C_DELAY(1);
-	i2c_oe_scl_sda(0, 1, 1);
+	if(bit) {
+		i2c->w_write(I2C_SDAOE | I2C_SDAOUT);
+	} else {
+		i2c->w_write(I2C_SDAOE);
+	}
+	i2c_delay();
+	/* Clock stretching */
+	i2c->w_write(i2c->w_read() | I2C_SCL);
+	i2c_delay();
+	i2c->w_write(i2c->w_read() & ~I2C_SCL);
 }
 
-// Call when in the middle of SCL low, advances one clk period
-static void i2c_transmit_bit(int value)
+void i2c_start_cond(I2C *i2c)
 {
-	i2c_oe_scl_sda(1, 0, value);
-	I2C_DELAY(1);
-	i2c_oe_scl_sda(1, 1, value);
-	I2C_DELAY(2);
-	i2c_oe_scl_sda(1, 0, value);
-	I2C_DELAY(1);
-	i2c_oe_scl_sda(0, 0, 0);  // release line
+	if(i2c->started) {
+		/* set SDA to 1 */
+		i2c->w_write(I2C_SDAOE | I2C_SDAOUT);
+		i2c_delay();
+		i2c->w_write(i2c->w_read() | I2C_SCL);
+		i2c_delay();
+	}
+	/* SCL is high, set SDA from 1 to 0 */
+	i2c->w_write(I2C_SDAOE|I2C_SCL);
+	i2c_delay();
+	i2c->w_write(I2C_SDAOE);
+	i2c->started = 1;
 }
 
-// Call when in the middle of SCL low, advances one clk period
-static int i2c_receive_bit(void)
+void i2c_stop_cond(I2C *i2c)
 {
-	int value;
-	i2c_oe_scl_sda(0, 0, 0);
-	I2C_DELAY(1);
-	i2c_oe_scl_sda(0, 1, 0);
-	I2C_DELAY(1);
-	// read in the middle of SCL high
-	value = i2c0_r_read() & 1;
-	I2C_DELAY(1);
-	i2c_oe_scl_sda(0, 0, 0);
-	I2C_DELAY(1);
-	return value;
+	/* set SDA to 0 */
+	i2c->w_write(I2C_SDAOE);
+	i2c_delay();
+	/* Clock stretching */
+	i2c->w_write(I2C_SDAOE | I2C_SCL);
+	/* SCL is high, set SDA from 0 to 1 */
+	i2c->w_write(I2C_SCL);
+	i2c_delay();
+	i2c->started = 0;
 }
 
-// Send data byte and return 1 if slave sends ACK
-static bool i2c_transmit_byte(unsigned char data)
+unsigned int i2c_write(I2C *i2c, unsigned char byte)
 {
-	int i;
-	int ack;
+	unsigned int bit;
+	unsigned int ack;
 
-	// SCL should have already been low for 1/4 cycle
-	i2c_oe_scl_sda(0, 0, 0);
-	for (i = 0; i < 8; ++i) {
-		// MSB first
-		i2c_transmit_bit((data & (1 << 7)) != 0);
-		data <<= 1;
+	for(bit = 0; bit < 8; bit++) {
+		i2c_write_bit(i2c, byte & 0x80);
+		byte <<= 1;
 	}
-	ack = i2c_receive_bit();
-
-	// 0 from slave means ack
-	return ack == 0;
+	ack = !i2c_read_bit(i2c);
+	return ack;
 }
 
-// Read data byte and send ACK if ack=1
-static unsigned char i2c_receive_byte(bool ack)
+unsigned char i2c_read(I2C *i2c, int ack)
 {
-	int i;
-	unsigned char data = 0;
+	unsigned char byte = 0;
+	unsigned int bit;
 
-	for (i = 0; i < 8; ++i) {
-		data <<= 1;
-		data |= i2c_receive_bit();
+	for(bit = 0; bit < 8; bit++) {
+		byte <<= 1;
+		byte |= i2c_read_bit(i2c);
 	}
-	i2c_transmit_bit(!ack);
-
-	return data;
+	i2c_write_bit(i2c, !ack);
+	return byte;
 }
-
-// Reset line state
-void i2c_reset(void)
-{
-	int i;
-	i2c_oe_scl_sda(1, 1, 1);
-	I2C_DELAY(8);
-	for (i = 0; i < 9; ++i) {
-		i2c_oe_scl_sda(1, 0, 1);
-		I2C_DELAY(2);
-		i2c_oe_scl_sda(1, 1, 1);
-		I2C_DELAY(2);
-	}
-	i2c_oe_scl_sda(0, 0, 1);
-	I2C_DELAY(1);
-	i2c_stop();
-	i2c_oe_scl_sda(0, 1, 1);
-	I2C_DELAY(8);
-}
-
-/*
- * Read slave memory over I2C starting at given address
- *
- * First writes the memory starting address, then reads the data:
- *   START WR(slaveaddr) WR(addr) STOP START WR(slaveaddr) RD(data) RD(data) ... STOP
- * Some chips require that after transmiting the address, there will be no STOP in between:
- *   START WR(slaveaddr) WR(addr) START WR(slaveaddr) RD(data) RD(data) ... STOP
- */
-bool i2c_read(unsigned char slave_addr, unsigned char addr, unsigned char *data, unsigned int len, bool send_stop)
-{
-	int i;
-
-	i2c_start();
-
-	if(!i2c_transmit_byte(I2C_ADDR_WR(slave_addr))) {
-		i2c_stop();
-		return false;
-	}
-	if(!i2c_transmit_byte(0)) {
-		i2c_stop();
-		return false;
-	}
-
-    if(!i2c_transmit_byte(addr)) {
-		i2c_stop();
-		return false;
-	}
-
-	if (send_stop) {
-		i2c_stop();
-	}
-	i2c_start();
-
-	if(!i2c_transmit_byte(I2C_ADDR_RD(slave_addr))) {
-		i2c_stop();
-		return false;
-	}
-	for (i = 0; i < len; ++i) {
-		data[i] = i2c_receive_byte(i != len - 1);
-	}
-
-	i2c_stop();
-
-	return true;
-}
-
-/*
- * Write slave memory over I2C starting at given address
- *
- * First writes the memory starting address, then writes the data:
- *   START WR(slaveaddr) WR(addr) WR(data) WR(data) ... STOP
- */
-bool i2c_write(unsigned char slave_addr, unsigned char addr, const unsigned char *data, unsigned int len)
-{
-	int i;
-
-	i2c_start();
-
-	if(!i2c_transmit_byte(I2C_ADDR_WR(slave_addr))) {
-		i2c_stop();
-		return false;
-	}
-	if(!i2c_transmit_byte(0)) {
-		i2c_stop();
-		return false;
-	}
-    if(!i2c_transmit_byte(addr)) {
-		i2c_stop();
-		return false;
-	}
-	for (i = 0; i < len; ++i) {
-		if(!i2c_transmit_byte(data[i])) {
-			i2c_stop();
-			return false;
-		}
-	}
-
-	i2c_stop();
-
-	return true;
-}
-
-#endif /* CSR_I2C0_BASE */

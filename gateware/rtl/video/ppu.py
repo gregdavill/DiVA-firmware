@@ -111,7 +111,7 @@ class WishboneController(Module):
         )
 
         fsm.act('WAIT',
-            If((fifo.level < 8) & ~fifo.reset,
+            If((fifo.level < 8) | fifo.reset,
                 NextState('FILL'),
             )
         ),
@@ -406,7 +406,7 @@ class PPU(Module, AutoCSR):
                 NextState('DECODE'),
                 If(y_counter < (tmp1 + tmp0),
                     # Address now available for us. Store current op_idx and load in address
-                    NextValue(tmp0, wb_ctrl.adr_r + 1),
+                    NextValue(tmp0, wb_ctrl.adr_r),
                     #NextValue(tmp2, (wb_ctrl.instr << 3) * (y_counter - tmp1)),
                     #NextValue(tmp1, ),
 
@@ -435,8 +435,8 @@ class PPU(Module, AutoCSR):
                 ]
             
         fsm.act('BLIT_ACTION',
+            wb_ctrl.ready.eq(tmp2[0:3] == 7),
             If(wb_ctrl.valid,
-                wb_ctrl.ready.eq(tmp2[0:3] == 7),
                 NextValue(tmp2, tmp2 + 1),
                 NextValue(x_idx, x_idx+1),
                 NextValue(tmp, tmp - 1),
@@ -452,7 +452,7 @@ class PPU(Module, AutoCSR):
         fsm.act('BLIT_CLEANUP',
             wb_ctrl.adr_w.eq(tmp0),
             wb_ctrl.we.eq(1),
-            NextState('STALL'),
+            NextState('DECODE'),
         )
 
         fsm.act('POPJ_DELAY',

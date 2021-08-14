@@ -11,6 +11,7 @@
 #include "include/time.h"
 #include "include/terminal.h"
 #include "include/boson.h"
+#include "include/hdmi_edid.h"
 
 #include <scaler.h>
 
@@ -79,6 +80,11 @@ int main(int i, char **c)
 
   gui_init();
   leds_out_write(4);
+
+    hdmi_out0_i2c_init();
+
+  hdmi_out0_print_edid();
+
   ppu_start();
 
   leds_out_write(0xF);
@@ -209,6 +215,8 @@ hyperram_init();
 	printf("\n");	
 
 	prbs_memtest(HYPERRAM_BASE, HYPERRAM_SIZE);
+
+  hdmi_out0_print_edid();
 
     }
   }else{

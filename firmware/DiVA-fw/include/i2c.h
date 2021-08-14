@@ -1,26 +1,33 @@
 #ifndef __I2C_H
 #define __I2C_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#define I2C_SCL 0x01
+#define I2C_SDAOE	0x02
+#define I2C_SDAOUT	0x04
 
-#include <stdbool.h>
+#define I2C_SDAIN	0x01
 
-/* I2C frequency defaults to a safe value in range 10-100 kHz to be compatible with SMBus */
-#ifndef I2C_FREQ_HZ
-#define I2C_FREQ_HZ  50000
-#endif
+#define I2C_READ	0x01
+#define I2C_WRITE	0x00
 
-#define I2C_ADDR_WR(addr) ((addr) << 1)
-#define I2C_ADDR_RD(addr) (((addr) << 1) | 1u)
+typedef unsigned char (*i2c_w_read_t)(void);
+typedef void (*i2c_w_write_t)(unsigned char value);
+typedef unsigned char (*i2c_r_read_t)(void);
 
-void i2c_reset(void);
-bool i2c_write(unsigned char slave_addr, unsigned char addr, const unsigned char *data, unsigned int len);
-bool i2c_read(unsigned char slave_addr, unsigned char addr, unsigned char *data, unsigned int len, bool send_stop);
+typedef struct {
+	i2c_w_read_t w_read;
+	i2c_w_write_t w_write;
+	i2c_r_read_t r_read;
+	int started;
+} I2C;
 
-#ifdef __cplusplus
-}
-#endif
+int i2c_init(I2C *i2c);
+void i2c_delay(void);
+unsigned int i2c_read_bit(I2C *i2c);
+void i2c_write_bit(I2C *i2c, unsigned int bit);
+void i2c_start_cond(I2C *i2c);
+void i2c_stop_cond(I2C *i2c);
+unsigned int i2c_write(I2C *i2c, unsigned char byte);
+unsigned char i2c_read(I2C *i2c, int ack);
 
 #endif /* __I2C_H */

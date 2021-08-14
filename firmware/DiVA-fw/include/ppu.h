@@ -16,15 +16,15 @@
 #define COLOUR_BLUE 0x1fu
 
 
-#define PPU_CPROC_SYNC  (0x0u << 28)
-#define PPU_CPROC_CLIP  (0x1u << 28)
-#define PPU_CPROC_FILL  (0x2u << 28)
-#define PPU_CPROC_BLIT  (0x3u << 28)
-#define PPU_CPROC_TILE  (0x5u << 28)
-#define PPU_CPROC_ABLIT (0x6u << 28)
-#define PPU_CPROC_ATILE (0x7u << 28)
-#define PPU_CPROC_PUSH  (0xeu << 28)
-#define PPU_CPROC_POPJ  (0xfu << 28)
+#define PPU_CPROC_SYNC   (0x0u << 28)
+#define PPU_CPROC_CLIP   (0x1u << 28)
+#define PPU_CPROC_FILL   (0x2u << 28)
+#define PPU_CPROC_BLIT   (0x3u << 28)
+#define PPU_CPROC_STREAM (0x4u << 28)
+#define PPU_CPROC_ABLIT  (0x6u << 28)
+#define PPU_CPROC_ATILE  (0x7u << 28)
+#define PPU_CPROC_PUSH   (0xeu << 28)
+#define PPU_CPROC_POPJ   (0xfu << 28)
 
 #define PPU_CPROC_BRANCH_ALWAYS 0x0
 #define PPU_CPROC_BRANCH_YLT    0x1

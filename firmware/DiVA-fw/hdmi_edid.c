@@ -1,8 +1,8 @@
 #include <generated/csr.h>
 
-//#include "i2c.h"
+#include "include/i2c.h"
 
-#if 0
+#if CSR_HDMI_I2C_BASE
 
 I2C hdmi_out0_i2c;
 int hdmi_out0_debug_enabled = 0;
