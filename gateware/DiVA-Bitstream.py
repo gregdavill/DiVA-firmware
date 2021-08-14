@@ -99,13 +99,13 @@ class _CRG(Module, AutoCSR):
 
         self.comb += self.cd_init.clk.eq(clk48)
 
-        pixel_clk = 64e6
+        pixel_clk = 74.25e6
         self.clock_domains.cd_usb_12 = ClockDomain()
         self.clock_domains.cd_usb_24 = ClockDomain()
         self.clock_domains.cd_usb_48 = ClockDomain()
 
         self.submodules.video_pll = video_pll = ECP5PLL()
-        video_pll.register_clkin(clk48, 48e6)
+        video_pll.register_clkin(self.cd_hr2x.clk, sys_clk_freq*2)
         video_pll.create_clkout(self.cd_video, pixel_clk, margin=0)
         video_pll.create_clkout(self.cd_video_shift, pixel_clk * 5, margin=0)
 
