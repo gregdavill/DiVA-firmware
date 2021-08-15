@@ -75,17 +75,27 @@ int main(int i, char **c)
   irq_setmask(0);
   irq_setie(1);
 
-  hdmi_out0_i2c_init();
-
-  hdmi_out0_print_edid();
-
-  msleep(100);
-
   timer_init();
   tusb_init();
 
   leds_out_write(2);
 
+
+      /* On power up we need these to be set to 0 so that 
+	 * PRBS memtest still works */
+      /* each frame currently takes up 0x140000 bytes in RAM */
+    buffers_adr0_write(0x000000);
+    buffers_adr1_write(0x180000);
+    buffers_adr2_write(0x300000);
+
+      hyperram_init();
+
+      printf("\n");
+
+      prbs_memtest(HYPERRAM_BASE, HYPERRAM_SIZE);
+
+  init_scaler();
+  
   gui_init();
   leds_out_write(4);
 
@@ -178,6 +188,12 @@ void led_blinking_task(void)
   printf("count=%u\r\n", count++);
   led_state = 1 - led_state; // toggle
 
+  reader_reset_write(1);
+  reader_external_sync_write(0);
+	reader_burst_size_write(64);
+	reader_transfer_size_write(1280*720/4);
+  reader_enable_write(1);
+
   static int welcome = 0;
   if (tud_cdc_connected())
   {
@@ -205,31 +221,6 @@ void led_blinking_task(void)
       printf("   Clock Frequency: %u.%02uMHz\n", (int)(CONFIG_CLOCK_FREQUENCY / 1e6), (int)(CONFIG_CLOCK_FREQUENCY / 1e4) % 100);
       printf("   HypeRAM Frequency: %u.%02uMHz\n", (int)(2 * CONFIG_CLOCK_FREQUENCY / 1e6), (int)(2 * CONFIG_CLOCK_FREQUENCY / 1e4) % 100);
 
-      /* On power up we need these to be set to 0 so that 
-	 * PRBS memtest still works */
-      buffers_adr0_write(0x0);
-      buffers_adr1_write(0x0);
-      buffers_adr2_write(0x0);
-
-      hyperram_init();
-
-      printf("\n");
-
-      prbs_memtest(HYPERRAM_BASE, HYPERRAM_SIZE);
-
-      hdmi_out0_print_edid();
-
-      uint8_t* buffer[256];
-
-      hdmi_out0_read_edid(buffer);
-
-      struct edid* _edid = (struct edid*)buffer;
-
-      printf("Manufacturer: %c%c\n", _edid->manufacturer[0],_edid->manufacturer[1]);
-      printf("Product Code: %c%c\n", _edid->product_code[0],_edid->product_code[1]);
-      printf("Video Input: %02x\n", _edid->video_input);
-      printf("Image Size: %02x %02x\n", _edid->h_image_size, _edid->v_image_size);
-      
 
       
     }

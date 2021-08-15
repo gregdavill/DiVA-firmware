@@ -362,7 +362,7 @@ class PPU(Module, AutoCSR):
                         NextValue(tmp1, wb_ctrl.instr[12:24]),
                         NextValue(tmp0, 8 << wb_ctrl.instr[24:27]),
                         NextValue(tmp, 4 << wb_ctrl.instr[24:27]),
-                        NextValue(tmp2, ((4 << wb_ctrl.instr[24:27]) * (y_counter - wb_ctrl.instr[12:24]))),
+                        NextValue(tmp2,(y_counter - wb_ctrl.instr[12:24])),
                         NextState('BLIT_0'), # LOAD Addr
                     ).Else(
                         NextState('SKIP')
@@ -407,22 +407,21 @@ class PPU(Module, AutoCSR):
                 If(y_counter < (tmp1 + tmp0),
                     # Address now available for us. Store current op_idx and load in address
                     NextValue(tmp0, wb_ctrl.adr_r),
+
+                    NextValue(tmp2, tmp * tmp2),
                     #NextValue(tmp2, (wb_ctrl.instr << 3) * (y_counter - tmp1)),
                     #NextValue(tmp1, ),
 
-                    #NextState('BLIT_CALC'),
-                    NextState('BLIT_ACTION'),
-                    wb_ctrl.adr_w.eq((wb_ctrl.instr << 3)  + tmp2 >> 3),
-                    wb_ctrl.we.eq(1),
+                    NextState('BLIT_CALC'),
+                    #NextState('BLIT_ACTION'),
                 )
             )
         )
 
         fsm.act('BLIT_CALC',
-            If(tmp1 == 0,
-            ),
-            NextValue(tmp2, tmp2 + tmp),
-            NextValue(tmp1, tmp1 - 1),
+            wb_ctrl.adr_w.eq((wb_ctrl.instr << 3)  + tmp2 >> 3),
+            wb_ctrl.we.eq(1),
+            NextState('BLIT_ACTION'),
         )
 
         cases = {}
@@ -521,6 +520,14 @@ class VideoCore(Module, AutoCSR):
         self.comb += new_frame.trigger.eq(ppu.next_frame)
         self.bus = ppu.bus
 
+        self.next_frame = ppu.next_frame
+
+
+        self.pixel_sink = pixel_sink = stream.Endpoint([('data', 24)])
+
+
+
+
         # ctrl path
         self.comb += timing.sink.valid.eq(initiator.source.valid) # if the CSR FIFO data is valid, timing may proceed
 
@@ -554,7 +561,11 @@ class VideoCore(Module, AutoCSR):
             source.de.eq(timing.source.de),  # manually assign this block's video de, hsync, vsync outputs,, to the respective timing or DMA outputs
             source.hsync.eq(timing.source.hsync),
             source.vsync.eq(timing.source.vsync),
-            source.data.eq(ppu.source.data)
+            source.data.eq(ppu.source.data),
+            If(ppu.source.data == 0,
+                source.data.eq(pixel_sink.data),
+            ),
+            pixel_sink.ready.eq(timing.source.de)
         ]
 
         # underflow detection

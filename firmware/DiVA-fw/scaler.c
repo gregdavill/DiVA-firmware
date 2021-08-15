@@ -43,11 +43,40 @@ const uint32_t scaler_coef_4upto5 [20] = {
 };
 
 
+
+ // Scaler coefficients generated with the following parameters:
+ // delta_offset=0.5
+ // n_phases=2
+ // n_taps=3
+
+const uint32_t scaler_coef_1upto2 [6] = {
+        0x80000000, 0x81000100, 0x82000000, 0x0001fff0, 0x01010090, 0x02010090, 
+};
+
+
+ // Scaler coefficients generated with the following parameters:
+ // delta_offset=0.28888888888888886
+ // n_phases=45
+ // n_taps=3
+
+const uint32_t scaler_coef_32upto45 [135] = {
+        0x00000000, 0x01000100, 0x02000000, 0x0001ffee, 0x010100d3, 0x02010046, 0x8002fff3, 0x81020074, 0x820200aa, 0x0003ffff, 0x01030019, 0x020300f5, 0x0004fff2, 0x010400f1, 0x0204001e, 0x8005ffef, 
+        0x810500a3, 0x8205007c, 0x0006fffa, 0x0106003f, 0x020600d9, 0x0007fffe, 0x010700ff, 0x02070003, 0x0008ffee, 0x010800cd, 0x0208004d, 0x8009fff4, 0x8109006c, 0x820900b2, 0x000affff, 0x010a0014, 
+        0x020a00f8, 0x000bfff1, 0x010b00ed, 0x020b0024, 0x800cfff0, 0x810c009b, 0x820c0084, 0x000dfffb, 0x010d0038, 0x020d00df, 0x000efffb, 0x010e00fe, 0x020e0006, 0x000fffee, 0x010f00c7, 0x020f0055, 
+        0x8010fff5, 0x81100064, 0x821000b9, 0x00110000, 0x0111000f, 0x021100fb, 0x0012fff0, 0x011200e9, 0x0212002b, 0x8013fff0, 0x81130093, 0x8213008c, 0x0014fffc, 0x01140031, 0x021400e4, 0x0015fff9, 
+        0x011500fd, 0x0215000a, 0x0016ffee, 0x011600c0, 0x0216005c, 0x8017fff6, 0x8117005c, 0x821700c0, 0x00180000, 0x0118000a, 0x021800fd, 0x0019ffef, 0x011900e4, 0x02190031, 0x801afff1, 0x811a008c, 
+        0x821a0093, 0x001bfffc, 0x011b002b, 0x021b00e9, 0x001cfff7, 0x011c00fb, 0x021c000f, 0x001dffee, 0x011d00b9, 0x021d0064, 0x801efff7, 0x811e0055, 0x821e00c7, 0x001f0000, 0x011f0006, 0x021f00fe, 
+        0x0020ffef, 0x012000df, 0x02200038, 0x8021fff2, 0x81210084, 0x8221009b, 0x0022fffd, 0x01220024, 0x022200ed, 0x0023fff5, 0x012300f8, 0x02230014, 0x0024ffee, 0x012400b2, 0x0224006c, 0x8025fff8, 
+        0x8125004d, 0x822500cd, 0x00260000, 0x01260003, 0x022600ff, 0x0027ffee, 0x012700d9, 0x0227003f, 0x8028fff2, 0x8128007c, 0x822800a3, 0x0029fffe, 0x0129001e, 0x022900f1, 0x002afff4, 0x012a00f5, 
+        0x022a0019, 0x802bffee, 0x812b00aa, 0x822b0074, 0x002cfff9, 0x012c0046, 0x022c00d3, 
+};
+
+
 static void load_height(const uint32_t* coeffs, uint32_t len, uint32_t phases){
 	uint32_t bank_mask = 0;
-	if(pipeline_config_scaler_bank_read()){
-		bank_mask |= 0x40000000;
-	}
+	//if(pipeline_config_scaler_bank_read()){
+	//	bank_mask |= 0x40000000;
+	//}
 
 	for(int i = 0; i < len; i++){
 		scaler_height_coeff_data_write(coeffs[i] | bank_mask);
@@ -57,9 +86,9 @@ static void load_height(const uint32_t* coeffs, uint32_t len, uint32_t phases){
 
 static void load_width(const uint32_t* coeffs, uint32_t len, uint32_t phases){
 	uint32_t bank_mask = 0;
-	if(pipeline_config_scaler_bank_read()){
-		bank_mask |= 0x40000000;
-	}
+	//if(pipeline_config_scaler_bank_read()){
+	//	bank_mask |= 0x40000000;
+	//}
 	
 	for(int i = 0; i < len; i++){
 		scaler_width_coeff_data_write(coeffs[i] | bank_mask);
@@ -73,6 +102,14 @@ static void load_64upto75(void (*func)(const uint32_t*, uint32_t, uint32_t)){
 
 static void load_4upto5(void (*func)(const uint32_t*, uint32_t, uint32_t)){
 	func(scaler_coef_4upto5, sizeof(scaler_coef_4upto5) / sizeof(const uint32_t), 5);
+}
+
+static void load_1upto2(void (*func)(const uint32_t*, uint32_t, uint32_t)){
+	func(scaler_coef_1upto2, sizeof(scaler_coef_1upto2) / sizeof(const uint32_t), 2);
+}
+
+static void load_32upto45(void (*func)(const uint32_t*, uint32_t, uint32_t)){
+	func(scaler_coef_32upto45, sizeof(scaler_coef_32upto45) / sizeof(const uint32_t), 45);
 }
 
 
@@ -89,6 +126,11 @@ void init_scaler_640x512_upto_750x600(void){
 void init_scaler_640x512_upto_800x640(void){
 	load_4upto5(load_height);
 	load_4upto5(load_width);
+}
+
+void init_scaler(void){
+	load_32upto45(load_height);
+	load_1upto2(load_width);
 }
 
 void switch_mode(int mode){

@@ -114,6 +114,15 @@ void gui_init()
 	{
 		array0[i + 512] = ~font[i];
 	}
+
+
+	writer_reset_write(1);
+	writer_external_sync_write(1);
+	writer_sink_mux_write(1);
+	writer_burst_size_write(256);
+	writer_transfer_size_write(640*512);
+	writer_enable_write(1);
+
 }
 
 void gui_render()
@@ -122,6 +131,8 @@ void gui_render()
 	timer1_reload_write(0);
 	timer1_load_write(-1);
 	timer1_en_write(1);
+
+
 
 	val = sin[counter] / 4;
 

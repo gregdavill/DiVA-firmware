@@ -221,7 +221,7 @@ class DiVA_SoC(SoCCore):
         # Toolchain config
         platform.toolchain.build_template[0] = "yosys -q -l {build_name}.rpt {build_name}.ys"
         platform.toolchain.build_template[1] += f" --log {platform.name}.log --router router1"
-        platform.toolchain.yosys_template[-1] += ' -abc2 -nowidelut'  # abc2/nowidelut generally give higher freq
+        platform.toolchain.yosys_template[-1] += ' -abc2 '  # abc2/nowidelut generally give higher freq
 
         # crg -------------------------------------------------------------------------------------
         self.submodules.crg = _CRG(platform, sys_clk_freq)
@@ -263,8 +263,23 @@ class DiVA_SoC(SoCCore):
         reader.add_source(self.prbs.source.source, "prbs")
         writer.add_sink(self.prbs.sink.sink, "prbs")
 
+
+        self.submodules.scaler = scaler = ResetInserter(["video"])(ClockDomainsRenamer({"sys":"video", "cpu":"sys"})((Scaler())))
+
+
         # Pixel Processing Unit
         self.submodules.ppu = ppu = VideoCore()
+
+        self.submodules.fifo = fifo =  ClockDomainsRenamer({"read":"video", "write":"sys"})(stream.AsyncFIFO([('data', 24)], 1024))
+        self.submodules.fifo1 = fifo1 = ResetInserter()(ClockDomainsRenamer({"sys":"video"})(stream.SyncFIFO([("data", 32)], depth=32)))
+        writer.add_sink(fifo.sink, "pixel_sink", ppu.next_frame)
+
+        self.comb += [
+            fifo.source.connect(scaler.sink),
+            scaler.source.connect(fifo1.sink),
+            fifo1.source.connect(ppu.pixel_sink),
+        ]
+
         self.add_interrupt("ppu")
         #self.add_wb_master(ppu.bus)
 

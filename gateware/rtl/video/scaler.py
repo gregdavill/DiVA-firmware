@@ -265,7 +265,7 @@ class ScalerWidth(StallablePipelineActor, MultiTapFilter, AutoCSR):
     def __init__(self):
         self.sink = sink = Endpoint([("data", 32)])
         self.source = source = Endpoint([("data", 32)])
-        n_taps = 4
+        n_taps = 3
         n_phase = 128
 
         StallablePipelineActor.__init__(self, n_taps + 1)
@@ -301,7 +301,7 @@ class ScaleHeight(StallablePipelineActor, MultiTapFilter, AutoCSR):
         self.sink = sink = Endpoint([("data", 32)])
         self.source = source = Endpoint([("data", 32)])
 
-        n_taps = 4
+        n_taps = 3
         n_phase = 128
 
         StallablePipelineActor.__init__(self, n_taps + 1)

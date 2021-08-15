@@ -127,9 +127,9 @@ print_c(output_coeffs, 'scaler_coef_512_640')
 
 
 
-
+n_taps = 3
 delta_offset = 1.0 - 640/1280 # (512 > 640)
-n_phases = 5
+n_phases = 2
 
 512/720
 
@@ -140,7 +140,20 @@ print(f' // delta_offset={delta_offset}')
 print(f' // n_phases={n_phases}')
 print(f' // n_taps={n_taps}')
 print(f'')
-print_c(output_coeffs, 'scaler_coef_512_640')
+print_c(output_coeffs, 'scaler_coef_640_1280')
+
+
+delta_offset = 1.0 - 512/720 # (512 > 640)
+n_phases = 45
+
+
+output_coeffs = generate(delta_offset, n_phases, n_taps)
+print(f' // Scaler coefficients generated with the following parameters:')
+print(f' // delta_offset={delta_offset}')
+print(f' // n_phases={n_phases}')
+print(f' // n_taps={n_taps}')
+print(f'')
+print_c(output_coeffs, 'scaler_coef_512_720')
 
 
 
