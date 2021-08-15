@@ -220,7 +220,8 @@ class DiVA_SoC(SoCCore):
 
         # Toolchain config
         platform.toolchain.build_template[0] = "yosys -q -l {build_name}.rpt {build_name}.ys"
-        platform.toolchain.build_template[1] += f" --log {platform.name}.log --router router1"
+        platform.toolchain.build_template[1] += f" --log {platform.name}-nextpnr.log --router router1"
+        platform.toolchain.build_template[1] += f" --report {platform.name}-timing.json"
         platform.toolchain.yosys_template[-1] += ' -abc2 '  # abc2/nowidelut generally give higher freq
 
         # crg -------------------------------------------------------------------------------------
@@ -271,19 +272,27 @@ class DiVA_SoC(SoCCore):
         # Pixel Processing Unit
         self.submodules.ppu = ppu = VideoCore()
 
-        self.submodules.fifo = fifo = ClockDomainsRenamer({
+        self.submodules.fifo = fifo = ResetInserter(["video", "sys"])(ClockDomainsRenamer({
             "read": "video",
             "write": "sys"
-        })(stream.AsyncFIFO([('data', 24)], 1024))
-        self.submodules.fifo1 = fifo1 = ResetInserter()(ClockDomainsRenamer({"sys": "video"
-                                                                            })(stream.SyncFIFO([("data", 32)],
-                                                                                               depth=32)))
+        })(stream.AsyncFIFO([('data', 24)], 1024)))
+        self.submodules.fifo1 = fifo1 = ResetInserter(["video"])(ClockDomainsRenamer({"sys": "video"
+                                                                                     })(stream.SyncFIFO([("data", 32)],
+                                                                                                        depth=32)))
         writer.add_sink(fifo.sink, "pixel_sink", ppu.next_frame)
+
+        ps = PulseSynchronizer('sys', 'video')
+        self.submodules += ps
+        self.comb += ps.i.eq(ppu.next_frame)
 
         self.comb += [
             fifo.source.connect(scaler.sink),
             scaler.source.connect(fifo1.sink),
             fifo1.source.connect(ppu.pixel_sink),
+            fifo.reset_video.eq(ps.o),
+            fifo.reset_sys.eq(ps.i),
+            fifo1.reset_video.eq(ps.o),
+            scaler.reset_video.eq(ps.o),
         ]
 
         self.add_interrupt("ppu")
