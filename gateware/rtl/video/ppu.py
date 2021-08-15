@@ -409,6 +409,7 @@ class PPU(Module, AutoCSR):
                     NextValue(tmp0, wb_ctrl.adr_r),
 
                     NextValue(tmp2, tmp * tmp2),
+                    NextValue(tmp1, (wb_ctrl.instr << 3)),
                     #NextValue(tmp2, (wb_ctrl.instr << 3) * (y_counter - tmp1)),
                     #NextValue(tmp1, ),
 
@@ -419,7 +420,7 @@ class PPU(Module, AutoCSR):
         )
 
         fsm.act('BLIT_CALC',
-            wb_ctrl.adr_w.eq((wb_ctrl.instr << 3)  + tmp2 >> 3),
+            wb_ctrl.adr_w.eq(tmp1  + tmp2 >> 3),
             wb_ctrl.we.eq(1),
             NextState('BLIT_ACTION'),
         )

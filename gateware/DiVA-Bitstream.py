@@ -446,7 +446,7 @@ def main():
 
     # Determine Bitstream size
     stage_1_filesize = os.path.getsize(output_bit)
-    gateware_offset = 0x00080000
+    gateware_offset = 0x00040000
     firmware_offset = (stage_1_filesize + 0x200) & ~(0x100 - 1)  # Add some fudge factor.
     firmware_offset += gateware_offset  # bitstream offset
     print(f"Compressed file size: 0x{stage_1_filesize:0x}")
