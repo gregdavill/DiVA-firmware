@@ -18,11 +18,13 @@ import os
 
 # LiteX looks for our irq signal inside the EventManager submodule
 class MockEventManager(Module):
+
     def __init__(self):
         self.irq = Signal()
 
 
 class CSRClockDomainWrapper(Module):
+
     def get_csr(self):
         return self.usb.get_csrs()
 
@@ -32,22 +34,20 @@ class CSRClockDomainWrapper(Module):
 
         usb12_bus = wishbone.Interface()
         # create a new custom CSR bus
-        self.submodules.csr = ClockDomainsRenamer({'sys': 'usb_12'})(
-            wishbone.Wishbone2CSR(usb12_bus))
+        self.submodules.csr = ClockDomainsRenamer({'sys': 'usb_12'})(wishbone.Wishbone2CSR(usb12_bus))
         csr_cpu = self.csr.csr
 
-        self.submodules.usb = usb = ClockDomainsRenamer({'sys': 'usb_12'})(
-            eptri.TriEndpointInterface(usb_iobuf, debug=False))
+        self.submodules.usb = usb = ClockDomainsRenamer({'sys': 'usb_12'})(eptri.TriEndpointInterface(usb_iobuf,
+                                                                                                      debug=False))
         csrs = self.usb.get_csrs()
         # create a CSRBank for the eptri CSRs
-        self.submodules.csr_bank = ClockDomainsRenamer({'sys': 'usb_12'})(
-            CSRBank(csrs, 0, self.csr.csr))
+        self.submodules.csr_bank = ClockDomainsRenamer({'sys': 'usb_12'})(CSRBank(csrs, 0, self.csr.csr))
 
         self.specials += Instance(
             "wb_cdc",
             i_wbm_clk=ClockSignal(),
             i_wbm_rst=ResetSignal(),
-            i_wbm_adr_i=self.bus.adr,
+            i_wbm_adr_i=Cat(self.bus.adr, Signal(2)),
             i_wbm_dat_i=self.bus.dat_w,
             o_wbm_dat_o=self.bus.dat_r,
             i_wbm_we_i=self.bus.we,
@@ -59,7 +59,7 @@ class CSRClockDomainWrapper(Module):
             i_wbm_cyc_i=self.bus.cyc,
             i_wbs_clk=ClockSignal("usb_12"),
             i_wbs_rst=ResetSignal("usb_12"),
-            o_wbs_adr_o=usb12_bus.adr,
+            o_wbs_adr_o=Cat(usb12_bus.adr, Signal(2)),
             i_wbs_dat_i=usb12_bus.dat_r,
             o_wbs_dat_o=usb12_bus.dat_w,
             o_wbs_we_o=usb12_bus.we,
