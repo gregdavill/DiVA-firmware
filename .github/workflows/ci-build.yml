@@ -32,7 +32,11 @@ jobs:
         python3 -m pip install wheel
         python3 -m pip install Sphinx 
         python3 -m pip install sphinxcontrib-wavedrom 
-
+        
+    - name: patch migen bug
+      working-directory: ./gateware/deps/migen
+      run: |
+        git apply ../migen-asyncmem.patch
 
     - name: Litex build
       working-directory: ./gateware

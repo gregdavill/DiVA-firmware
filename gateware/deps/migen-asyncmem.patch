@@ -1,0 +1,17 @@
+diff --git a/migen/fhdl/specials.py b/migen/fhdl/specials.py
+index 9344087..598b4f0 100644
+--- a/migen/fhdl/specials.py
++++ b/migen/fhdl/specials.py
+@@ -330,6 +330,13 @@ class Memory(Special):
+ 
+         adr_regs = {}
+         data_regs = {}
++
++        clocks = [port.clock for port in memory.ports]
++        if clocks.count(clocks[0]) != len(clocks):
++            for port in memory.ports:
++                port.mode = READ_FIRST
++
+         for port in memory.ports:
+             if not port.async_read:
+                 if port.mode == WRITE_FIRST:
