@@ -1,8 +1,8 @@
 diff --git a/migen/fhdl/specials.py b/migen/fhdl/specials.py
-index 9344087..598b4f0 100644
+index 9344087..d1e3c78 100644
 --- a/migen/fhdl/specials.py
 +++ b/migen/fhdl/specials.py
-@@ -330,6 +330,13 @@ class Memory(Special):
+@@ -330,6 +330,12 @@ class Memory(Special):
  
          adr_regs = {}
          data_regs = {}
