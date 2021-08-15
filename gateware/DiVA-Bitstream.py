@@ -105,7 +105,7 @@ class _CRG(Module, AutoCSR):
         self.clock_domains.cd_usb_48 = ClockDomain()
 
         self.submodules.video_pll = video_pll = ECP5PLL()
-        video_pll.register_clkin(self.cd_hr2x.clk, sys_clk_freq*2)
+        video_pll.register_clkin(self.cd_hr2x.clk, sys_clk_freq * 2)
         video_pll.create_clkout(self.cd_video, pixel_clk, margin=0)
         video_pll.create_clkout(self.cd_video_shift, pixel_clk * 5, margin=0)
 
@@ -263,15 +263,21 @@ class DiVA_SoC(SoCCore):
         reader.add_source(self.prbs.source.source, "prbs")
         writer.add_sink(self.prbs.sink.sink, "prbs")
 
-
-        self.submodules.scaler = scaler = ResetInserter(["video"])(ClockDomainsRenamer({"sys":"video", "cpu":"sys"})((Scaler())))
-
+        self.submodules.scaler = scaler = ResetInserter(["video"])(ClockDomainsRenamer({
+            "sys": "video",
+            "cpu": "sys"
+        })((Scaler())))
 
         # Pixel Processing Unit
         self.submodules.ppu = ppu = VideoCore()
 
-        self.submodules.fifo = fifo =  ClockDomainsRenamer({"read":"video", "write":"sys"})(stream.AsyncFIFO([('data', 24)], 1024))
-        self.submodules.fifo1 = fifo1 = ResetInserter()(ClockDomainsRenamer({"sys":"video"})(stream.SyncFIFO([("data", 32)], depth=32)))
+        self.submodules.fifo = fifo = ClockDomainsRenamer({
+            "read": "video",
+            "write": "sys"
+        })(stream.AsyncFIFO([('data', 24)], 1024))
+        self.submodules.fifo1 = fifo1 = ResetInserter()(ClockDomainsRenamer({"sys": "video"
+                                                                            })(stream.SyncFIFO([("data", 32)],
+                                                                                               depth=32)))
         writer.add_sink(fifo.sink, "pixel_sink", ppu.next_frame)
 
         self.comb += [
@@ -440,8 +446,9 @@ def main():
 
     # Determine Bitstream size
     stage_1_filesize = os.path.getsize(output_bit)
+    gateware_offset = 0x00080000
     firmware_offset = (stage_1_filesize + 0x200) & ~(0x100 - 1)  # Add some fudge factor.
-    firmware_offset += 0x00080000  # bitstream offset
+    firmware_offset += gateware_offset  # bitstream offset
     print(f"Compressed file size: 0x{stage_1_filesize:0x}")
     print(f"Placing firmware at: 0x{firmware_offset:0x}")
 
@@ -474,7 +481,7 @@ def main():
     # Combine FLASH firmware
     from util.combine import CombineBinaryFiles
     flash_regions_final = {
-        "build/gateware/diva.bit": 0x00080000,  # SoC ECP5 Bitstream
+        "build/gateware/diva.bit": gateware_offset,  # SoC ECP5 Bitstream
         "build/software/DiVA-fw/DiVA-fw.bin": firmware_offset,  # Circuit PYthon
     }
     CombineBinaryFiles(flash_regions_final, output_dfu)
@@ -482,13 +489,14 @@ def main():
     # Add DFU suffix
     os.system(f"dfu-suffix -p 16d0 -d 0fad -a {output_dfu}")
 
-    print(f"""DiVA build complete!  Output files:
+    print(f"""DiVA build complete!  
     
-    Bitstream file. Load this using `dfu-util -D DiVA.dfu`
+  DiVA.dfu size={os.path.getsize(output_dfu) / 1024 :.2f}KB ({os.path.getsize(output_dfu)} bytes) 
+    FLASH Usage: {(float)(os.path.getsize(output_dfu)) / (((1024*1024) - gateware_offset)/100) :.2f} %
+    
+    
+  Load using `dfu-util -D DiVA.dfu`
         {builder.output_dir}/gateware/DiVA.dfu
-    
-    Source Verilog file.  Useful for debugging issues.
-        {builder.output_dir}/gateware/top.v
     """)
 
 

@@ -9,7 +9,13 @@ import binascii
 def CombineBinaryFiles(flash_regions_final, output_file):
     flash_regions = {}
 
-    offset = 0x00080000
+    offset = None
+    for _, base in flash_regions_final.items():
+        if offset is None:
+            offset = base
+        else:
+            offset = min(offset, base)
+
     for filename, base in flash_regions_final.items():
         new_address = base - offset
         print(f'Moving {filename} from 0x{base:08x} to 0x{new_address:08x}')
