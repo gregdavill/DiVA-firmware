@@ -13,10 +13,10 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
       with:
-        submodules: false # Note: not Recursive (Causes error with serv)
+        submodules: false # Note: not Recursive (we don't need GB's of tinyusb deps)
 
     - name: Checkout Submodule
-      run: git submodule init
+      run: git submodule update --init
 
     - name: YosysHQ setup
       uses: YosysHQ/setup-oss-cad-suite@v1
@@ -41,7 +41,7 @@ jobs:
     - name: Litex build
       working-directory: ./gateware
       run: |
-        python3 DiVA-Bitstream.py
+        python3 DiVA-Bitstream.py --lx-ignore-git
 
 #    - name: Upload build
 #      uses: actions/upload-artifact@v2
