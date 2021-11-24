@@ -14,9 +14,17 @@ namespace fw_updater
         private string dfuUtilFirmware = "";
         private string firmwareFilename = "";
 
+        private string customFirmware = "";
+
         object lockDfu = new object();
 
         private bool downloadAttempted = false;
+
+        enum device_detect {
+            NO_DEVICE = 0,
+            OLD_BOOTLOADER = 1,
+            GOOD_DEVICE = 2,
+        }
 
         public Form1()
         {
@@ -47,7 +55,8 @@ namespace fw_updater
 
         private void timer1_Tick(object sender, EventArgs e)
         {
-            if (DfuDetectDiVA())
+            var detect_status = DfuDetectDiVA();
+            if (detect_status == device_detect.GOOD_DEVICE)
             {
                 label1.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(192)))), ((int)(((byte)(0)))));
                 label1.Text = "Device Detected";
@@ -60,6 +69,14 @@ namespace fw_updater
 
                 /* reset flag */
                 downloadAttempted = false;
+            }
+            else if(detect_status == device_detect.OLD_BOOTLOADER)
+            {
+                label1.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(192)))), ((int)(((byte)(0)))), ((int)(((byte)(0)))));
+                label1.Text = "Device Detected";
+
+                pictureBox1.Image = Properties.Resources._0859_cross_circle;
+                label2.Text = "Old Bootloader detected";
             }
             else if (!downloadAttempted)
             {
@@ -106,12 +123,21 @@ namespace fw_updater
             }
         }
 
-        private bool DfuDetectDiVA()
+        private device_detect DfuDetectDiVA()
         {
             lock (lockDfu)
             {
                 var standardOutput = ExecuteProcess(dfuUtilFirmware, "--list");
-                return standardOutput.Contains("Found DFU: [16d0:0fad]");
+                if(standardOutput.Contains("Boson DiVA r0.3 - DFU Bootloader v3.1-5-g0663e0f"))
+                {
+                    /* Perfrom update on bootloader */
+                    return device_detect.OLD_BOOTLOADER;
+                }
+                if(standardOutput.Contains("Found DFU: [16d0:0fad]"))
+                {
+                    return device_detect.GOOD_DEVICE;
+                }
+                return device_detect.NO_DEVICE;
             }
         }
 
@@ -119,9 +145,15 @@ namespace fw_updater
         {
             lock (lockDfu)
             {
+                var firmware = firmwareFilename;
+                if(customFirmware != "")
+                {
+                    firmware = customFirmware;
+                }
+
                 Task.Run(() =>
                 {
-                    ExecuteProcessWithProgress(dfuUtilFirmware, "-D " + firmwareFilename);
+                    ExecuteProcessWithProgress(dfuUtilFirmware, "-D " + firmware);
                 });
             }
         }
@@ -260,6 +292,33 @@ namespace fw_updater
                     return;
                 output.Write(buffer, 0, read);
             }
+        }
+
+        private void exitToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            timer1.Stop();
+            Application.Exit();
+        }
+
+        private void openToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var fileDialog = new OpenFileDialog();
+            fileDialog.Multiselect = false;
+            fileDialog.RestoreDirectory = true;
+            fileDialog.Filter = "DiVA Firmare Update|*.dfu";
+
+            var result = fileDialog.ShowDialog();
+
+            if(result == DialogResult.OK)
+            {
+                customFirmware = fileDialog.FileName;
+                label3.Text = "File:" + Path.GetFileName(customFirmware);
+            }
+        }
+
+        private void aboutToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+
         }
     }
 }
