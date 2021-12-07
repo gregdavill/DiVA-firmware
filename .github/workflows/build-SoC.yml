@@ -40,11 +40,11 @@ jobs:
         python3 -m pip install Sphinx 
         python3 -m pip install sphinxcontrib-wavedrom 
 
-
     - name: Litex build
       working-directory: ./gateware
       run: |
-        python3 DiVA-Bitstream.py
+        python3 DiVA-bitstream.py
+        python3 DiVA-bootloader.py
 
     - name: Upload build
       uses: actions/upload-artifact@v2
