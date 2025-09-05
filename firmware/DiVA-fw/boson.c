@@ -219,7 +219,9 @@ FLR_RESULT dispatcher(FLR_FUNCTION fnID, const uint8_t *sendData, const uint32_t
         }
         
         /* Check result code */
-        byteToUINT_32(recvData + 10, &r);
+        uint32_t u32 = 0;
+        byteToUINT_32(recvData + 10, &u32);
+        r = u32;
     }
     
     return r;

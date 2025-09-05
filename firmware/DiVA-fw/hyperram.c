@@ -170,7 +170,7 @@ void prbs_memtest(uint32_t base, uint32_t len){
 	end = timer0_value_read();
 
 	uint32_t rate = (CONFIG_CLOCK_FREQUENCY*10)/((start-end)/8);
-	printf("Write Speed: %u.%u MBytes/s ( %u cycles )\n", rate / 10, rate % 10, start-end);
+	printf("Write Speed: %lu.%lu MBytes/s ( %lu cycles )\n", rate / 10, rate % 10, start-end);
 
 	writer_reset_write(1);
 	writer_burst_size_write(burst);
@@ -192,13 +192,13 @@ void prbs_memtest(uint32_t base, uint32_t len){
 	end = timer0_value_read();
 	
 	rate = (CONFIG_CLOCK_FREQUENCY*10)/((start-end)/8);
-	printf("Read Speed:  %u.%u MBytes/s ( %u cycles )\n", rate / 10, rate % 10, start-end);
+	printf("Read Speed:  %lu.%lu MBytes/s ( %lu cycles )\n", rate / 10, rate % 10, start-end);
 	
 	printf("Memtest: ");
 	if(prbs_sink_good_read() == writer_transfer_size_read()){
-		printf("%uKB ( 0x%x )...OK\n", 4*prbs_sink_good_read()/1024, 4*prbs_sink_good_read());
+		printf("%luKB ( 0x%lx )...OK\n", 4*prbs_sink_good_read()/1024, 4*prbs_sink_good_read());
 	}else {
-		printf("Not OK. :(\n Good: 0x%x (%uKB) [%x], Bad: 0x%x\n", prbs_sink_good_read(),4*prbs_sink_good_read()/1024, writer_transfer_size_read(),prbs_sink_bad_read());
+		printf("Not OK. :(\n Good: 0x%lx (%luKB) [%lx], Bad: 0x%lx\n", prbs_sink_good_read(),4*prbs_sink_good_read()/1024, writer_transfer_size_read(),prbs_sink_bad_read());
 	}
 
 

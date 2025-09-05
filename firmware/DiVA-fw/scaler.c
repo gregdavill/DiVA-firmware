@@ -4,6 +4,8 @@
 
 void init_scaler_640x512_upto_800x600(void);
 
+void init_scaler_640x512_upto_750x600(void);
+void init_scaler_640x512_upto_800x640(void);
 
  // Scaler coefficients generated with the following parameters:
  // delta_offset=0.1466666666666666

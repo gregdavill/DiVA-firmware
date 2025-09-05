@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdio.h>
 #include "terminal.h"
 #include "terminal_menu.h"
 #include "settings.h"

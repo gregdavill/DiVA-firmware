@@ -8,6 +8,8 @@
 
 #include "crc.h"
 
+#include "libbase/i2c.h"
+
 #include <generated/mem.h>
 
 settings_t _settings;
@@ -181,10 +183,10 @@ void init_settings(bool load_defaults){
     /* Calculate our Firmware CRC */
     _firmware_hash = crc16(ROM_BASE, ROM_SIZE);
     
-    settings_t loaded_settings;
+    settings_t loaded_settings = {0};
     /* Read settings from EEPROM */
     i2c_reset();
-    i2c_read(0x50, 0, &loaded_settings, sizeof(settings_t));
+    i2c_read(0x50, 0, (uint8_t*)&loaded_settings, sizeof(settings_t), false, 1);
 
     if(load_defaults || !validate(&loaded_settings)){
         memcpy(&_settings, &setting_defaults, sizeof(settings_t));
@@ -202,7 +204,7 @@ int validate(settings_t* s){
     uint16_t crc = s->settings_crc;
     s->settings_crc = 0;
 
-    if(crc != crc16(s, sizeof(settings_t))){
+    if(crc != crc16((uint8_t*)s, sizeof(settings_t))){
         return 0;
     }
 
@@ -212,11 +214,11 @@ int validate(settings_t* s){
 void settings_save(void){
     /* Commit setting to EEPROM */
     create_hashes();
-    i2c_write(0x50, 0, _settings, sizeof(settings_t));
+    i2c_write(0x50, 0, (const uint8_t*)&_settings, sizeof(settings_t), 1);
 }
 
 void create_hashes(void){
     _settings.firmware_hash = _firmware_hash;
     _settings.settings_crc = 0; /* Crear CRC for CRC calculation */
-    _settings.settings_crc = crc16(&_settings, sizeof(settings_t));
+    _settings.settings_crc = crc16((uint8_t*)&_settings, sizeof(settings_t));
 }

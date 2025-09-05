@@ -65,7 +65,6 @@ int main(int i, char **c)
  	printf(" fw built: "__DATE__ " " __TIME__ " \n\n");
 
  	printf("   Firmware git sha1: "DIVA_GIT_SHA1"\n");
- 	printf("      Migen git sha1: "MIGEN_GIT_SHA1"\n");
  	printf("      LiteX git sha1: "LITEX_GIT_SHA1"\n");
 
 	printf("--==========-- \e[1mHyperRAM Init\e[0m ===========--\n");

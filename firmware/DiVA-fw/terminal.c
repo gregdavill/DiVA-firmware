@@ -14,10 +14,10 @@ void terminal_write_xy(uint32_t x, uint32_t y, uint8_t c, uint8_t colour){
 	volatile uint32_t* terminal_mem = (volatile uint32_t*) (TERMINAL_BASE);
     
     /* Check bounds */
-    if((x < 100) && (y < 60)){
+    if((x < 100) && (y < 50)){
         terminal_mem += x*2 + y*100*2;
-        *terminal_mem++ = c;
-        *terminal_mem = colour;
+        terminal_mem[0] = c;
+        terminal_mem[1] = colour;
 	}
 }
 

@@ -19,7 +19,7 @@ typedef struct {
 
 } settings_t;
 
-settings_t _settings;
+
 
 
 typedef struct menu_item menu_item_t;
@@ -28,14 +28,14 @@ typedef struct menu_item {
     const char* name;
     const char* (*value)(const menu_item_t*);
     void (*act)(menu_item_t*, event_t);
-    void (*on_change)(menu_item_t*);
+    void (*on_change)(const menu_item_t*);
     void* pdata;
     int value_min;
     int value_max;
 } menu_item_t;
 
-
-const menu_item_t* setting_menu_items[4];
+extern settings_t _settings;
+extern const menu_item_t* setting_menu_items[4];
 
 
 void init_settings(bool load_defaults);
