@@ -201,6 +201,10 @@ def check_riscv(args):
     xpm_riscv = check_cmd(args, "riscv-none-embed-gcc", "xPack GNU RISC-V Embedded GCC", "install it from https://xpack.github.io/riscv-none-embed-gcc/install/")
     if xpm_riscv[0] == True:
         return xpm_riscv
+    
+    xpm_riscv = check_cmd(args, "riscv-none-elf-gcc", "xPack GNU RISC-V Embedded GCC", "install it from https://xpack.github.io/riscv-none-embed-gcc/install/")
+    if xpm_riscv[0] == True:
+        return xpm_riscv
 
     return riscv64
 
