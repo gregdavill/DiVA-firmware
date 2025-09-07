@@ -7,9 +7,9 @@ on:
 jobs:
   # Main build, creates firmware update image
   build-soc:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v5
       with:
         submodules: false # Note: not Recursive (Causes error with serv)
 
@@ -18,18 +18,19 @@ jobs:
 
     - name: configure fpga-toolchain
       run: |
-        export VERSION=nightly-20201020
-        wget https://github.com/open-tool-forge/fpga-toolchain/releases/download/$VERSION/fpga-toolchain-linux_x86_64-$VERSION.tar.xz
-        tar -xf fpga-toolchain-linux_x86_64-$VERSION.tar.xz
-        rm -rf fpga-toolchain-linux_x86_64-$VERSION.tar.xz
-        echo "$(pwd)/fpga-toolchain/bin" >> $GITHUB_PATH
+        export DATE=2025-09-07
+        export VERSION=`echo $DATE | sed 's/-//g'`
+        wget https://github.com/YosysHQ/oss-cad-suite-build/releases/download/$DATE/oss-cad-suite-linux-x64-$VERSION.tgz
+        tar -xf oss-cad-suite-linux-x64-$VERSION.tgz
+        rm -rf oss-cad-suite-linux-x64-$VERSION.tgz
+        echo "$(pwd)/oss-cad-suite-linux-x64-$VERSION/bin" >> $GITHUB_PATH
 
     - name: configure riscv-toolchain
       run: |
-        wget https://static.dev.sifive.com/dev-tools/riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-ubuntu14.tar.gz
-        tar -xzf riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-ubuntu14.tar.gz
-        rm -rf riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-ubuntu14.tar.gz
-        echo "$(pwd)/riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-ubuntu14/bin" >> $GITHUB_PATH
+        wget https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases/download/v14.2.0-3/xpack-riscv-none-elf-gcc-14.2.0-3-linux-arm64.tar.gz
+        tar -xzf xpack-riscv-none-elf-gcc-14.2.0-3-linux-arm64.tar.gz
+        rm -rf xpack-riscv-none-elf-gcc-14.2.0-3-linux-arm64.tar.gz
+        echo "$(pwd)/xpack-riscv-none-elf-gcc-14.2.0-3-linux-arm64/bin" >> $GITHUB_PATH
 
     - name: configure python
       run: |
