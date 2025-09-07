@@ -101,13 +101,15 @@ int main(int i, char **c)
 	switch_mode(_settings.scaler_enable);
 	
 	reader_reset_write(1);
+	reader_external_sync_write(1);
 	reader_transfer_size_write(640*512);
-	reader_burst_size_write(128);
+	reader_burst_size_write(64);
 	reader_enable_write(1);
-
+	
 	writer_reset_write(1);
+	writer_external_sync_write(1);
 	writer_transfer_size_write(640*512);
-	writer_burst_size_write(128);
+	writer_burst_size_write(64);
 	writer_enable_write(1);
 	
 	bool debug_window_open = false;
