@@ -37,6 +37,8 @@ endif
 # pull in dependency info for *existing* .o files
 -include $(OBJECTS:.o=.d)
 
+VPATH = $(DIVA_FW_DIRECTORY):$(CPU_DIRECTORY)
+
 %.o: %.c
 	$(compile)
 
