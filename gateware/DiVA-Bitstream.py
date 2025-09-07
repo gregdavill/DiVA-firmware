@@ -202,10 +202,11 @@ class DiVA_SoC(SoCCore):
         
         self.platform = platform = bosonHDMI_r0d3.Platform()
         
-        sys_clk_freq = 82.5e6
+        sys_clk_freq = 75e6
         SoCCore.__init__(self, platform, clk_freq=sys_clk_freq,
-                          cpu_type='serv', with_uart=True, uart_name='stream',
+                          cpu_type='femtorv', with_uart=True, uart_name='stream',
                           csr_data_width=32,
+                          cpu_variant="tachyon",
                           ident="Boson DiVA SoC", ident_version=True, wishbone_timeout_cycles=512,
                           integrated_rom_size=32*1024)
 
