@@ -167,6 +167,7 @@ int main(int i, char **c)
 		/* Collect button events and pass them to the menu state machine */
 		event_t e = 0;
 		uint32_t b = button_events_read();
+		button_events_write(b);
 
 		if(b & 0x00000002){
 			e |= BUTTON_B_PRESS;

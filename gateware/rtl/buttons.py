@@ -1,12 +1,12 @@
 from migen import *
 from migen.genlib.cdc import MultiReg
-from litex.soc.interconnect.csr import AutoCSR, CSRStatus, CSRField
+from litex.soc.interconnect.csr import AutoCSR, CSR, CSRField
 
 class Button(Module, AutoCSR):
     def __init__(self, pads):
 
-        self.events = CSRStatus(32)
-        self.raw = CSRStatus(32)
+        self.events = CSR(32)
+        self.raw = CSR(32)
 
         events = Signal(32)
         raw = Signal(32)
@@ -25,8 +25,8 @@ class Button(Module, AutoCSR):
         self.specials += MultiReg(~pads.b, button_b_sig, n=4)
 
         self.sync += [
-            If(self.events.we,
-                events.eq(0)
+            If(self.events.re | self.events.we,
+                events.eq(events & ~self.events.r)
             ),
 
             If(button_a_sig,
@@ -69,7 +69,7 @@ class Button(Module, AutoCSR):
         ]
 
         self.comb += [
-            self.events.status.eq(events),
-            self.raw.status.eq(raw)
+            self.events.w.eq(events),
+            self.raw.w.eq(raw)
         ]
     
