@@ -48,13 +48,13 @@ jobs:
         python3 DiVA-Bitstream.py
 
     - name: Upload build
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: DiVA build Folder
         path: ${{ github.workspace }}/gateware/build
 
     - name: Upload dfu update file
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: DiVA firmware update
         path: ${{ github.workspace }}/gateware/build/gateware/DiVA.dfu
@@ -67,7 +67,7 @@ jobs:
     - uses: actions/checkout@master
 
     - name: Download DFU Binary
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v4
       with:
         name: DiVA firmware update
 
@@ -82,59 +82,59 @@ jobs:
       run: msbuild fw-updater.csproj /p:Configuration=Release
 
     - name: Upload Updater
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: Windows update tool
         path: software/fw-updater/bin/Release/fw-updater.exe
   
-  release:
-    name: Create Release
-    needs: build-sw
-    if: ${{ contains( github.ref, 'refs/tags/') }}
-    runs-on: ubuntu-latest
-    steps:
-      #- name: Checkout code
-      #  uses: actions/checkout@v2
-      - name: Download DFU Binary
-        uses: actions/download-artifact@v2
-        with:
-          name: DiVA firmware update
+  # release:
+  #   name: Create Release
+  #   needs: build-sw
+  #   if: ${{ contains( github.ref, 'refs/tags/') }}
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     #- name: Checkout code
+  #     #  uses: actions/checkout@v2
+  #     - name: Download DFU Binary
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: DiVA firmware update
 
-      - name: Download DFU Binary
-        uses: actions/download-artifact@v2
-        with:
-          name: Windows update tool
+  #     - name: Download DFU Binary
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: Windows update tool
 
-      - name: Create Release
-        id: create-release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          body: |
-            Changes in this Release
-            - First Change
-            - Second Change
-          draft: true
-          prerelease: false
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create-release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-          asset_path: ./DiVA.dfu
-          asset_name: DiVA.dfu
-          asset_content_type: application/octet-stream
+  #     - name: Create Release
+  #       id: create-release
+  #       uses: actions/create-release@v1
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+  #       with:
+  #         tag_name: ${{ github.ref }}
+  #         release_name: Release ${{ github.ref }}
+  #         body: |
+  #           Changes in this Release
+  #           - First Change
+  #           - Second Change
+  #         draft: true
+  #         prerelease: false
+  #     - name: Upload Release Asset
+  #       uses: actions/upload-release-asset@v1
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #       with:
+  #         upload_url: ${{ steps.create-release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+  #         asset_path: ./DiVA.dfu
+  #         asset_name: DiVA.dfu
+  #         asset_content_type: application/octet-stream
 
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create-release.outputs.upload_url }}
-          asset_path: ./fw-updater.exe
-          asset_name: fw-updater.exe
-          asset_content_type: application/octet-stream
+  #     - name: Upload Release Asset
+  #       uses: actions/upload-release-asset@v1
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #       with:
+  #         upload_url: ${{ steps.create-release.outputs.upload_url }}
+  #         asset_path: ./fw-updater.exe
+  #         asset_name: fw-updater.exe
+  #         asset_content_type: application/octet-stream
