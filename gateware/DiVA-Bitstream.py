@@ -477,6 +477,17 @@ class DiVA_SoC(SoCCore):
 
         os.makedirs(builder.output_dir, exist_ok=True)
 
+        # Small work around. Disable compilation of litedram, causes errors with latest riscv compilers.
+        # We don't use the package in this project, so we can safely disable compilation
+        
+        # litex/soc/software/liblitedram/utils.c:17:27: error: expected ')' before 'PRIu64'
+        # 17 |                 printf("%" PRIu64 "B", size);
+        #     |                       ~   ^~~~~~~
+        #     |                           )
+        # litex/soc/software/liblitedram/utils.c:8:1: note: 'PRIu64' is defined in header '<inttypes.h>'; this is probably fixable by adding '#include <inttypes.h>'
+        builder.software_packages = [x for x in builder.software_packages if x[0] != 'liblitedram']
+        builder.software_libraries.remove('liblitedram')
+
         src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "firmware", "DiVA-fw"))
         builder.add_software_package("DiVA-fw", src_dir)
 
