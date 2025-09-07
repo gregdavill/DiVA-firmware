@@ -179,6 +179,8 @@ class YCbCr422to444(Module):
         parity_in = Signal()
         self.sync += If(sink.valid & sink.ready, parity_in.eq(~parity_in))
         self.comb += [
+            y_fifo.sink.first.eq(sink.first),
+            y_fifo.sink.last.eq(sink.last),
             If(~parity_in,
                 y_fifo.sink.valid.eq(sink.valid & sink.ready),
                 y_fifo.sink.data.eq(sink.y),
@@ -207,5 +209,7 @@ class YCbCr422to444(Module):
             source.cr.eq(cr_fifo.source.data),
             y_fifo.source.ready.eq(source.valid & source.ready),
             cb_fifo.source.ready.eq(source.valid & source.ready & parity_out),
-            cr_fifo.source.ready.eq(source.valid & source.ready & parity_out)
+            cr_fifo.source.ready.eq(source.valid & source.ready & parity_out),
+            source.first.eq(y_fifo.source.first),
+            source.last.eq(y_fifo.source.last),
         ]

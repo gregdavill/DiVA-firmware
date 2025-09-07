@@ -14,9 +14,19 @@ class PRBSSource(Module, AutoCSR):
 
         self.reset = CSR(1)
 
+        first = Signal(reset=1)
+        self.sync += [
+            If(self.reset.re,
+                first.eq(1)
+            ).Elif(source.valid & source.ready,
+                first.eq(0)
+            )
+        ]
+
         self.comb += [
             source.valid.eq(1),
             source.data.eq(prbs.o),
+            source.first.eq(first),
 
             prbs.ce.eq(source.ready),
             prbs.reset.eq(self.reset.re)

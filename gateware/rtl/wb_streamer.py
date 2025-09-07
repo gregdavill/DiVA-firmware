@@ -92,12 +92,11 @@ class StreamBuffers(Module, AutoCSR):
 
         # Stream In buffer interface
         self.rx_buffer = Signal(32)
-        rx_idx = Signal(3, reset=1)
+        rx_idx = Signal(3, reset=0)
         self.rx_release = Signal()
 
         # Stream out interface
         self.tx_buffer = Signal(32)
-        tx_idx = Signal(3, reset=0)
 
         self.sync += [
             If(self.rx_release,
@@ -105,20 +104,18 @@ class StreamBuffers(Module, AutoCSR):
                 If(rx_idx >= (n_buffers-1),
                     rx_idx.eq(0),
                 ),
-                tx_idx.eq(tx_idx + 1),
-                If(tx_idx >= (n_buffers-1),
-                    tx_idx.eq(0),
-                ),
+                # tx_idx.eq(tx_idx + 1),
+                # If(tx_idx >= (n_buffers-1),
+                #     tx_idx.eq(0),
+                # ),
             )
         ]
 
         for i in range(n_buffers):
             self.comb += [
                 If(rx_idx == i, 
-                    self.rx_buffer.eq(buffers[i])
-                ),
-                If(tx_idx == i, 
-                    self.tx_buffer.eq(buffers[i])
+                    self.rx_buffer.eq(buffers[(i + 1) % n_buffers]),
+                    self.tx_buffer.eq(buffers[i]),
                 ),
             ]
     
@@ -175,8 +172,12 @@ class StreamWriter(Module, AutoCSR):
             bus.stb.eq(active),
             bus.adr.eq(adr[:-2] + tx_cnt),
 
-            source.data.eq(bus.dat_r),
-            source.valid.eq(bus.ack & active),
+            If(bus.ack & active,
+                source.valid.eq(1),
+                source.data.eq(bus.dat_r),
+                source.first.eq(tx_cnt == 0),
+                source.last.eq(last_address),
+            ),
 
             If(~active,
                 bus.cti.eq(0b000) # CLASSIC_CYCLE
@@ -327,12 +328,12 @@ class StreamReader(Module, AutoCSR):
         ]
 
         self.comb += [
-            #If(self._burst_size.storage == 1,
-            #    burst_end.eq(1),
-            #).Else(
+            If(self.burst_size.storage == 1,
+               burst_end.eq(1),
+            ).Else(
                 burst_end.eq(last_address | (burst_cnt == self.burst_size.storage - 1)),
-                last_address.eq(tx_cnt == self.transfer_size.storage - 1),
-            #)
+                last_address.eq((tx_cnt == self.transfer_size.storage - 1) | sink.last),
+            )
         ]
 
         self.sync += [
@@ -365,7 +366,11 @@ class StreamReader(Module, AutoCSR):
         self.submodules.fsm = fsm = FSM(reset_state="IDLE")
         fsm.act("IDLE",
             If(busy & sink.valid,
-                NextState("ACTIVE"),
+                If((tx_cnt == 0) & ~sink.first,
+                    sink.ready.eq(1),
+                ).Else(
+                    NextState("ACTIVE"),
+                )
             ),
             If((self.start & enabled & self.external_sync.storage) | (~self.external_sync.storage & self.enable.re),
                 NextValue(busy,1),

@@ -44,15 +44,32 @@ class Framer(Module, AutoCSR):
             v_det.i.eq(vsync),
         ]
 
-        self.comb += [
+
+        fsm = FSM(reset_state="WAIT")
+        self.submodules += fsm
+
+        fsm.act("ACTIVE",
             If((line_counter >= params.y_start) & (line_counter < params.y_stop),
                 If((pixel_counter >= params.x_start) & (pixel_counter < params.x_stop),
+                    sink.ready.eq(1),
+                )
+            ),
+            If((line_counter >= params.y_stop) & (pixel_counter >= params.x_stop),
+                NextState('WAIT')
+            )
+        )
+
+        fsm.act("WAIT",
+            If(sink.valid,
+                If(sink.first,
+                    NextState('ACTIVE')
+                ).Else(
                     sink.ready.eq(1)
                 )
             )
-        ]
+        )
 
-        self.sync.video += [
+        self.sync += [
             # Default values
             red.eq(0),
             green.eq(0),

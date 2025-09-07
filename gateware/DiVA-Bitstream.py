@@ -61,6 +61,7 @@ from rtl.video.video_debug import VideoDebug
 from rtl.video.video_stream import VideoStream
 from rtl.video.framer import Framer, framer_params
 from rtl.video.scaler import Scaler
+from rtl.level_fifo import SyncAsyncWatermarkedFIFO, AsyncSyncWatermarkedFIFO
 
 class _CRG(Module, AutoCSR):
     def __init__(self, platform, sys_clk_freq):
@@ -250,7 +251,7 @@ class DiVA_SoC(SoCCore):
         self.submodules.YCbCr422_444 = ycrcb422_444 = ClockDomainsRenamer({"sys":"boson_rx"})(YCbCr422to444())
 
         
-        fifo = AsyncFIFO([("data", 32)], depth=512)
+        fifo = AsyncSyncWatermarkedFIFO([("data", 32)], depth=512)
         fifo = ResetInserter(["read","write"])(fifo)
         fifo = ClockDomainsRenamer({"read":"sys","write":"boson_rx"})(fifo)
         
@@ -264,7 +265,7 @@ class DiVA_SoC(SoCCore):
             ] + framer_params()
         )  
 
-        self.submodules.framer = framer = Framer()
+        self.submodules.framer = framer = ClockDomainsRenamer({"sys":"video"})(Framer())
         self.comb += [
             framer.params.x_start.eq(pipeline_config.x_start),
             framer.params.y_start.eq(pipeline_config.y_start),
@@ -313,7 +314,7 @@ class DiVA_SoC(SoCCore):
         self.submodules.reboot = Reboot(platform.request("rst_n"))
 
 
-        fifo0 = AsyncFIFO([("data", 32)], depth=128)
+        fifo0 = SyncAsyncWatermarkedFIFO([("data", 32)], depth=256)
         fifo0 = ResetInserter(["read","write"])(fifo0)
         fifo0 = ClockDomainsRenamer({"read":"video","write":"sys"})(fifo0)
         self.submodules += fifo0
