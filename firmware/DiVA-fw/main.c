@@ -6,7 +6,7 @@
 #include <stdbool.h>
 
 #include <console.h>
-#include "include/hyperram.h"
+#include "include/hyperram_ctrl.h"
 #include "include/settings.h"
 #include "include/time.h"
 #include "include/terminal.h"
@@ -21,20 +21,14 @@
 #include "include/terminal_menu.h"
 
 /* prototypes */
-void isr(void);
+void __wrap_uart_write(const char c);
 
-
-void isr(void){
-
+void __wrap_uart_write(const char c) {
+	terminal_write(c);
 }
-
-
 
 int main(int i, char **c)
 {	
-
-
-	console_set_write_hook((console_write_hook)terminal_write);
 	
 	terminal_enable_write(1);
 
@@ -47,7 +41,7 @@ int main(int i, char **c)
 	terminal_clear();
 
 
-	//terminal_set_fg(TERMINAL_CYAN);
+	// terminal_set_fg(TERMINAL_CYAN);
 	printf("     ______    ___   __   __   _______ \n");
 	printf("    |      |  |___| |  | |  | |   _   |\n");
 	printf("    |  _    |  ___  |  |_|  | |  |_|  |\n");
@@ -78,7 +72,7 @@ int main(int i, char **c)
 
 	hyperram_init();
 	printf("\n");	
-	prbs_memtest(HYPERRAM_BASE, HYPERRAM_SIZE);
+	prbs_memtest(HYPERRAM0_BASE, HYPERRAM0_SIZE);
 
 	
 	terminal_set_bg(TERMINAL_TRANSPARENT);
@@ -100,9 +94,9 @@ int main(int i, char **c)
 
 	/* Configure frame buffers, 
 	* each frame currently takes up 0x140000 bytes in RAM */
-	buffers_adr0_write(0x000000);
-	buffers_adr1_write(0x180000);
-	buffers_adr2_write(0x300000);
+	buffers_adr0_write(0x000000 >> 2);
+	buffers_adr1_write(0x180000 >> 2);
+	buffers_adr2_write(0x300000 >> 2);
 
 	switch_mode(_settings.scaler_enable);
 	
@@ -147,15 +141,15 @@ int main(int i, char **c)
 				printf("Boson Interface debug info:");
 		
 				terminal_set_cursor(++window_x, window_y++);
-				printf("Clk Freq: %u Hz", video_debug_freq_value_read());
+				printf("Clk Freq: %lu Hz", video_debug_freq_value_read());
 
 				video_debug_latch_write(1);
 				terminal_set_cursor(window_x, window_y++);
-				printf("VSync: %8u | LOW %8u HIGH %8u", video_debug_vsync_low_read() + video_debug_vsync_high_read(), video_debug_vsync_low_read(), video_debug_vsync_high_read());
+				printf("VSync: %8lu | LOW %8lu HIGH %8lu", video_debug_vsync_low_read() + video_debug_vsync_high_read(), video_debug_vsync_low_read(), video_debug_vsync_high_read());
 				terminal_set_cursor(window_x, window_y++);
-				printf("HSync: %8u | LOW %8u HIGH %8u", video_debug_hsync_low_read() + video_debug_hsync_high_read(), video_debug_hsync_low_read(), video_debug_hsync_high_read());
+				printf("HSync: %8lu | LOW %8lu HIGH %8lu", video_debug_hsync_low_read() + video_debug_hsync_high_read(), video_debug_hsync_low_read(), video_debug_hsync_high_read());
 				terminal_set_cursor(window_x, window_y++);
-				printf("Lines: %8u ", video_debug_lines_read());
+				printf("Lines: %8lu ", video_debug_lines_read());
 			}
 
 			debug_window_open = _settings.debug_info_overlay;

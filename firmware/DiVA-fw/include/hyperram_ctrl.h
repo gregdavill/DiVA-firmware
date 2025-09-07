@@ -1,5 +1,5 @@
-#ifndef HYPERRAM_H__
-#define HYPERRAM_H__
+#ifndef HYPERRAM_CTRL_H__
+#define HYPERRAM_CTRL_H__
 #include <stdint.h>
 
 void hyperram_init(void);

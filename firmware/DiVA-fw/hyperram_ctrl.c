@@ -2,7 +2,7 @@
 #include <stdint.h>
 
 #include "include/time.h"
-#include "include/hyperram.h"
+#include "include/hyperram_ctrl.h"
 
 #include <generated/csr.h>
 #include <generated/mem.h>
@@ -10,7 +10,7 @@
 
 
 
-#ifdef CSR_HYPERRAM_BASE
+#ifdef CSR_HYPERRAM0_BASE
 
 /* Prototypes */
 
@@ -20,28 +20,28 @@ static int basic_memtest(void);
 
 
 void set_io_delay(int cnt){
-	hyperram_io_loadn_write(0);
-	hyperram_io_loadn_write(1);
-	hyperram_io_direction_write(0);
+	hyperram0_io_loadn_write(0);
+	hyperram0_io_loadn_write(1);
+	hyperram0_io_direction_write(0);
 
 	/* 25ps of delay per tap.
 	   Each rising edge adds to the io delay */
 	for(int i = 0; i < cnt; i++){ 
-		hyperram_io_move_write(1);
-		hyperram_io_move_write(0);
+		hyperram0_io_move_write(1);
+		hyperram0_io_move_write(0);
 	}
 }
 
 void set_clk_delay(int cnt){
-	hyperram_clk_loadn_write(0);
-	hyperram_clk_loadn_write(1);
-	hyperram_clk_direction_write(0);
+	hyperram0_clk_loadn_write(0);
+	hyperram0_clk_loadn_write(1);
+	hyperram0_clk_direction_write(0);
 
 	/* 25ps of delay per tap.
 	   Each rising edge adds to the io delay */
 	for(int i = 0; i < cnt; i++){ 
-		hyperram_clk_move_write(1);
-		hyperram_clk_move_write(0);
+		hyperram0_clk_move_write(1);
+		hyperram0_clk_move_write(0);
 	}
 }
 
@@ -53,12 +53,12 @@ void set_clk_delay(int cnt){
 */
 static int basic_memtest(void){
 
-	*((volatile uint32_t*)HYPERRAM_BASE) = 0xFF55AACD;
-	if(*((volatile uint32_t*)HYPERRAM_BASE) != 0xFF55AACD)
+	*((volatile uint32_t*)HYPERRAM0_BASE) = 0xFF55AACD;
+	if(*((volatile uint32_t*)HYPERRAM0_BASE) != 0xFF55AACD)
 		return 0;
 //
-	*((volatile uint32_t*)HYPERRAM_BASE) = 0xA3112233;
-	if(*((volatile uint32_t*)HYPERRAM_BASE) != 0xA3112233)
+	*((volatile uint32_t*)HYPERRAM0_BASE) = 0xA3112233;
+	if(*((volatile uint32_t*)HYPERRAM0_BASE) != 0xA3112233)
 		return 0;
 	
 	return 1;
@@ -218,7 +218,7 @@ void prbs_memtest(uint32_t base, uint32_t len){
 #else
 
 
-void hyperram_init(){
+void hyperram_init() {
 	return;
 }
 

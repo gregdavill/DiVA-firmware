@@ -168,7 +168,7 @@ class DiVA_SoC(SoCCore):
     csr_map = {
         "rgb"        :  10, 
         "crg"        :  11, 
-        "hyperram"   :  12,
+        "hyperram0"  :  12,
         "terminal"   :  13,
         "analyzer"   :  14,
         "hdmi_i2c"   :  15,
@@ -188,7 +188,7 @@ class DiVA_SoC(SoCCore):
     csr_map.update(SoCCore.csr_map)
 
     mem_map = {
-        "hyperram"  : 0x10000000,
+        "hyperram0" : 0x10000000,
         "terminal"  : 0x30000000,
     }
     mem_map.update(SoCCore.mem_map)
@@ -206,21 +206,19 @@ class DiVA_SoC(SoCCore):
         SoCCore.__init__(self, platform, clk_freq=sys_clk_freq,
                           cpu_type='serv', with_uart=True, uart_name='stream',
                           csr_data_width=32,
-                          ident="Boson DiVA SoC", ident_version=True, wishbone_timeout_cycles=128,
+                          ident="Boson DiVA SoC", ident_version=True, wishbone_timeout_cycles=512,
                           integrated_rom_size=32*1024)
 
-        self.platform.toolchain.build_template[0] = "yosys -q -l {build_name}.rpt {build_name}.ys"
-        self.platform.toolchain.build_template[1] += f" --log {platform.name}.log --router router1"
 
         # Fake a UART stream, to enable easy firmware reuse.
         self.comb += self.uart.source.ready.eq(1)
     
         # crg
         self.submodules.crg = _CRG(platform, sys_clk_freq)
-     
+
         ## Create VGA terminal
         self.submodules.terminal = terminal = ClockDomainsRenamer({'vga':'video'})(Terminal())
-        self.register_mem("terminal", self.mem_map["terminal"], terminal.bus, size=0x100000)
+        self.bus.add_slave("terminal", terminal.bus, SoCRegion(origin=self.mem_map["terminal"], size=0x100000))
 
         # User inputs
         button = platform.request("button")
@@ -241,8 +239,8 @@ class DiVA_SoC(SoCCore):
         ]
 
 
-        self.submodules.hyperram = hyperram = StreamableHyperRAM(platform.request("hyperRAM"), devices=[reader, writer])
-        self.register_mem("hyperram", self.mem_map['hyperram'], hyperram.bus, size=0x800000)
+        self.submodules.hyperram0 = hyperram = StreamableHyperRAM(platform.request("hyperRAM"), devices=[reader, writer])
+        self.bus.add_slave("hyperram0", hyperram.bus, SoCRegion(origin=self.mem_map["hyperram0"], size=0x800000))
 
         # Boson video stream
         self.submodules.boson = boson = Boson(platform, platform.request("boson"), sys_clk_freq)
@@ -485,8 +483,8 @@ class DiVA_SoC(SoCCore):
         builder._generate_rom_software(compile_bios=False)
 
         firmware_file = os.path.join(builder.output_dir, "software", "DiVA-fw","DiVA-fw.bin")
-        firmware_data = get_mem_data(firmware_file, self.cpu.endianness)
-        self.initialize_rom(firmware_data)
+        firmware_data = get_mem_data(firmware_file, data_width=32, endianness=self.cpu.endianness)
+        self.init_rom(name='rom', contents=firmware_data)
 
         # lock out compiling firmware during build steps
         builder.compile_software = False
@@ -517,7 +515,8 @@ def main():
 
     # Check if we have the correct files
     firmware_file = os.path.join(builder.output_dir, "software", "DiVA-fw", "DiVA-fw.bin")
-    firmware_data = get_mem_data(firmware_file, soc.cpu.endianness)
+    firmware_data = get_mem_data(firmware_file, data_width=32, endianness=soc.cpu.endianness)
+
     firmware_init = os.path.join(builder.output_dir, "software", "DiVA-fw", "DiVA-fw.init")
     CreateFirmwareInit(firmware_data, firmware_init)
     
@@ -531,14 +530,14 @@ def main():
         os.makedirs(os.path.join(builder.output_dir,'gateware'), exist_ok=True)
         os.makedirs(os.path.join(builder.output_dir,'software'), exist_ok=True)
 
-        os.system(f"ecpbram  --generate {rand_rom} --seed {0} --width {32} --depth {soc.integrated_rom_size}")
+        os.system(f"ecpbram  --generate {rand_rom} --seed {0} --width {32} --depth {soc.integrated_rom_size//4}")
 
         # patch random file into BRAM
         data = []
         with open(rand_rom, 'r') as inp:
             for d in inp.readlines():
                 data += [int(d, 16)]
-        soc.initialize_rom(data)
+        soc.init_rom(name='rom', contents=data)
 
         # Build gateware
         vns = builder.build(nowidelut=False)
@@ -558,8 +557,8 @@ def main():
     print(
     f"""DiVA build complete!  Output files:
     
-    Bitstream file. (Compressed, Higher CLK)  Load this into FLASH.
-        {builder.output_dir}/gateware/DiVA.bit
+    Bitstream file. (Compressed, Higher CLK)  Load this into FLASH via DFU
+        {builder.output_dir}/gateware/DiVA.dfu
     
     Source Verilog file.  Useful for debugging issues.
         {builder.output_dir}/gateware/top.v
