@@ -45,7 +45,7 @@ jobs:
     - name: Litex build
       working-directory: ./gateware
       run: |
-        python3 DiVA-Bitstream.py
+        python3 DiVA-Bitstream.py --lx-ignore-deps
 
     - name: Upload build
       uses: actions/upload-artifact@v4
