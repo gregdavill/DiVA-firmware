@@ -26,7 +26,6 @@ vpath %.a $(PACKAGES:%=../%)
 		$(OBJECTS) \
 		$(PACKAGES:%=-L../%) \
 		-Wl,-gc-sections \
-		-Wl,--wrap=uart_write \
 		-Wl,-Map,$@.map \
 		$(LIBS:lib%=-l%)
 

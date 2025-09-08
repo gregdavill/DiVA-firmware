@@ -62,6 +62,7 @@ from rtl.video.video_stream import VideoStream
 from rtl.video.framer import Framer, framer_params
 from rtl.video.scaler import Scaler
 from rtl.level_fifo import SyncAsyncWatermarkedFIFO, AsyncSyncWatermarkedFIFO
+from rtl.usb.LunaUSBSerialDevice import LunaUSBSerialDevice
 
 class _CRG(Module, AutoCSR):
     def __init__(self, platform, sys_clk_freq):
@@ -210,10 +211,6 @@ class DiVA_SoC(SoCCore):
                           cpu_variant="tachyon",
                           ident="Boson DiVA SoC", ident_version=True, wishbone_timeout_cycles=512,
                           integrated_rom_size=32*1024)
-
-
-        # Fake a UART stream, to enable easy firmware reuse.
-        self.comb += self.uart.source.ready.eq(1)
     
         # crg
         self.submodules.crg = _CRG(platform, sys_clk_freq)
@@ -243,6 +240,41 @@ class DiVA_SoC(SoCCore):
 
         self.submodules.hyperram0 = hyperram = StreamableHyperRAM(platform.request("hyperRAM"), devices=[reader, writer])
         self.bus.add_slave("hyperram0", hyperram.bus, SoCRegion(origin=self.mem_map["hyperram0"], size=0x800000))
+
+        # USB
+        usb_pads = self.platform.request("usb")
+
+        # Select ECP5 as USB target
+        if hasattr(usb_pads, "sw_sel"):
+            self.comb += usb_pads.sw_sel.eq(1)
+        
+        # Enable USB
+        if hasattr(usb_pads, "sw_oe"):
+            self.comb += usb_pads.sw_oe.eq(0)
+
+        self.submodules.usb = usb = LunaUSBSerialDevice(platform, usb_pads)
+        # Connect UART to USB ACM
+        self.comb += [
+            If(usb.connect,
+                self.uart.source.connect(usb.sink),
+                usb.source.connect(self.uart.sink),
+            ),
+
+            # Quick hack, Luna expects 'last' flag to begin transmission
+            # Wrapping this in a small watermarked FIFO with proper last generation will help perfomance.
+            usb.sink.last.eq(usb.sink.valid),
+
+            # usb.connect.eq(1)
+        ]
+
+        usb_detach_counter = Signal(max=int(sys_clk_freq * 200e-3), reset=int(sys_clk_freq * 200e-3))
+        self.sync += [
+            If(usb_detach_counter > 0,
+                usb_detach_counter.eq(usb_detach_counter - 1)
+            ).Else(
+                usb.connect.eq(1)
+            )
+        ]
 
         # Boson video stream
         self.submodules.boson = boson = Boson(platform, platform.request("boson"), sys_clk_freq)
@@ -418,16 +450,7 @@ class DiVA_SoC(SoCCore):
             )
         ]
 
-        
-        usb_pads = self.platform.request("usb")
-
-        # Select Boson as USB target
-        if hasattr(usb_pads, "sw_sel"):
-            self.comb += usb_pads.sw_sel.eq(0)
-        
-        # Enable USB
-        if hasattr(usb_pads, "sw_oe"):
-            self.comb += usb_pads.sw_oe.eq(0)
+    
 
         analyser = False
         if analyser:
@@ -479,7 +502,7 @@ class DiVA_SoC(SoCCore):
 
         # Small work around. Disable compilation of litedram, causes errors with latest riscv compilers.
         # We don't use the package in this project, so we can safely disable compilation
-        
+
         # litex/soc/software/liblitedram/utils.c:17:27: error: expected ')' before 'PRIu64'
         # 17 |                 printf("%" PRIu64 "B", size);
         #     |                       ~   ^~~~~~~
